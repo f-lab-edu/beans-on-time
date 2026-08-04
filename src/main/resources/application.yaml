@@ -1,3 +1,10 @@
 spring:
   application:
     name: beans-on-time
+  docker:
+    compose:
+      enabled: true
+      file: compose.yaml
+      lifecycle-management: start_only
+      skip:
+        in-tests: true
