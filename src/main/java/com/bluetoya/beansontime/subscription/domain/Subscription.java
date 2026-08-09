@@ -1,17 +1,23 @@
 package com.bluetoya.beansontime.subscription.domain;
 
-public class Subscription {
-    private SubscriptionId subscriptionId;
-    private SubscriptionStatus subscriptionStatus;
+import lombok.Getter;
+import lombok.RequiredArgsConstructor;
 
-    private CustomerId customerId;
-    private ProductId productId;
+@Getter
+@RequiredArgsConstructor
+public class Subscription {
+    private final SubscriptionId subscriptionId;
+    private final CustomerId customerId;
+    private final ProductId productId;
 
     private Cycle cycle;
+    private SubscriptionStatus subscriptionStatus;
 
     public Subscription(CustomerId customerId, ProductId productId, Cycle cycle) {
+        this.subscriptionId = SubscriptionId.generate();
         this.customerId = customerId;
         this.productId = productId;
         this.cycle = cycle;
+        this.subscriptionStatus = SubscriptionStatus.ACTIVE;
     }
 }
