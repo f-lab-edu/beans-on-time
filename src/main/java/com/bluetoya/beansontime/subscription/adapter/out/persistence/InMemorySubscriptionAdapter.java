@@ -1,17 +1,18 @@
 package com.bluetoya.beansontime.subscription.adapter.out.persistence;
 
+import com.bluetoya.beansontime.subscription.application.port.out.ExistsSubscriptionPort;
 import com.bluetoya.beansontime.subscription.application.port.out.LoadSubscriptionQueryPort;
 import com.bluetoya.beansontime.subscription.application.port.out.SaveSubscriptionPort;
 import com.bluetoya.beansontime.subscription.application.port.in.SubscriptionQueryResult;
-import com.bluetoya.beansontime.subscription.domain.Subscription;
-import com.bluetoya.beansontime.subscription.domain.SubscriptionId;
+import com.bluetoya.beansontime.subscription.domain.*;
 import org.springframework.stereotype.Component;
 
 import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
 
 @Component
-public class InMemorySubscriptionAdapter implements SaveSubscriptionPort, LoadSubscriptionQueryPort {
+public class InMemorySubscriptionAdapter implements SaveSubscriptionPort, LoadSubscriptionQueryPort, ExistsSubscriptionPort {
     private final Map<SubscriptionId, Subscription> subscriptions =
             new ConcurrentHashMap<>();
 
@@ -28,7 +29,7 @@ public class InMemorySubscriptionAdapter implements SaveSubscriptionPort, LoadSu
         Subscription subscription =
                 subscriptions.get(subscriptionId);
 
-        if (subscription == null) {
+        if (Objects.isNull(subscription)) {
             throw new IllegalArgumentException(
                     "구독 내역을 찾을 수 없습니다."
             );
@@ -42,5 +43,16 @@ public class InMemorySubscriptionAdapter implements SaveSubscriptionPort, LoadSu
                 subscription.getCycle().getInterval(),
                 subscription.getSubscriptionStatus().name()
         );
+    }
+
+    @Override
+    public boolean isExists(CustomerId customerId, ProductId productId) {
+        return subscriptions.values().stream()
+                .anyMatch(subscription ->
+                        subscription.getCustomerId().equals(customerId)
+                                && subscription.getProductId().equals(productId)
+                                && subscription.getSubscriptionStatus()
+                                != SubscriptionStatus.CANCEL
+                );
     }
 }
