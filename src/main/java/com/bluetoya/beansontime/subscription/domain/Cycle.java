@@ -1,15 +1,14 @@
 package com.bluetoya.beansontime.subscription.domain;
 
 import lombok.Getter;
-import lombok.RequiredArgsConstructor;
 
 @Getter
-@RequiredArgsConstructor
 public class Cycle {
-    private CycleId cycleId;
-    private CycleUnit unit;
-    private int interval;
+    private final CycleUnit unit;
+    private final int interval;
 
     public Cycle(CycleUnit unit, int interval) {
+        this.unit = unit;
+        this.interval = interval;
     }
 }
