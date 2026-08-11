@@ -35,12 +35,12 @@ public class InMemorySubscriptionAdapter implements SaveSubscriptionPort, LoadSu
         }
 
         return new SubscriptionQueryResult(
-                subscription.getSubscriptionId(),
-                subscription.getCustomerId(),
-                subscription.getProductId(),
-                subscription.getCycle(),
-                subscription.getSubscriptionStatus()
+                subscription.getSubscriptionId().value(),
+                subscription.getCustomerId().id(),
+                subscription.getProductId().id(),
+                subscription.getCycle().getUnit().name(),
+                subscription.getCycle().getInterval(),
+                subscription.getSubscriptionStatus().name()
         );
     }
-
 }

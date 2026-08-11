@@ -46,13 +46,13 @@ public class SubscriptionController {
 
     private SubscriptionResponse toResponse(SubscriptionQueryResult result) {
         return new SubscriptionResponse(
-                result.subscriptionId().value(),
-                result.customerId().id(),
-                result.productId().id(),
+                result.subscriptionId(),
+                result.customerId(),
+                result.productId(),
                 new CycleResponse(
-                        result.cycle().unit().name(),
-                        result.cycle().interval()
+                        result.cycleUnit(),
+                        result.cycleInterval()
                 ),
-                result.status().name());
+                result.status());
     }
 }

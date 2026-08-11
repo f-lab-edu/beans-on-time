@@ -1,12 +1,13 @@
 package com.bluetoya.beansontime.subscription.application.port.in;
 
-import com.bluetoya.beansontime.subscription.domain.*;
+import java.util.UUID;
 
 public record SubscriptionQueryResult(
-        SubscriptionId subscriptionId,
-        CustomerId customerId,
-        ProductId productId,
-        Cycle cycle,
-        SubscriptionStatus status
+        UUID subscriptionId,
+        long customerId,
+        long productId,
+        String cycleUnit,
+        int cycleInterval,
+        String status
 ) {
 }
