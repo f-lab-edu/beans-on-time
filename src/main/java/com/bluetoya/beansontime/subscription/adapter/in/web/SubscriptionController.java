@@ -2,6 +2,7 @@ package com.bluetoya.beansontime.subscription.adapter.in.web;
 
 import com.bluetoya.beansontime.subscription.adapter.in.web.request.SubscriptionCreateRequest;
 import com.bluetoya.beansontime.subscription.adapter.in.web.response.CycleResponse;
+import com.bluetoya.beansontime.subscription.adapter.in.web.response.SubscriptionCreateResponse;
 import com.bluetoya.beansontime.subscription.adapter.in.web.response.SubscriptionResponse;
 import com.bluetoya.beansontime.subscription.application.port.in.CreateSubscriptionCommand;
 import com.bluetoya.beansontime.subscription.application.port.in.CreateSubscriptionUseCase;
@@ -9,11 +10,13 @@ import com.bluetoya.beansontime.subscription.application.port.in.GetSubscription
 import com.bluetoya.beansontime.subscription.application.port.in.SubscriptionQueryResult;
 import com.bluetoya.beansontime.subscription.domain.*;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.UUID;
 
-@RestController("/subscriptions")
+@RestController
+@RequestMapping("/subscriptions")
 @RequiredArgsConstructor
 public class SubscriptionController {
 
@@ -22,13 +25,15 @@ public class SubscriptionController {
 
     @GetMapping("/{id}")
     SubscriptionResponse get(@PathVariable UUID id) {
-        SubscriptionQueryResult result = subscriptionQuery.get(new SubscriptionId(id));
+        SubscriptionQueryResult result = subscriptionQuery.load(new SubscriptionId(id));
         return toResponse(result);
     }
 
     @PostMapping
-    void create(@RequestBody SubscriptionCreateRequest request) {
-        createSubscriptionUseCase.subscribe(toCommand(request));
+    @ResponseStatus(HttpStatus.CREATED)
+    SubscriptionCreateResponse create(@RequestBody SubscriptionCreateRequest request) {
+        SubscriptionId subscriptionId = createSubscriptionUseCase.subscribe(toCommand(request));
+        return new SubscriptionCreateResponse(subscriptionId.value());
     }
 
     private CreateSubscriptionCommand toCommand(

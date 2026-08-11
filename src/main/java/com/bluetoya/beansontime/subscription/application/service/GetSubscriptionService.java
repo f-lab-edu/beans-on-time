@@ -13,7 +13,7 @@ public class GetSubscriptionService implements GetSubscriptionQuery {
     private final LoadSubscriptionQueryPort loadSubscriptionQueryPort;
 
     @Override
-    public SubscriptionQueryResult get(SubscriptionId subscriptionId) {
+    public SubscriptionQueryResult load(SubscriptionId subscriptionId) {
         return loadSubscriptionQueryPort.findById(subscriptionId);
     }
 }

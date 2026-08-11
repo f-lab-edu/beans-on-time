@@ -1,5 +1,7 @@
 package com.bluetoya.beansontime.subscription.application.port.in;
 
+import com.bluetoya.beansontime.subscription.domain.SubscriptionId;
+
 public interface CreateSubscriptionUseCase {
-    void subscribe(CreateSubscriptionCommand command);
+    SubscriptionId subscribe(CreateSubscriptionCommand command);
 }
