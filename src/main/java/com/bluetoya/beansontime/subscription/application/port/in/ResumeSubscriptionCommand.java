@@ -1,0 +1,7 @@
+package com.bluetoya.beansontime.subscription.application.port.in;
+
+import com.bluetoya.beansontime.subscription.domain.CustomerId;
+import com.bluetoya.beansontime.subscription.domain.SubscriptionId;
+
+public record ResumeSubscriptionCommand(SubscriptionId subscriptionId, CustomerId customerId) {
+}

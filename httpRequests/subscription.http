@@ -1,11 +1,12 @@
 @baseUrl = http://localhost:8080
+@customerId = 1
 
 ### 구독 생성
 POST {{baseUrl}}/subscriptions
 Content-Type: application/json
 
 {
-  "customerId": 1,
+  "customerId": {{customerId}},
   "productId": 1,
   "cycle": {
     "unit": "ONE_MONTH",
@@ -22,4 +23,29 @@ Content-Type: application/json
 %}
 
 ### 방금 생성한 구독 조회
-GET {{baseUrl}}/subscriptions/beee4bfd-2d79-4182-be52-90cf727b4012
+GET {{baseUrl}}/subscriptions/{{subscriptionId}}
+
+> {%
+    client.test("생성된 구독은 활성 상태", function() {
+        client.assert(response.status === 200, "응답 상태는 200이어야 합니다.");
+        client.assert(response.body.status === "ACTIVE", "구독 상태는 ACTIVE여야 합니다.");
+    });
+%}
+
+### 구독 일시정지
+PATCH {{baseUrl}}/subscriptions/hold?subscriptionId={{subscriptionId}}&customerId={{customerId}}
+
+> {%
+    client.test("구독 일시정지 성공", function() {
+        client.assert(response.status === 200, "응답 상태는 200이어야 합니다.");
+    });
+%}
+
+### 구독 재개
+PATCH {{baseUrl}}/subscriptions/resume?subscriptionId={{subscriptionId}}&customerId={{customerId}}
+
+> {%
+    client.test("구독 재개 성공", function() {
+        client.assert(response.status === 200, "응답 상태는 200이어야 합니다.");
+    });
+%}

@@ -18,6 +18,7 @@ public class SubscriptionController {
 
     private final CreateSubscriptionUseCase createSubscriptionUseCase;
     private final PauseSubscriptionUseCase pauseSubscriptionUseCase;
+    private final ResumeSubscriptionUseCase resumeSubscriptionUseCase;
     private final FindSubscriptionQuery findSubscriptionQuery;
 
     @GetMapping("/{id}")
@@ -32,12 +33,22 @@ public class SubscriptionController {
         return new SubscriptionCreateResponse(subscriptionId.value());
     }
 
-    @PatchMapping
-    void pause(@RequestParam UUID subscriptionId, long customerId) {
+    @PatchMapping("/hold")
+    void pause(@RequestParam UUID subscriptionId, @RequestParam long customerId) {
         pauseSubscriptionUseCase.pause(
                 new PauseSubscriptionCommand(
                         new SubscriptionId(subscriptionId),
                         new CustomerId(customerId)));
+    }
+
+    @PatchMapping("/resume")
+    void resume(@RequestParam UUID subscriptionId, @RequestParam long customerId) {
+        resumeSubscriptionUseCase.resume(
+                new ResumeSubscriptionCommand(
+                        new SubscriptionId(subscriptionId),
+                        new CustomerId(customerId)
+                )
+        );
     }
 
     private CreateSubscriptionCommand toCommand(
