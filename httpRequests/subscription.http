@@ -1,0 +1,25 @@
+@baseUrl = http://localhost:8080
+
+### 구독 생성
+POST {{baseUrl}}/subscriptions
+Content-Type: application/json
+
+{
+  "customerId": 1,
+  "productId": 1,
+  "cycle": {
+    "unit": "ONE_MONTH",
+    "interval": 1
+  }
+}
+
+> {%
+    client.test("구독 생성 성공", function() {
+        client.assert(response.status === 201, "응답 상태는 201이어야 합니다.");
+    });
+
+    client.global.set("subscriptionId", response.body.subscriptionId);
+%}
+
+### 방금 생성한 구독 조회
+GET {{baseUrl}}/subscriptions/beee4bfd-2d79-4182-be52-90cf727b4012

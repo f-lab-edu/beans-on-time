@@ -9,7 +9,6 @@ public class Subscription {
     private final SubscriptionId subscriptionId;
     private final CustomerId customerId;
     private final ProductId productId;
-
     private Cycle cycle;
     private SubscriptionStatus subscriptionStatus;
 
