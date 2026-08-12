@@ -4,13 +4,9 @@ import com.bluetoya.beansontime.subscription.adapter.in.web.request.Subscription
 import com.bluetoya.beansontime.subscription.adapter.in.web.response.CycleResponse;
 import com.bluetoya.beansontime.subscription.adapter.in.web.response.SubscriptionCreateResponse;
 import com.bluetoya.beansontime.subscription.adapter.in.web.response.SubscriptionResponse;
-import com.bluetoya.beansontime.subscription.application.port.in.CreateSubscriptionCommand;
-import com.bluetoya.beansontime.subscription.application.port.in.CreateSubscriptionUseCase;
-import com.bluetoya.beansontime.subscription.application.port.in.GetSubscriptionQuery;
-import com.bluetoya.beansontime.subscription.application.port.in.SubscriptionQueryResult;
+import com.bluetoya.beansontime.subscription.application.port.in.*;
 import com.bluetoya.beansontime.subscription.domain.*;
 import lombok.RequiredArgsConstructor;
-import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.UUID;
@@ -21,19 +17,27 @@ import java.util.UUID;
 public class SubscriptionController {
 
     private final CreateSubscriptionUseCase createSubscriptionUseCase;
-    private final GetSubscriptionQuery subscriptionQuery;
+    private final PauseSubscriptionUseCase pauseSubscriptionUseCase;
+    private final FindSubscriptionQuery findSubscriptionQuery;
 
     @GetMapping("/{id}")
-    SubscriptionResponse get(@PathVariable UUID id) {
-        SubscriptionQueryResult result = subscriptionQuery.load(new SubscriptionId(id));
+    SubscriptionResponse find(@PathVariable UUID id) {
+        SubscriptionQueryResult result = findSubscriptionQuery.find(new SubscriptionId(id));
         return toResponse(result);
     }
 
     @PostMapping
-    @ResponseStatus(HttpStatus.CREATED)
     SubscriptionCreateResponse create(@RequestBody SubscriptionCreateRequest request) {
         SubscriptionId subscriptionId = createSubscriptionUseCase.subscribe(toCommand(request));
         return new SubscriptionCreateResponse(subscriptionId.value());
+    }
+
+    @PatchMapping
+    void pause(@RequestParam UUID subscriptionId, long customerId) {
+        pauseSubscriptionUseCase.pause(
+                new PauseSubscriptionCommand(
+                        new SubscriptionId(subscriptionId),
+                        new CustomerId(customerId)));
     }
 
     private CreateSubscriptionCommand toCommand(

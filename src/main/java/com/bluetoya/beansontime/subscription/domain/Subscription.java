@@ -19,4 +19,11 @@ public class Subscription {
         this.cycle = cycle;
         this.subscriptionStatus = SubscriptionStatus.ACTIVE;
     }
+
+    public void pause() {
+        if (this.subscriptionStatus != SubscriptionStatus.ACTIVE) {
+            throw new IllegalArgumentException("일시정지 불가능한 구독 상태입니다.");
+        }
+        this.subscriptionStatus = SubscriptionStatus.HOLD;
+    }
 }

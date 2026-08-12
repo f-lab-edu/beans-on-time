@@ -1,7 +1,8 @@
 package com.bluetoya.beansontime.subscription.adapter.out.persistence;
 
 import com.bluetoya.beansontime.subscription.application.port.out.ExistsSubscriptionPort;
-import com.bluetoya.beansontime.subscription.application.port.out.LoadSubscriptionQueryPort;
+import com.bluetoya.beansontime.subscription.application.port.out.LoadSubscriptionPort;
+import com.bluetoya.beansontime.subscription.application.port.out.FindSubscriptionQueryPort;
 import com.bluetoya.beansontime.subscription.application.port.out.SaveSubscriptionPort;
 import com.bluetoya.beansontime.subscription.application.port.in.SubscriptionQueryResult;
 import com.bluetoya.beansontime.subscription.domain.*;
@@ -9,10 +10,11 @@ import org.springframework.stereotype.Component;
 
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 
 @Component
-public class InMemorySubscriptionAdapter implements SaveSubscriptionPort, LoadSubscriptionQueryPort, ExistsSubscriptionPort {
+public class InMemorySubscriptionAdapter implements SaveSubscriptionPort, ExistsSubscriptionPort, FindSubscriptionQueryPort, LoadSubscriptionPort {
     private final Map<SubscriptionId, Subscription> subscriptions =
             new ConcurrentHashMap<>();
 
@@ -25,7 +27,7 @@ public class InMemorySubscriptionAdapter implements SaveSubscriptionPort, LoadSu
     }
 
     @Override
-    public SubscriptionQueryResult findById(SubscriptionId subscriptionId) {
+    public SubscriptionQueryResult find(SubscriptionId subscriptionId) {
         Subscription subscription =
                 subscriptions.get(subscriptionId);
 
@@ -54,5 +56,10 @@ public class InMemorySubscriptionAdapter implements SaveSubscriptionPort, LoadSu
                                 && subscription.getSubscriptionStatus()
                                 != SubscriptionStatus.CANCEL
                 );
+    }
+
+    @Override
+    public Optional<Subscription> load(SubscriptionId subscriptionId) {
+        return Optional.ofNullable(subscriptions.get(subscriptionId));
     }
 }
