@@ -2,6 +2,8 @@ package com.bluetoya.beansontime.subscription.domain;
 
 import org.junit.jupiter.api.Test;
 
+import static com.bluetoya.beansontime.subscription.fixture.SubscriptionFixture.createPausedSubscription;
+import static com.bluetoya.beansontime.subscription.fixture.SubscriptionFixture.createSubscription;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -21,8 +23,7 @@ public class SubscriptionTest {
     @Test
     void 이미_일시정지된_구독은_다시_일시정지할_수_없다() {
         // given
-        Subscription subscription = createSubscription();
-        subscription.pause();
+        Subscription subscription = createPausedSubscription();
 
         // when & then
         assertThatThrownBy(subscription::pause)
@@ -32,8 +33,7 @@ public class SubscriptionTest {
     @Test
     void 일시정지된_구독을_재개하면_ACTIVE_상태가_된다() {
         // given
-        Subscription subscription = createSubscription();
-        subscription.pause();
+        Subscription subscription = createPausedSubscription();
 
         // when
         subscription.resume();
@@ -76,9 +76,5 @@ public class SubscriptionTest {
 
         // then
         assertThat(owned).isFalse();
-    }
-
-    private Subscription createSubscription() {
-      return new Subscription(new CustomerId(1L), new ProductId(1L), new Cycle(CycleUnit.ONE_MONTH, 1));
     }
 }
