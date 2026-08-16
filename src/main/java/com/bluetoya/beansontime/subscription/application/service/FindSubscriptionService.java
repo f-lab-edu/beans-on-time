@@ -13,7 +13,13 @@ public class FindSubscriptionService implements FindSubscriptionQuery {
     private final FindSubscriptionQueryPort findSubscriptionQueryPort;
 
     @Override
-    public SubscriptionQueryResult find(SubscriptionId subscriptionId) {
-        return findSubscriptionQueryPort.find(subscriptionId);
+    public SubscriptionQueryResult find(SubscriptionId subscriptionId, long customerId) {
+        SubscriptionQueryResult result = findSubscriptionQueryPort.find(subscriptionId);
+
+        if (result.customerId() != customerId) {
+            throw new IllegalArgumentException("고객이 신청한 구독이 아닙니다.");
+        }
+
+        return result;
     }
 }

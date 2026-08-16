@@ -1,5 +1,6 @@
 package com.bluetoya.beansontime.subscription.adapter.in.web;
 
+import com.bluetoya.beansontime.security.CurrentCustomerId;
 import com.bluetoya.beansontime.subscription.adapter.in.web.request.SubscriptionCreateRequest;
 import com.bluetoya.beansontime.subscription.adapter.in.web.response.CycleResponse;
 import com.bluetoya.beansontime.subscription.adapter.in.web.response.SubscriptionCreateResponse;
@@ -22,19 +23,19 @@ public class SubscriptionController {
     private final FindSubscriptionQuery findSubscriptionQuery;
 
     @GetMapping("/{id}")
-    SubscriptionResponse find(@PathVariable UUID id) {
-        SubscriptionQueryResult result = findSubscriptionQuery.find(new SubscriptionId(id));
+    SubscriptionResponse find(@PathVariable UUID id, @CurrentCustomerId long customerId) {
+        SubscriptionQueryResult result = findSubscriptionQuery.find(new SubscriptionId(id), customerId);
         return toResponse(result);
     }
 
     @PostMapping
-    SubscriptionCreateResponse create(@RequestBody SubscriptionCreateRequest request) {
-        SubscriptionId subscriptionId = createSubscriptionUseCase.subscribe(toCommand(request));
+    SubscriptionCreateResponse create(@RequestBody SubscriptionCreateRequest request, @CurrentCustomerId long customerId) {
+        SubscriptionId subscriptionId = createSubscriptionUseCase.subscribe(toCommand(request, customerId));
         return new SubscriptionCreateResponse(subscriptionId.value());
     }
 
     @PatchMapping("/hold")
-    void pause(@RequestParam UUID subscriptionId, @RequestParam long customerId) {
+    void pause(@RequestParam UUID subscriptionId, @CurrentCustomerId long customerId) {
         pauseSubscriptionUseCase.pause(
                 new PauseSubscriptionCommand(
                         new SubscriptionId(subscriptionId),
@@ -42,7 +43,7 @@ public class SubscriptionController {
     }
 
     @PatchMapping("/resume")
-    void resume(@RequestParam UUID subscriptionId, @RequestParam long customerId) {
+    void resume(@RequestParam UUID subscriptionId, @CurrentCustomerId long customerId) {
         resumeSubscriptionUseCase.resume(
                 new ResumeSubscriptionCommand(
                         new SubscriptionId(subscriptionId),
@@ -52,10 +53,10 @@ public class SubscriptionController {
     }
 
     private CreateSubscriptionCommand toCommand(
-            SubscriptionCreateRequest request
+            SubscriptionCreateRequest request, long customerId
     ) {
         return new CreateSubscriptionCommand(
-                new CustomerId(request.customerId()),
+                new CustomerId(customerId),
                 new ProductId(request.productId()),
                 new Cycle(
                         CycleUnit.valueOf(request.cycle().unit()),

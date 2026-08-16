@@ -20,6 +20,10 @@ public class Subscription {
         this.subscriptionStatus = SubscriptionStatus.ACTIVE;
     }
 
+    public boolean isOwnedBy(CustomerId customerId) {
+        return this.customerId.equals(customerId);
+    }
+
     public void pause() {
         if (this.subscriptionStatus != SubscriptionStatus.ACTIVE) {
             throw new IllegalArgumentException("일시정지 불가능한 구독입니다.");

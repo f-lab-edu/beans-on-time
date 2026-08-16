@@ -1,5 +1,6 @@
 package com.bluetoya.beansontime.subscription.application.service;
 
+import com.bluetoya.beansontime.subscription.application.port.in.OwnedSubscriptionLoader;
 import com.bluetoya.beansontime.subscription.application.port.in.PauseSubscriptionCommand;
 import com.bluetoya.beansontime.subscription.application.port.in.PauseSubscriptionUseCase;
 import com.bluetoya.beansontime.subscription.application.port.out.LoadSubscriptionPort;
@@ -11,17 +12,13 @@ import org.springframework.stereotype.Service;
 @Service
 @RequiredArgsConstructor
 public class PauseSubscriptionService implements PauseSubscriptionUseCase {
-    private final LoadSubscriptionPort loadSubscriptionPort;
+    private final OwnedSubscriptionLoader ownedSubscriptionLoader;
     private final SaveSubscriptionPort saveSubscriptionPort;
 
     @Override
     public void pause(PauseSubscriptionCommand command) {
-        Subscription subscription = loadSubscriptionPort
-                .load(command.subscriptionId())
-                .orElseThrow();
-
+        Subscription subscription = ownedSubscriptionLoader.loadOwnedSubscription(command.customerId(), command.subscriptionId());
         subscription.pause();
-
         saveSubscriptionPort.save(subscription);
     }
 }
