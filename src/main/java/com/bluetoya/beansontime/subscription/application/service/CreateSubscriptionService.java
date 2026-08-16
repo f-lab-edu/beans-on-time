@@ -12,17 +12,18 @@ import org.springframework.stereotype.Service;
 @Service
 @RequiredArgsConstructor
 public class CreateSubscriptionService implements CreateSubscriptionUseCase {
-    private final SaveSubscriptionPort saveSubscriptionPort;
-    private final ExistsSubscriptionPort existsSubscriptionPort;
+  private final SaveSubscriptionPort saveSubscriptionPort;
+  private final ExistsSubscriptionPort existsSubscriptionPort;
 
-    @Override
-    public SubscriptionId subscribe(CreateSubscriptionCommand command) {
-        if (existsSubscriptionPort.isExists(command.customerId(), command.productId())) {
-            throw new IllegalArgumentException("중복 구독은 불가능합니다.");
-        }
-
-        Subscription subscription = new Subscription(command.customerId(), command.productId(), command.cycle());
-        saveSubscriptionPort.save(subscription);
-        return subscription.getSubscriptionId();
+  @Override
+  public SubscriptionId subscribe(CreateSubscriptionCommand command) {
+    if (existsSubscriptionPort.isExists(command.customerId(), command.productId())) {
+      throw new IllegalArgumentException("중복 구독은 불가능합니다.");
     }
+
+    Subscription subscription =
+        new Subscription(command.customerId(), command.productId(), command.cycle());
+    saveSubscriptionPort.save(subscription);
+    return subscription.getSubscriptionId();
+  }
 }

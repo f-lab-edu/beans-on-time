@@ -4,5 +4,4 @@ import com.bluetoya.beansontime.subscription.domain.CustomerId;
 import com.bluetoya.beansontime.subscription.domain.Cycle;
 import com.bluetoya.beansontime.subscription.domain.ProductId;
 
-public record CreateSubscriptionCommand(CustomerId customerId, ProductId productId, Cycle cycle) {
-}
+public record CreateSubscriptionCommand(CustomerId customerId, ProductId productId, Cycle cycle) {}

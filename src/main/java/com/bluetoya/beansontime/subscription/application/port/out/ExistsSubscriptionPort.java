@@ -4,5 +4,5 @@ import com.bluetoya.beansontime.subscription.domain.CustomerId;
 import com.bluetoya.beansontime.subscription.domain.ProductId;
 
 public interface ExistsSubscriptionPort {
-    boolean isExists(CustomerId customerId, ProductId productId);
+  boolean isExists(CustomerId customerId, ProductId productId);
 }

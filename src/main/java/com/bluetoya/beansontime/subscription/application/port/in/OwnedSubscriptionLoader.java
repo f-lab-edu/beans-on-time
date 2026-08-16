@@ -11,14 +11,13 @@ import org.springframework.stereotype.Component;
 @Component
 @RequiredArgsConstructor
 public class OwnedSubscriptionLoader {
-    private final LoadSubscriptionPort loadSubscriptionPort;
-    private final SubscriptionAccessPolicy subscriptionAccessPolicy;
+  private final LoadSubscriptionPort loadSubscriptionPort;
+  private final SubscriptionAccessPolicy subscriptionAccessPolicy;
 
-    public Subscription loadOwnedSubscription(CustomerId customerId, SubscriptionId subscriptionId) {
-        Subscription subscription = loadSubscriptionPort
-                .load(subscriptionId)
-                .orElseThrow(IllegalAccessError::new);
-        subscriptionAccessPolicy.validateOwner(subscription, customerId);
-        return subscription;
-    }
+  public Subscription loadOwnedSubscription(CustomerId customerId, SubscriptionId subscriptionId) {
+    Subscription subscription =
+        loadSubscriptionPort.load(subscriptionId).orElseThrow(IllegalAccessError::new);
+    subscriptionAccessPolicy.validateOwner(subscription, customerId);
+    return subscription;
+  }
 }
