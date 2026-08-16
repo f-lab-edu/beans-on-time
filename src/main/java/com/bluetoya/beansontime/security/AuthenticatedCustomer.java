@@ -14,7 +14,7 @@ public class AuthenticatedCustomer implements UserDetails {
     private final String password;
     private final Collection<? extends GrantedAuthority> authorities;
 
-    public long customerId() {
+    public long getCustomerId() {
         return customerId;
     }
 
