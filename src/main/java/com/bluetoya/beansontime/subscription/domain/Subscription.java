@@ -1,6 +1,7 @@
 package com.bluetoya.beansontime.subscription.domain;
 
 import com.bluetoya.beansontime.customer.domain.CustomerId;
+import com.bluetoya.beansontime.subscription.application.exception.InvalidSubscriptionStateChangeException;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 
@@ -27,14 +28,14 @@ public class Subscription {
 
   public void pause() {
     if (this.subscriptionStatus != SubscriptionStatus.ACTIVE) {
-      throw new IllegalArgumentException("일시정지 불가능한 구독입니다.");
+      throw new InvalidSubscriptionStateChangeException("일시정지 불가능한 구독입니다.");
     }
     this.subscriptionStatus = SubscriptionStatus.HOLD;
   }
 
   public void resume() {
     if (this.subscriptionStatus != SubscriptionStatus.HOLD) {
-      throw new IllegalArgumentException("구독 재개가 불가능합니다.");
+      throw new InvalidSubscriptionStateChangeException("구독 재개가 불가능합니다.");
     }
     this.subscriptionStatus = SubscriptionStatus.ACTIVE;
   }

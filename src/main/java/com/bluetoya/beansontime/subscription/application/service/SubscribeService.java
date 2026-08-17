@@ -2,6 +2,7 @@ package com.bluetoya.beansontime.subscription.application.service;
 
 import com.bluetoya.beansontime.customer.domain.CustomerId;
 import com.bluetoya.beansontime.security.application.CurrentCustomerProvider;
+import com.bluetoya.beansontime.subscription.application.exception.DuplicateSubscriptionException;
 import com.bluetoya.beansontime.subscription.application.port.in.SubscribeCommand;
 import com.bluetoya.beansontime.subscription.application.port.in.SubscribeUseCase;
 import com.bluetoya.beansontime.subscription.application.port.out.ExistsSubscriptionPort;
@@ -23,7 +24,7 @@ public class SubscribeService implements SubscribeUseCase {
     CustomerId customerId = currentCustomerProvider.getCurrentCustomerId();
 
     if (existsSubscriptionPort.isExists(customerId, command.productId())) {
-      throw new IllegalArgumentException("중복 구독은 불가능합니다.");
+      throw new DuplicateSubscriptionException("중복 구독 불가");
     }
 
     Subscription subscription = new Subscription(customerId, command.productId(), command.cycle());
