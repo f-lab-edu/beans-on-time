@@ -1,5 +1,7 @@
 package com.bluetoya.beansontime.subscription.application.service;
 
+import com.bluetoya.beansontime.security.application.CurrentCustomerProvider;
+import com.bluetoya.beansontime.customer.domain.CustomerId;
 import com.bluetoya.beansontime.subscription.application.port.in.FindSubscriptionQuery;
 import com.bluetoya.beansontime.subscription.application.port.in.SubscriptionQueryResult;
 import com.bluetoya.beansontime.subscription.application.port.out.FindSubscriptionQueryPort;
@@ -11,12 +13,15 @@ import org.springframework.stereotype.Service;
 @RequiredArgsConstructor
 public class FindSubscriptionService implements FindSubscriptionQuery {
   private final FindSubscriptionQueryPort findSubscriptionQueryPort;
+  private final CurrentCustomerProvider currentCustomerProvider;
 
   @Override
-  public SubscriptionQueryResult find(SubscriptionId subscriptionId, long customerId) {
+  public SubscriptionQueryResult find(SubscriptionId subscriptionId) {
     SubscriptionQueryResult result = findSubscriptionQueryPort.find(subscriptionId);
 
-    if (result.customerId() != customerId) {
+    CustomerId customerId = currentCustomerProvider.getCurrentCustomerId();
+
+    if (result.customerId() != customerId.id()) {
       throw new IllegalArgumentException("고객이 신청한 구독이 아닙니다.");
     }
 

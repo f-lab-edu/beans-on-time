@@ -1,4 +1,4 @@
-package com.bluetoya.beansontime.subscription.domain;
+package com.bluetoya.beansontime.customer.domain;
 
 public record CustomerId(long id) {
 

@@ -1,6 +1,6 @@
 package com.bluetoya.beansontime.subscription.application.policy;
 
-import com.bluetoya.beansontime.subscription.domain.CustomerId;
+import com.bluetoya.beansontime.customer.domain.CustomerId;
 import com.bluetoya.beansontime.subscription.domain.Subscription;
 import org.springframework.stereotype.Component;
 

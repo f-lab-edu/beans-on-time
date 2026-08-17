@@ -1,5 +1,6 @@
 package com.bluetoya.beansontime.subscription.adapter.out.persistence;
 
+import com.bluetoya.beansontime.customer.domain.CustomerId;
 import com.bluetoya.beansontime.subscription.application.port.in.SubscriptionQueryResult;
 import com.bluetoya.beansontime.subscription.application.port.out.ExistsSubscriptionPort;
 import com.bluetoya.beansontime.subscription.application.port.out.FindSubscriptionQueryPort;

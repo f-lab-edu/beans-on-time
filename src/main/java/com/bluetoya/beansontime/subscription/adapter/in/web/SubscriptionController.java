@@ -1,6 +1,5 @@
 package com.bluetoya.beansontime.subscription.adapter.in.web;
 
-import com.bluetoya.beansontime.security.CurrentCustomerId;
 import com.bluetoya.beansontime.subscription.adapter.in.web.request.SubscriptionCreateRequest;
 import com.bluetoya.beansontime.subscription.adapter.in.web.response.CycleResponse;
 import com.bluetoya.beansontime.subscription.adapter.in.web.response.SubscriptionCreateResponse;
@@ -22,36 +21,35 @@ public class SubscriptionController {
   private final FindSubscriptionQuery findSubscriptionQuery;
 
   @GetMapping("/{id}")
-  SubscriptionResponse find(@PathVariable UUID id, @CurrentCustomerId long customerId) {
-    SubscriptionQueryResult result = findSubscriptionQuery.find(new SubscriptionId(id), customerId);
+  SubscriptionResponse find(@PathVariable UUID id) {
+    SubscriptionQueryResult result = findSubscriptionQuery.find(new SubscriptionId(id));
     return toResponse(result);
   }
 
   @PostMapping
   SubscriptionCreateResponse create(
-      @RequestBody SubscriptionCreateRequest request, @CurrentCustomerId long customerId) {
+      @RequestBody SubscriptionCreateRequest request) {
     SubscriptionId subscriptionId =
-        createSubscriptionUseCase.subscribe(toCommand(request, customerId));
+        createSubscriptionUseCase.subscribe(toCommand(request));
     return new SubscriptionCreateResponse(subscriptionId.value());
   }
 
   @PatchMapping("/hold")
-  void pause(@RequestParam UUID subscriptionId, @CurrentCustomerId long customerId) {
+  void pause(@RequestParam UUID subscriptionId) {
     pauseSubscriptionUseCase.pause(
         new PauseSubscriptionCommand(
-            new SubscriptionId(subscriptionId), new CustomerId(customerId)));
+            new SubscriptionId(subscriptionId)));
   }
 
   @PatchMapping("/resume")
-  void resume(@RequestParam UUID subscriptionId, @CurrentCustomerId long customerId) {
+  void resume(@RequestParam UUID subscriptionId) {
     resumeSubscriptionUseCase.resume(
         new ResumeSubscriptionCommand(
-            new SubscriptionId(subscriptionId), new CustomerId(customerId)));
+            new SubscriptionId(subscriptionId)));
   }
 
-  private CreateSubscriptionCommand toCommand(SubscriptionCreateRequest request, long customerId) {
+  private CreateSubscriptionCommand toCommand(SubscriptionCreateRequest request) {
     return new CreateSubscriptionCommand(
-        new CustomerId(customerId),
         new ProductId(request.productId()),
         new Cycle(CycleUnit.valueOf(request.cycle().unit()), request.cycle().interval()));
   }
