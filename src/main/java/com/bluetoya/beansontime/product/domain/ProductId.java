@@ -9,4 +9,8 @@ public record ProductId(long id) {
             );
         }
     }
+
+    static ProductId generate() {
+        return new ProductId((long) (Math.random() * 1000000000));
+    }
 }

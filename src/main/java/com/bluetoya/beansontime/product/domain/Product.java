@@ -1,8 +1,6 @@
 package com.bluetoya.beansontime.product.domain;
 
-import lombok.Builder;
-import lombok.Getter;
-import lombok.RequiredArgsConstructor;
+import lombok.*;
 
 import java.util.List;
 import java.util.Set;
@@ -23,6 +21,18 @@ public class Product {
     private final Set<GrindType> grindTypes;
 
     private final ProductStatus status;
+
+    public Product(SellerId sellerId, String name, Money basePrice) {
+        this.id = ProductId.generate();
+        this.sellerId = sellerId;
+        this.name = name;
+        this.description = "";
+        this.basePrice = basePrice;
+        this.images = List.of();
+        this.sizeOptions = List.of();
+        this.grindTypes = Set.of();
+        this.status = ProductStatus.ACTIVE;
+    }
 
     public record ProductImage(String url, int order) {
     }
