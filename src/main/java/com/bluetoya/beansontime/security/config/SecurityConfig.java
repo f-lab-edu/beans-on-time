@@ -1,10 +1,9 @@
 package com.bluetoya.beansontime.security.config;
 
+import com.bluetoya.beansontime.security.adapter.springsecurity.AuthenticatedCustomer;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-
-import com.bluetoya.beansontime.security.adapter.springsecurity.AuthenticatedCustomer;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.Customizer;

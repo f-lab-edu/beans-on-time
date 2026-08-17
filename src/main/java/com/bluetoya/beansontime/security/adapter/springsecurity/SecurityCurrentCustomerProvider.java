@@ -9,18 +9,15 @@ import org.springframework.stereotype.Component;
 
 @Component
 public class SecurityCurrentCustomerProvider implements CurrentCustomerProvider {
-    @Override
-    public CustomerId getCurrentCustomerId() {
-        Authentication authentication =
-                SecurityContextHolder.getContext().getAuthentication();
+  @Override
+  public CustomerId getCurrentCustomerId() {
+    Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
 
-        if (authentication == null
-                || !(authentication.getPrincipal() instanceof AuthenticatedCustomer customer)) {
-            throw new AuthenticationCredentialsNotFoundException(
-                    "No authenticated customer found"
-            );
-        }
-
-        return new CustomerId(customer.getCustomerId());
+    if (authentication == null
+        || !(authentication.getPrincipal() instanceof AuthenticatedCustomer customer)) {
+      throw new AuthenticationCredentialsNotFoundException("No authenticated customer found");
     }
+
+    return new CustomerId(customer.getCustomerId());
+  }
 }

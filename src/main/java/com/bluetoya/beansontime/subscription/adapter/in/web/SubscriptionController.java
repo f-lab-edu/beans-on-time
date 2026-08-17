@@ -2,8 +2,8 @@ package com.bluetoya.beansontime.subscription.adapter.in.web;
 
 import com.bluetoya.beansontime.subscription.adapter.in.web.request.SubscribeRequest;
 import com.bluetoya.beansontime.subscription.adapter.in.web.response.CycleResponse;
-import com.bluetoya.beansontime.subscription.adapter.in.web.response.SubscribeResponse;
 import com.bluetoya.beansontime.subscription.adapter.in.web.response.FindSubscriptionResponse;
+import com.bluetoya.beansontime.subscription.adapter.in.web.response.SubscribeResponse;
 import com.bluetoya.beansontime.subscription.application.port.in.*;
 import com.bluetoya.beansontime.subscription.domain.*;
 import java.util.UUID;
@@ -27,25 +27,21 @@ public class SubscriptionController {
   }
 
   @PostMapping
-  SubscribeResponse create(
-      @RequestBody SubscribeRequest request) {
-    SubscriptionId subscriptionId =
-        subscribeUseCase.subscribe(toCommand(request));
+  SubscribeResponse create(@RequestBody SubscribeRequest request) {
+    SubscriptionId subscriptionId = subscribeUseCase.subscribe(toCommand(request));
     return new SubscribeResponse(subscriptionId.value());
   }
 
   @PatchMapping("/hold")
   void pause(@RequestParam UUID subscriptionId) {
     pauseSubscriptionUseCase.pause(
-        new PauseSubscriptionCommand(
-            new SubscriptionId(subscriptionId)));
+        new PauseSubscriptionCommand(new SubscriptionId(subscriptionId)));
   }
 
   @PatchMapping("/resume")
   void resume(@RequestParam UUID subscriptionId) {
     resumeSubscriptionUseCase.resume(
-        new ResumeSubscriptionCommand(
-            new SubscriptionId(subscriptionId)));
+        new ResumeSubscriptionCommand(new SubscriptionId(subscriptionId)));
   }
 
   private SubscribeCommand toCommand(SubscribeRequest request) {
