@@ -2,8 +2,8 @@ package com.bluetoya.beansontime.subscription.application.service;
 
 import com.bluetoya.beansontime.security.application.CurrentCustomerProvider;
 import com.bluetoya.beansontime.customer.domain.CustomerId;
-import com.bluetoya.beansontime.subscription.application.port.in.CreateSubscriptionCommand;
-import com.bluetoya.beansontime.subscription.application.port.in.CreateSubscriptionUseCase;
+import com.bluetoya.beansontime.subscription.application.port.in.SubscribeCommand;
+import com.bluetoya.beansontime.subscription.application.port.in.SubscribeUseCase;
 import com.bluetoya.beansontime.subscription.application.port.out.ExistsSubscriptionPort;
 import com.bluetoya.beansontime.subscription.application.port.out.SaveSubscriptionPort;
 import com.bluetoya.beansontime.subscription.domain.Subscription;
@@ -13,13 +13,13 @@ import org.springframework.stereotype.Service;
 
 @Service
 @RequiredArgsConstructor
-public class CreateSubscriptionService implements CreateSubscriptionUseCase {
+public class SubscribeService implements SubscribeUseCase {
   private final SaveSubscriptionPort saveSubscriptionPort;
   private final ExistsSubscriptionPort existsSubscriptionPort;
   private final CurrentCustomerProvider currentCustomerProvider;
 
   @Override
-  public SubscriptionId subscribe(CreateSubscriptionCommand command) {
+  public SubscriptionId subscribe(SubscribeCommand command) {
     CustomerId customerId = currentCustomerProvider.getCurrentCustomerId();
 
     if (existsSubscriptionPort.isExists(customerId, command.productId())) {
