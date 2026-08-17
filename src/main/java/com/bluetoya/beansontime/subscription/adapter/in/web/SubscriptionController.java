@@ -1,5 +1,6 @@
 package com.bluetoya.beansontime.subscription.adapter.in.web;
 
+import com.bluetoya.beansontime.product.domain.ProductId;
 import com.bluetoya.beansontime.subscription.adapter.in.web.request.SubscriptionCreateRequest;
 import com.bluetoya.beansontime.subscription.adapter.in.web.response.CycleResponse;
 import com.bluetoya.beansontime.subscription.adapter.in.web.response.SubscriptionCreateResponse;

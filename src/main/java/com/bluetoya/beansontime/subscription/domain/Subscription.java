@@ -1,5 +1,6 @@
 package com.bluetoya.beansontime.subscription.domain;
 
+import com.bluetoya.beansontime.product.domain.ProductId;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 

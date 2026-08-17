@@ -1,4 +1,4 @@
-package com.bluetoya.beansontime.subscription.domain;
+package com.bluetoya.beansontime.product.domain;
 
 public record ProductId(long id) {
 
