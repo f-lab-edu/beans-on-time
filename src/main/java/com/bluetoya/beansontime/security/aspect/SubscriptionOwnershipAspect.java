@@ -16,45 +16,36 @@ import org.springframework.stereotype.Component;
 @Component
 public class SubscriptionOwnershipAspect {
 
-    private static final String POINTCUT =
-            "@annotation(com.bluetoya.beansontime.security.annotation.RequireSubscriptionOwner)";
+  private static final String POINTCUT =
+      "@annotation(com.bluetoya.beansontime.security.annotation.RequireSubscriptionOwner)";
 
-    @AfterReturning(
-            pointcut = POINTCUT,
-            returning = "subscription"
-    )
-    public void authorizeSubscription(Subscription subscription) {
-        CustomerId currentCustomerId = getCurrentCustomerId();
+  @AfterReturning(pointcut = POINTCUT, returning = "subscription")
+  public void authorizeSubscription(Subscription subscription) {
+    CustomerId currentCustomerId = getCurrentCustomerId();
 
-        if (!subscription.isOwnedBy(currentCustomerId)) {
-            throw new AccessDeniedException("Subscription access denied");
-        }
+    if (!subscription.isOwnedBy(currentCustomerId)) {
+      throw new AccessDeniedException("Subscription access denied");
+    }
+  }
+
+  @AfterReturning(pointcut = POINTCUT, returning = "result")
+  public void authorizeQueryResult(SubscriptionQueryResult result) {
+    CustomerId currentCustomerId = getCurrentCustomerId();
+    CustomerId ownerCustomerId = new CustomerId(result.customerId());
+
+    if (!ownerCustomerId.equals(currentCustomerId)) {
+      throw new AccessDeniedException("Subscription access denied");
+    }
+  }
+
+  private CustomerId getCurrentCustomerId() {
+    Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+
+    if (authentication == null
+        || !(authentication.getPrincipal() instanceof AuthenticatedCustomer customer)) {
+      throw new AuthenticationCredentialsNotFoundException("No authenticated customer found");
     }
 
-    @AfterReturning(
-            pointcut = POINTCUT,
-            returning = "result"
-    )
-    public void authorizeQueryResult(SubscriptionQueryResult result) {
-        CustomerId currentCustomerId = getCurrentCustomerId();
-        CustomerId ownerCustomerId = new CustomerId(result.customerId());
-
-        if (!ownerCustomerId.equals(currentCustomerId)) {
-            throw new AccessDeniedException("Subscription access denied");
-        }
-    }
-
-    private CustomerId getCurrentCustomerId() {
-        Authentication authentication =
-                SecurityContextHolder.getContext().getAuthentication();
-
-        if (authentication == null
-                || !(authentication.getPrincipal() instanceof AuthenticatedCustomer customer)) {
-            throw new AuthenticationCredentialsNotFoundException(
-                    "No authenticated customer found"
-            );
-        }
-
-        return new CustomerId(customer.getCustomerId());
-    }
+    return new CustomerId(customer.getCustomerId());
+  }
 }

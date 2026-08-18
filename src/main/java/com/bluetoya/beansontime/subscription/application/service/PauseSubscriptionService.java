@@ -16,8 +16,7 @@ public class PauseSubscriptionService implements PauseSubscriptionUseCase {
 
   @Override
   public void pause(PauseSubscriptionCommand command) {
-    Subscription subscription =
-        ownedSubscriptionLoader.load(command.subscriptionId());
+    Subscription subscription = ownedSubscriptionLoader.load(command.subscriptionId());
 
     subscription.pause();
 

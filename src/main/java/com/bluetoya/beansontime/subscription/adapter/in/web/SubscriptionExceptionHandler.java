@@ -10,42 +10,33 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 
 @RestControllerAdvice
 public class SubscriptionExceptionHandler {
-    @ExceptionHandler(SubscriptionNotFoundException.class)
-    ProblemDetail handleSubscriptionNotFound(
-            SubscriptionNotFoundException exception
-    ) {
-        ProblemDetail problem =
-                ProblemDetail.forStatus(HttpStatus.NOT_FOUND);
+  @ExceptionHandler(SubscriptionNotFoundException.class)
+  ProblemDetail handleSubscriptionNotFound(SubscriptionNotFoundException exception) {
+    ProblemDetail problem = ProblemDetail.forStatus(HttpStatus.NOT_FOUND);
 
-        problem.setTitle(exception.toString());
-        problem.setDetail(exception.getMessage());
+    problem.setTitle(exception.toString());
+    problem.setDetail(exception.getMessage());
 
-        return problem;
-    }
+    return problem;
+  }
 
-    @ExceptionHandler(DuplicateSubscriptionException.class)
-    ProblemDetail handleDuplicateSubscription(
-            DuplicateSubscriptionException exception
-    ) {
-        ProblemDetail problem =
-                ProblemDetail.forStatus(HttpStatus.CONFLICT);
+  @ExceptionHandler(DuplicateSubscriptionException.class)
+  ProblemDetail handleDuplicateSubscription(DuplicateSubscriptionException exception) {
+    ProblemDetail problem = ProblemDetail.forStatus(HttpStatus.CONFLICT);
 
-        problem.setTitle(exception.toString());
-        problem.setDetail(exception.getMessage());
+    problem.setTitle(exception.toString());
+    problem.setDetail(exception.getMessage());
 
-        return problem;
-    }
+    return problem;
+  }
 
-    @ExceptionHandler(InvalidSubscriptionStateChangeException.class)
-    ProblemDetail handleInvalidSubscriptionState(
-            InvalidSubscriptionStateChangeException exception
-    ) {
-        ProblemDetail problem =
-                ProblemDetail.forStatus(HttpStatus.CONFLICT);
+  @ExceptionHandler(InvalidSubscriptionStateChangeException.class)
+  ProblemDetail handleInvalidSubscriptionState(InvalidSubscriptionStateChangeException exception) {
+    ProblemDetail problem = ProblemDetail.forStatus(HttpStatus.CONFLICT);
 
-        problem.setTitle(exception.toString());
-        problem.setDetail(exception.getMessage());
+    problem.setTitle(exception.toString());
+    problem.setDetail(exception.getMessage());
 
-        return problem;
-    }
+    return problem;
+  }
 }
