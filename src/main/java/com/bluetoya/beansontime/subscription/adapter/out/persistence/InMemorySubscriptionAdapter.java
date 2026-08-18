@@ -1,5 +1,7 @@
 package com.bluetoya.beansontime.subscription.adapter.out.persistence;
 
+import com.bluetoya.beansontime.customer.domain.CustomerId;
+import com.bluetoya.beansontime.subscription.application.exception.SubscriptionNotFoundException;
 import com.bluetoya.beansontime.subscription.application.port.in.SubscriptionQueryResult;
 import com.bluetoya.beansontime.subscription.application.port.out.ExistsSubscriptionPort;
 import com.bluetoya.beansontime.subscription.application.port.out.FindSubscriptionQueryPort;
@@ -30,7 +32,7 @@ public class InMemorySubscriptionAdapter
     Subscription subscription = subscriptions.get(subscriptionId);
 
     if (Objects.isNull(subscription)) {
-      throw new IllegalArgumentException("구독 내역을 찾을 수 없습니다.");
+      throw new SubscriptionNotFoundException("구독 내역을 찾을 수 없습니다.");
     }
 
     return new SubscriptionQueryResult(

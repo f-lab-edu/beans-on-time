@@ -16,10 +16,10 @@ public class ResumeSubscriptionService implements ResumeSubscriptionUseCase {
 
   @Override
   public void resume(ResumeSubscriptionCommand command) {
-    Subscription subscription =
-        ownedSubscriptionLoader.loadOwnedSubscription(
-            command.customerId(), command.subscriptionId());
+    Subscription subscription = ownedSubscriptionLoader.load(command.subscriptionId());
+
     subscription.resume();
+
     saveSubscriptionPort.save(subscription);
   }
 }

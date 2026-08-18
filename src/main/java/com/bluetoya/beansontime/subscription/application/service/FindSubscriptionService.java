@@ -1,5 +1,6 @@
 package com.bluetoya.beansontime.subscription.application.service;
 
+import com.bluetoya.beansontime.security.annotation.RequireSubscriptionOwner;
 import com.bluetoya.beansontime.subscription.application.port.in.FindSubscriptionQuery;
 import com.bluetoya.beansontime.subscription.application.port.in.SubscriptionQueryResult;
 import com.bluetoya.beansontime.subscription.application.port.out.FindSubscriptionQueryPort;
@@ -13,13 +14,8 @@ public class FindSubscriptionService implements FindSubscriptionQuery {
   private final FindSubscriptionQueryPort findSubscriptionQueryPort;
 
   @Override
-  public SubscriptionQueryResult find(SubscriptionId subscriptionId, long customerId) {
-    SubscriptionQueryResult result = findSubscriptionQueryPort.find(subscriptionId);
-
-    if (result.customerId() != customerId) {
-      throw new IllegalArgumentException("고객이 신청한 구독이 아닙니다.");
-    }
-
-    return result;
+  @RequireSubscriptionOwner
+  public SubscriptionQueryResult find(SubscriptionId subscriptionId) {
+    return findSubscriptionQueryPort.find(subscriptionId);
   }
 }

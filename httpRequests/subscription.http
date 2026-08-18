@@ -33,7 +33,7 @@ GET {{baseUrl}}/subscriptions/{{subscriptionId}}
     });
 %}
 
-### 방금 생성한 구독 조회
+### 구독 조회
 GET {{baseUrl}}/subscriptions/{{subscriptionId}}
 Authorization: Basic customer1 password
 

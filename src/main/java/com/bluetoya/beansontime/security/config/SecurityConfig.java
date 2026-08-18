@@ -1,5 +1,6 @@
-package com.bluetoya.beansontime.security;
+package com.bluetoya.beansontime.security.config;
 
+import com.bluetoya.beansontime.security.adapter.springsecurity.AuthenticatedCustomer;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
