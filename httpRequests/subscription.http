@@ -1,12 +1,11 @@
 @baseUrl = http://localhost:8080
-@customerId = 1
 
 ### 구독 생성
 POST {{baseUrl}}/subscriptions
 Content-Type: application/json
+Authorization: Basic customer1 password
 
 {
-  "customerId": {{customerId}},
   "productId": 1,
   "cycle": {
     "unit": "ONE_MONTH",
@@ -22,8 +21,21 @@ Content-Type: application/json
     client.global.set("subscriptionId", response.body.subscriptionId);
 %}
 
-### 방금 생성한 구독 조회
+### 인증 없이 구독 조회
 GET {{baseUrl}}/subscriptions/{{subscriptionId}}
+
+> {%
+    client.test("인증되지 않은 사용자는 접근할 수 없다", function() {
+        client.assert(
+            response.status === 401,
+            "Expected 401 but got " + response.status
+        );
+    });
+%}
+
+### 구독 조회
+GET {{baseUrl}}/subscriptions/{{subscriptionId}}
+Authorization: Basic customer1 password
 
 > {%
     client.test("생성된 구독은 활성 상태", function() {
@@ -33,7 +45,8 @@ GET {{baseUrl}}/subscriptions/{{subscriptionId}}
 %}
 
 ### 구독 일시정지
-PATCH {{baseUrl}}/subscriptions/hold?subscriptionId={{subscriptionId}}&customerId={{customerId}}
+PATCH {{baseUrl}}/subscriptions/hold?subscriptionId={{subscriptionId}}
+Authorization: Basic customer1 password
 
 > {%
     client.test("구독 일시정지 성공", function() {
@@ -42,7 +55,8 @@ PATCH {{baseUrl}}/subscriptions/hold?subscriptionId={{subscriptionId}}&customerI
 %}
 
 ### 구독 재개
-PATCH {{baseUrl}}/subscriptions/resume?subscriptionId={{subscriptionId}}&customerId={{customerId}}
+PATCH {{baseUrl}}/subscriptions/resume?subscriptionId={{subscriptionId}}
+Authorization: Basic customer1 password
 
 > {%
     client.test("구독 재개 성공", function() {
