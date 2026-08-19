@@ -1,6 +1,5 @@
 package com.bluetoya.beansontime.subscription.application.service;
 
-import static com.bluetoya.beansontime.subscription.fixture.SubscriptionFixture.createSubscription;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.BDDMockito.given;
@@ -25,8 +24,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 public class SubscribeServiceTest {
   @Mock SaveSubscriptionPort saveSubscriptionPort;
   @Mock ExistsSubscriptionPort existsSubscriptionPort;
-  @Mock
-  CurrentCustomerProvider currentCustomerProvider;
+  @Mock CurrentCustomerProvider currentCustomerProvider;
   @InjectMocks SubscribeService subscribeService;
   @Captor private ArgumentCaptor<Subscription> subscriptionCaptor;
 
@@ -37,8 +35,7 @@ public class SubscribeServiceTest {
     CustomerId customerId = new CustomerId(1L);
 
     given(currentCustomerProvider.getCurrentCustomerId()).willReturn(customerId);
-    given(existsSubscriptionPort.isExists(customerId, command.productId()))
-        .willReturn(false);
+    given(existsSubscriptionPort.isExists(customerId, command.productId())).willReturn(false);
 
     // when
     subscribeService.subscribe(command);
@@ -60,8 +57,7 @@ public class SubscribeServiceTest {
     CustomerId customerId = new CustomerId(1L);
 
     given(currentCustomerProvider.getCurrentCustomerId()).willReturn(customerId);
-    given(existsSubscriptionPort.isExists(customerId, command.productId()))
-        .willReturn(true);
+    given(existsSubscriptionPort.isExists(customerId, command.productId())).willReturn(true);
 
     // when & then
     assertThatThrownBy(() -> subscribeService.subscribe(command))
@@ -71,7 +67,6 @@ public class SubscribeServiceTest {
   }
 
   private SubscribeCommand createCommand() {
-    return new SubscribeCommand(
-        new ProductId(1L), new Cycle(CycleUnit.ONE_MONTH, 1));
+    return new SubscribeCommand(new ProductId(1L), new Cycle(CycleUnit.ONE_MONTH, 1));
   }
 }

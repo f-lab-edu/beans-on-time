@@ -15,7 +15,8 @@ public class OwnedSubscriptionLoader {
 
   @RequireSubscriptionOwner
   public Subscription load(SubscriptionId subscriptionId) {
-    return loadSubscriptionPort.load(subscriptionId)
-            .orElseThrow(() -> new SubscriptionNotFoundException(""));
+    return loadSubscriptionPort
+        .load(subscriptionId)
+        .orElseThrow(() -> new SubscriptionNotFoundException(""));
   }
 }

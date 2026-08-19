@@ -31,9 +31,7 @@ public class ResumeSubscriptionServiceTest {
         new ResumeSubscriptionCommand(new SubscriptionId(UUID.randomUUID()));
     Subscription subscription = createPausedSubscription();
 
-    given(
-            ownedSubscriptionLoader.load(command.subscriptionId()))
-        .willReturn(subscription);
+    given(ownedSubscriptionLoader.load(command.subscriptionId())).willReturn(subscription);
 
     // when
     resumeSubscriptionService.resume(command);

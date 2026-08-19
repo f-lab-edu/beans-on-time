@@ -3,15 +3,12 @@ package com.bluetoya.beansontime.subscription.application.port.in;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.BDDMockito.given;
-import static org.mockito.BDDMockito.then;
 
 import com.bluetoya.beansontime.subscription.application.exception.SubscriptionNotFoundException;
 import com.bluetoya.beansontime.subscription.application.port.out.LoadSubscriptionPort;
 import com.bluetoya.beansontime.subscription.domain.Subscription;
 import com.bluetoya.beansontime.subscription.domain.SubscriptionId;
 import com.bluetoya.beansontime.subscription.fixture.SubscriptionFixture;
-
-import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
@@ -49,8 +46,7 @@ public class OwnedSubscriptionLoaderTest {
     given(loadSubscriptionPort.load(subscriptionId)).willReturn(Optional.empty());
 
     // when & then
-    assertThatThrownBy(
-            () -> ownedSubscriptionLoader.load(subscriptionId))
+    assertThatThrownBy(() -> ownedSubscriptionLoader.load(subscriptionId))
         .isInstanceOf(SubscriptionNotFoundException.class);
   }
 }

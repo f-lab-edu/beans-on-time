@@ -28,7 +28,8 @@ public class SubscriptionTest {
     Subscription subscription = createPausedSubscription();
 
     // when & then
-    assertThatThrownBy(subscription::pause).isInstanceOf(InvalidSubscriptionStateChangeException.class);
+    assertThatThrownBy(subscription::pause)
+        .isInstanceOf(InvalidSubscriptionStateChangeException.class);
   }
 
   @Test
@@ -49,7 +50,8 @@ public class SubscriptionTest {
     Subscription subscription = createSubscription();
 
     // when & then
-    assertThatThrownBy(subscription::resume).isInstanceOf(InvalidSubscriptionStateChangeException.class);
+    assertThatThrownBy(subscription::resume)
+        .isInstanceOf(InvalidSubscriptionStateChangeException.class);
   }
 
   @Test

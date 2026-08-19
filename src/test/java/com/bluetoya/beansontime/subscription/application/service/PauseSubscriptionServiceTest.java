@@ -30,9 +30,7 @@ public class PauseSubscriptionServiceTest {
         new PauseSubscriptionCommand(new SubscriptionId(UUID.randomUUID()));
     Subscription subscription = createSubscription();
 
-    given(
-            ownedSubscriptionLoader.load(command.subscriptionId()))
-        .willReturn(subscription);
+    given(ownedSubscriptionLoader.load(command.subscriptionId())).willReturn(subscription);
 
     // when
     pauseSubscriptionService.pause(command);
