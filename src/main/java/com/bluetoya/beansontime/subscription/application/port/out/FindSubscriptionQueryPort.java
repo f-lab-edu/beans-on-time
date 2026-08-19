@@ -4,7 +4,5 @@ import com.bluetoya.beansontime.subscription.application.port.in.SubscriptionQue
 import com.bluetoya.beansontime.subscription.domain.SubscriptionId;
 
 public interface FindSubscriptionQueryPort {
-    SubscriptionQueryResult find(
-            SubscriptionId subscriptionId
-    );
+  SubscriptionQueryResult find(SubscriptionId subscriptionId);
 }

@@ -12,16 +12,13 @@ import org.testcontainers.utility.DockerImageName;
 @Testcontainers
 class BeansOnTimeApplicationTests {
 
-    @Container
-    @ServiceConnection
-    static MySQLContainer mysql =
-            new MySQLContainer(DockerImageName.parse("mysql:8.0.39"))
-                    .withDatabaseName("beans-on-time")
-                    .withUsername("user")
-                    .withPassword("password");
+  @Container @ServiceConnection
+  static MySQLContainer mysql =
+      new MySQLContainer(DockerImageName.parse("mysql:8.0.39"))
+          .withDatabaseName("beans-on-time")
+          .withUsername("user")
+          .withPassword("password");
 
-    @Test
-    void contextLoads() {
-    }
-
+  @Test
+  void contextLoads() {}
 }
