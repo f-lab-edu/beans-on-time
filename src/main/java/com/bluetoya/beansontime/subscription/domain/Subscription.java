@@ -30,11 +30,11 @@ public class Subscription {
     if (this.subscriptionStatus != SubscriptionStatus.ACTIVE) {
       throw new InvalidSubscriptionStateChangeException("일시정지 불가능한 구독입니다.");
     }
-    this.subscriptionStatus = SubscriptionStatus.HOLD;
+    this.subscriptionStatus = SubscriptionStatus.PAUSED;
   }
 
   public void resume() {
-    if (this.subscriptionStatus != SubscriptionStatus.HOLD) {
+    if (this.subscriptionStatus != SubscriptionStatus.PAUSED) {
       throw new InvalidSubscriptionStateChangeException("구독 재개가 불가능합니다.");
     }
     this.subscriptionStatus = SubscriptionStatus.ACTIVE;
