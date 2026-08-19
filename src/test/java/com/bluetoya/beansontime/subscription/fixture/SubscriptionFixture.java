@@ -1,5 +1,6 @@
 package com.bluetoya.beansontime.subscription.fixture;
 
+import com.bluetoya.beansontime.customer.domain.CustomerId;
 import com.bluetoya.beansontime.subscription.domain.*;
 
 public class SubscriptionFixture {

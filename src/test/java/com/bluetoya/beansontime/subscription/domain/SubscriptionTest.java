@@ -5,6 +5,8 @@ import static com.bluetoya.beansontime.subscription.fixture.SubscriptionFixture.
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import com.bluetoya.beansontime.customer.domain.CustomerId;
+import com.bluetoya.beansontime.subscription.application.exception.InvalidSubscriptionStateChangeException;
 import org.junit.jupiter.api.Test;
 
 public class SubscriptionTest {
@@ -26,7 +28,7 @@ public class SubscriptionTest {
     Subscription subscription = createPausedSubscription();
 
     // when & then
-    assertThatThrownBy(subscription::pause).isInstanceOf(IllegalArgumentException.class);
+    assertThatThrownBy(subscription::pause).isInstanceOf(InvalidSubscriptionStateChangeException.class);
   }
 
   @Test
@@ -47,7 +49,7 @@ public class SubscriptionTest {
     Subscription subscription = createSubscription();
 
     // when & then
-    assertThatThrownBy(subscription::resume).isInstanceOf(IllegalArgumentException.class);
+    assertThatThrownBy(subscription::resume).isInstanceOf(InvalidSubscriptionStateChangeException.class);
   }
 
   @Test

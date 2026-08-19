@@ -35,27 +35,9 @@ public class FindSubscriptionServiceTest {
     given(findSubscriptionPort.find(subscriptionId)).willReturn(expected);
 
     // when
-    SubscriptionQueryResult actual = findSubscriptionService.find(subscriptionId, ownerCustomerId);
+    SubscriptionQueryResult actual = findSubscriptionService.find(subscriptionId);
 
     // then
     assertThat(actual).isEqualTo(expected);
-  }
-
-  @Test
-  void 구독_소유자가_아니면_예외를_던진다() {
-    // given
-    UUID uuid = UUID.randomUUID();
-    SubscriptionId subscriptionId = new SubscriptionId(uuid);
-
-    long ownerCustomerId = 1L;
-    long otherCustomerId = 2L;
-
-    SubscriptionQueryResult result =
-        new SubscriptionQueryResult(uuid, ownerCustomerId, 1L, "ONE_MONTH", 1, "ACTIVE");
-    given(findSubscriptionPort.find(subscriptionId)).willReturn(result);
-
-    // when & then
-    assertThatThrownBy(() -> findSubscriptionService.find(subscriptionId, otherCustomerId))
-        .isInstanceOf(IllegalArgumentException.class);
   }
 }

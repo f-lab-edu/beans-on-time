@@ -28,12 +28,11 @@ public class ResumeSubscriptionServiceTest {
   void 재개된_구독을_저장한다() {
     // given
     ResumeSubscriptionCommand command =
-        new ResumeSubscriptionCommand(new SubscriptionId(UUID.randomUUID()), new CustomerId(1L));
+        new ResumeSubscriptionCommand(new SubscriptionId(UUID.randomUUID()));
     Subscription subscription = createPausedSubscription();
 
     given(
-            ownedSubscriptionLoader.loadOwnedSubscription(
-                command.customerId(), command.subscriptionId()))
+            ownedSubscriptionLoader.load(command.subscriptionId()))
         .willReturn(subscription);
 
     // when

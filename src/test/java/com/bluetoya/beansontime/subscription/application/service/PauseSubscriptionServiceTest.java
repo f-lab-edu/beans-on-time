@@ -27,12 +27,11 @@ public class PauseSubscriptionServiceTest {
   void 일시정지_시킨_구독을_저장한다() {
     // given
     PauseSubscriptionCommand command =
-        new PauseSubscriptionCommand(new SubscriptionId(UUID.randomUUID()), new CustomerId(1L));
+        new PauseSubscriptionCommand(new SubscriptionId(UUID.randomUUID()));
     Subscription subscription = createSubscription();
 
     given(
-            ownedSubscriptionLoader.loadOwnedSubscription(
-                command.customerId(), command.subscriptionId()))
+            ownedSubscriptionLoader.load(command.subscriptionId()))
         .willReturn(subscription);
 
     // when
