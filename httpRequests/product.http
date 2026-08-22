@@ -1,12 +1,11 @@
 @baseUrl = http://localhost:8080
-@sellerId = 1
 
 ### 상품 생성
 POST {{baseUrl}}/products
 Content-Type: application/json
+Authorization: Basic seller1 password1
 
 {
-  "sellerId": {{sellerId}},
   "name": "상품명1",
   "basePrice": 5000
 }

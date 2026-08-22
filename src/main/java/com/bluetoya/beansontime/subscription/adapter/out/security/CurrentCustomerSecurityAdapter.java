@@ -21,7 +21,7 @@ public class CurrentCustomerSecurityAdapter implements CurrentCustomerProvider {
 
         if (actor.type() != ActorType.CUSTOMER) {
             throw new AccessDeniedException(
-                    "Current actor is not a customer"
+                    "해당 사용자는 고객이 아닙니다."
             );
         }
 

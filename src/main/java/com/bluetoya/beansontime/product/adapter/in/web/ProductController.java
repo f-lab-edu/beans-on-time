@@ -26,6 +26,6 @@ public class ProductController {
     }
 
     private RegisterProductCommand toCommand(RegisterProductRequest request) {
-        return new RegisterProductCommand(new SellerId(request.sellerId()), request.name(), new Money(request.basePrice()));
+        return new RegisterProductCommand(request.name(), new Money(request.basePrice()));
     }
 }
