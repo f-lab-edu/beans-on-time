@@ -1,6 +1,6 @@
 package com.bluetoya.beansontime.subscription.application.service;
 
-import com.bluetoya.beansontime.security.annotation.RequireSubscriptionOwner;
+import com.bluetoya.beansontime.security.annotation.RequireOwnership;
 import com.bluetoya.beansontime.subscription.application.port.in.FindSubscriptionQuery;
 import com.bluetoya.beansontime.subscription.application.port.in.SubscriptionQueryResult;
 import com.bluetoya.beansontime.subscription.application.port.out.FindSubscriptionQueryPort;
@@ -14,7 +14,7 @@ public class FindSubscriptionService implements FindSubscriptionQuery {
   private final FindSubscriptionQueryPort findSubscriptionQueryPort;
 
   @Override
-  @RequireSubscriptionOwner
+  @RequireOwnership
   public SubscriptionQueryResult find(SubscriptionId subscriptionId) {
     return findSubscriptionQueryPort.find(subscriptionId);
   }

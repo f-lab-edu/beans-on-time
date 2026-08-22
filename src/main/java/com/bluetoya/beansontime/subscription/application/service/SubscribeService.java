@@ -1,10 +1,10 @@
 package com.bluetoya.beansontime.subscription.application.service;
 
 import com.bluetoya.beansontime.customer.domain.CustomerId;
-import com.bluetoya.beansontime.security.application.CurrentCustomerProvider;
 import com.bluetoya.beansontime.subscription.application.exception.DuplicateSubscriptionException;
 import com.bluetoya.beansontime.subscription.application.port.in.SubscribeCommand;
 import com.bluetoya.beansontime.subscription.application.port.in.SubscribeUseCase;
+import com.bluetoya.beansontime.subscription.application.port.out.CurrentCustomerProvider;
 import com.bluetoya.beansontime.subscription.application.port.out.ExistsSubscriptionPort;
 import com.bluetoya.beansontime.subscription.application.port.out.SaveSubscriptionPort;
 import com.bluetoya.beansontime.subscription.domain.Subscription;

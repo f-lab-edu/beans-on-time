@@ -1,70 +1,122 @@
 package com.bluetoya.beansontime.security.config;
 
 import com.bluetoya.beansontime.security.adapter.springsecurity.AuthenticatedCustomer;
+
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
+
+import com.bluetoya.beansontime.security.adapter.springsecurity.AuthenticatedSeller;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
-import org.springframework.security.config.http.SessionCreationPolicy;
+import org.springframework.security.config.annotation.web.configurers.AuthorizeHttpRequestsConfigurer;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.factory.PasswordEncoderFactories;
 import org.springframework.security.crypto.password.PasswordEncoder;
-import org.springframework.security.web.DefaultSecurityFilterChain;
+import org.springframework.security.web.SecurityFilterChain;
 
 @Configuration
 public class SecurityConfig {
 
-  @Bean
-  PasswordEncoder passwordEncoder() {
-    return PasswordEncoderFactories.createDelegatingPasswordEncoder();
-  }
+    @Bean
+    PasswordEncoder passwordEncoder() {
+        return PasswordEncoderFactories.createDelegatingPasswordEncoder();
+    }
 
-  @Bean
-  UserDetailsService userDetailsService(PasswordEncoder passwordEncoder) {
-    Map<String, AuthenticatedCustomer> customers =
-        Map.of(
-            "customer1",
-            new AuthenticatedCustomer(
-                1L,
-                "customer1",
-                passwordEncoder.encode("password"),
-                List.of(new SimpleGrantedAuthority("ROLE_CUSTOMER"))),
-            "customer2",
-            new AuthenticatedCustomer(
-                2L,
-                "customer2",
-                passwordEncoder.encode("password2"),
-                List.of(new SimpleGrantedAuthority("ROLE_CUSTOMER"))));
+    @Bean
+    UserDetailsService userDetailsService(PasswordEncoder passwordEncoder) {
+        Map<String, UserDetails> users =
+                Map.of(
+                        "customer1",
+                        new AuthenticatedCustomer(
+                                1L,
+                                "customer1",
+                                passwordEncoder.encode("password1"),
+                                List.of(new SimpleGrantedAuthority("ROLE_CUSTOMER"))),
+                        "customer2",
+                        new AuthenticatedCustomer(
+                                2L,
+                                "customer2",
+                                passwordEncoder.encode("password2"),
+                                List.of(new SimpleGrantedAuthority("ROLE_CUSTOMER"))),
+                        "seller1",
+                        new AuthenticatedSeller(
+                                1L,
+                                "seller1",
+                                passwordEncoder.encode("password1"),
+                                List.of(
+                                        new SimpleGrantedAuthority("ROLE_SELLER"))),
+                        "seller2",
+                        new AuthenticatedSeller(
+                                2L,
+                                "seller2",
+                                passwordEncoder.encode("password2"),
+                                List.of(
+                                        new SimpleGrantedAuthority("ROLE_SELLER")))
+                );
 
-    return username -> {
-      AuthenticatedCustomer customer = customers.get(username);
+        return username -> {
+            UserDetails user = users.get(username);
 
-      if (Objects.isNull(customer)) {
-        throw new UsernameNotFoundException("존재하지 않는 고객: " + username);
-      }
+            if (user == null) {
+                throw new UsernameNotFoundException(
+                        "User not found: " + username
+                );
+            }
 
-      return customer;
-    };
-  }
+            return user;
+        };
+    }
 
-  @Bean
-  DefaultSecurityFilterChain securityFilterChain(HttpSecurity http) {
-    return http.csrf(AbstractHttpConfigurer::disable)
-        .sessionManagement(
-            session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-        .authorizeHttpRequests(
-            auth ->
-                auth.requestMatchers("/subscriptions", "/subscriptions/**")
-                    .authenticated()
-                    .anyRequest()
-                    .permitAll())
-        .httpBasic(Customizer.withDefaults())
-        .build();
-  }
+    @Bean
+    SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+        http
+                .csrf(AbstractHttpConfigurer::disable)
+                .authorizeHttpRequests(auth -> {
+                    configureProductAuthorization(auth);
+                    configureSubscriptionAuthorization(auth);
+
+                    auth.anyRequest().permitAll();
+                })
+                .httpBasic(Customizer.withDefaults());
+
+        return http.build();
+    }
+
+    private void configureProductAuthorization(
+            AuthorizeHttpRequestsConfigurer<HttpSecurity>
+                    .AuthorizationManagerRequestMatcherRegistry auth
+    ) {
+        auth
+                .requestMatchers(
+                        HttpMethod.GET,
+                        "/products",
+                        "/products/**"
+                )
+                .permitAll()
+
+                .requestMatchers(
+                        HttpMethod.POST,
+                        "/products"
+                )
+                .hasRole("SELLER");
+    }
+
+    private void configureSubscriptionAuthorization(
+            AuthorizeHttpRequestsConfigurer<HttpSecurity>
+                    .AuthorizationManagerRequestMatcherRegistry auth
+    ) {
+        auth
+                .requestMatchers(
+                        "/subscriptions",
+                        "/subscriptions/**"
+                )
+                .hasRole("CUSTOMER");
+    }
 }

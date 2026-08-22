@@ -9,7 +9,7 @@ import org.springframework.security.core.userdetails.UserDetails;
 
 @RequiredArgsConstructor
 public class AuthenticatedCustomer implements UserDetails {
-  @Getter private final long customerId;
+  @Getter private final long id;
   private final String username;
   private final String password;
   private final Collection<? extends GrantedAuthority> authorities;
