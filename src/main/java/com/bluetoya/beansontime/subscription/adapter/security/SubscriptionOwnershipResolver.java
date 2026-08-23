@@ -17,6 +17,6 @@ public class SubscriptionOwnershipResolver implements OwnershipResolver<Subscrip
     @Override
     public ActorIdentity resolveOwner(Subscription subscription) {
         return new ActorIdentity(ActorType.CUSTOMER,
-                subscription.getCustomerId().id());
+                subscription.getCustomerId().value());
     }
 }

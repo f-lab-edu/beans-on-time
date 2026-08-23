@@ -2,6 +2,6 @@ package com.bluetoya.beansontime.subscription.application.port.in;
 
 import com.bluetoya.beansontime.subscription.domain.SubscriptionId;
 
-public interface FindSubscriptionQuery {
-  SubscriptionQueryResult find(SubscriptionId subscriptionId);
+public interface GetSubscriptionDetailQuery {
+  SubscriptionDetail find(SubscriptionId subscriptionId);
 }

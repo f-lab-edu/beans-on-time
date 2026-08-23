@@ -29,6 +29,6 @@ public class SubscribeService implements SubscribeUseCase {
 
     Subscription subscription = new Subscription(customerId, command.productId(), command.cycle());
     saveSubscriptionPort.save(subscription);
-    return subscription.getSubscriptionId();
+    return subscription.getId();
   }
 }
