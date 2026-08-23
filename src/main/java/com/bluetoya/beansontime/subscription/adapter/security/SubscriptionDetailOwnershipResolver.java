@@ -8,16 +8,13 @@ import org.springframework.stereotype.Component;
 
 @Component
 public class SubscriptionDetailOwnershipResolver implements OwnershipResolver<SubscriptionDetail> {
-    @Override
-    public Class<SubscriptionDetail> targetType() {
-        return SubscriptionDetail.class;
-    }
+  @Override
+  public Class<SubscriptionDetail> targetType() {
+    return SubscriptionDetail.class;
+  }
 
-    @Override
-    public ActorIdentity resolveOwner(SubscriptionDetail result) {
-        return new ActorIdentity(
-                ActorType.CUSTOMER,
-                result.subscriptionInfo().customerId()
-        );
-    }
+  @Override
+  public ActorIdentity resolveOwner(SubscriptionDetail result) {
+    return new ActorIdentity(ActorType.CUSTOMER, result.subscriptionInfo().customerId());
+  }
 }

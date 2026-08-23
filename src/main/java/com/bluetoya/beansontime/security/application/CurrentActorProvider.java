@@ -4,5 +4,5 @@ import com.bluetoya.beansontime.security.model.ActorIdentity;
 
 public interface CurrentActorProvider {
 
-    ActorIdentity getCurrentActor();
+  ActorIdentity getCurrentActor();
 }

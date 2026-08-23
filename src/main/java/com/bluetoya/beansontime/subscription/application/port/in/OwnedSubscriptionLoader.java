@@ -15,6 +15,8 @@ public class OwnedSubscriptionLoader {
 
   @RequireOwnership
   public Subscription load(SubscriptionId subscriptionId) {
-    return loadSubscriptionPort.load(subscriptionId).orElseThrow(() -> new SubscriptionNotFoundException("조회할 수 없습니다."));
+    return loadSubscriptionPort
+        .load(subscriptionId)
+        .orElseThrow(() -> new SubscriptionNotFoundException("조회할 수 없습니다."));
   }
 }

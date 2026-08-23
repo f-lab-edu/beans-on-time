@@ -14,15 +14,15 @@ import org.springframework.stereotype.Service;
 @RequiredArgsConstructor
 public class RegisterProductService implements RegisterProductUseCase {
 
-    private final SaveProductPort saveProductPort;
-    private final CurrentSellerProvider currentSellerIdProvider;
+  private final SaveProductPort saveProductPort;
+  private final CurrentSellerProvider currentSellerIdProvider;
 
-    @Override
-    public ProductId register(RegisterProductCommand command) {
-        SellerId sellerId = currentSellerIdProvider.getCurrentSellerId();
+  @Override
+  public ProductId register(RegisterProductCommand command) {
+    SellerId sellerId = currentSellerIdProvider.getCurrentSellerId();
 
-        Product product = new Product(sellerId, command.name(), command.basePrice());
-        saveProductPort.save(product);
-        return product.getId();
-    }
+    Product product = new Product(sellerId, command.name(), command.basePrice());
+    saveProductPort.save(product);
+    return product.getId();
+  }
 }

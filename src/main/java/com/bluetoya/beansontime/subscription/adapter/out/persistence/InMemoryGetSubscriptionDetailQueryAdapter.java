@@ -2,7 +2,6 @@ package com.bluetoya.beansontime.subscription.adapter.out.persistence;
 
 import com.bluetoya.beansontime.product.adapter.out.persistence.InMemoryProductRepository;
 import com.bluetoya.beansontime.product.domain.Product;
-import com.bluetoya.beansontime.product.domain.ProductId;
 import com.bluetoya.beansontime.subscription.application.exception.SubscriptionNotFoundException;
 import com.bluetoya.beansontime.subscription.application.port.in.ProductAvailability;
 import com.bluetoya.beansontime.subscription.application.port.in.ProductInfo;
@@ -18,39 +17,38 @@ import org.springframework.stereotype.Component;
 @RequiredArgsConstructor
 public class InMemoryGetSubscriptionDetailQueryAdapter implements GetSubscriptionDetailQueryPort {
 
-    private final InMemorySubscriptionRepository subscriptionRepository;
-    private final InMemoryProductRepository productRepository;
+  private final InMemorySubscriptionRepository subscriptionRepository;
+  private final InMemoryProductRepository productRepository;
 
-    public SubscriptionDetail get(SubscriptionId subscriptionId) {
-        Subscription subscription = subscriptionRepository.findById(subscriptionId)
-                .orElseThrow(() -> new SubscriptionNotFoundException("조회할 구독이 존재하지 않습니다."));
+  public SubscriptionDetail get(SubscriptionId subscriptionId) {
+    Subscription subscription =
+        subscriptionRepository
+            .findById(subscriptionId)
+            .orElseThrow(() -> new SubscriptionNotFoundException("조회할 구독이 존재하지 않습니다."));
 
-        ProductInfo productInfo = productRepository.findById(subscription.getProductId())
-                .map(this::toProductInfo)
-                .orElseGet(() -> ProductInfo.toUnavailableProductInfo(subscription.getProductId()));
+    ProductInfo productInfo =
+        productRepository
+            .findById(subscription.getProductId())
+            .map(this::toProductInfo)
+            .orElseGet(() -> ProductInfo.toUnavailableProductInfo(subscription.getProductId()));
 
-        return new SubscriptionDetail(
-                toSubscriptionInfo(subscription),
-                productInfo
-        );
-    }
+    return new SubscriptionDetail(toSubscriptionInfo(subscription), productInfo);
+  }
 
-    private SubscriptionInfo toSubscriptionInfo(Subscription subscription) {
-        return new SubscriptionInfo(
-                subscription.getId().value().toString(),
-                subscription.getCustomerId().value(),
-                subscription.getCycle().getUnit().name(),
-                subscription.getCycle().getInterval(),
-                subscription.getSubscriptionStatus().name()
-        );
-    }
+  private SubscriptionInfo toSubscriptionInfo(Subscription subscription) {
+    return new SubscriptionInfo(
+        subscription.getId().value().toString(),
+        subscription.getCustomerId().value(),
+        subscription.getCycle().getUnit().name(),
+        subscription.getCycle().getInterval(),
+        subscription.getSubscriptionStatus().name());
+  }
 
-    private ProductInfo toProductInfo(Product product) {
-        return new ProductInfo(
-                ProductAvailability.AVAILABLE,
-                product.getId().id(),
-                product.getName(),
-                product.getBasePrice().price()
-        );
-    }
+  private ProductInfo toProductInfo(Product product) {
+    return new ProductInfo(
+        ProductAvailability.AVAILABLE,
+        product.getId().id(),
+        product.getName(),
+        product.getBasePrice().price());
+  }
 }

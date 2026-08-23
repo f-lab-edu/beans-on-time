@@ -12,19 +12,16 @@ import org.springframework.stereotype.Component;
 @Component
 @RequiredArgsConstructor
 public class CurrentCustomerSecurityAdapter implements CurrentCustomerProvider {
-    private final CurrentActorProvider currentActorProvider;
+  private final CurrentActorProvider currentActorProvider;
 
-    @Override
-    public CustomerId getCurrentCustomerId() {
-        ActorIdentity actor =
-                currentActorProvider.getCurrentActor();
+  @Override
+  public CustomerId getCurrentCustomerId() {
+    ActorIdentity actor = currentActorProvider.getCurrentActor();
 
-        if (actor.type() != ActorType.CUSTOMER) {
-            throw new AccessDeniedException(
-                    "해당 사용자는 고객이 아닙니다."
-            );
-        }
-
-        return new CustomerId(actor.id());
+    if (actor.type() != ActorType.CUSTOMER) {
+      throw new AccessDeniedException("해당 사용자는 고객이 아닙니다.");
     }
+
+    return new CustomerId(actor.id());
+  }
 }

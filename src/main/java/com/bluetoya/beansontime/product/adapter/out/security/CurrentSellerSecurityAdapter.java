@@ -12,16 +12,16 @@ import org.springframework.stereotype.Component;
 @Component
 @RequiredArgsConstructor
 public class CurrentSellerSecurityAdapter implements CurrentSellerProvider {
-    private final CurrentActorProvider currentActorProvider;
+  private final CurrentActorProvider currentActorProvider;
 
-    @Override
-    public SellerId getCurrentSellerId() {
-        ActorIdentity actor = currentActorProvider.getCurrentActor();
+  @Override
+  public SellerId getCurrentSellerId() {
+    ActorIdentity actor = currentActorProvider.getCurrentActor();
 
-        if (actor.type() != ActorType.SELLER) {
-            throw new AccessDeniedException("해당 사용자는 판매자가 아닙니다.");
-        }
-
-        return new SellerId(actor.id());
+    if (actor.type() != ActorType.SELLER) {
+      throw new AccessDeniedException("해당 사용자는 판매자가 아닙니다.");
     }
+
+    return new SellerId(actor.id());
+  }
 }

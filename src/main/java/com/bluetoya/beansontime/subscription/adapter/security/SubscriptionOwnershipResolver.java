@@ -9,14 +9,13 @@ import org.springframework.stereotype.Component;
 @Component
 public class SubscriptionOwnershipResolver implements OwnershipResolver<Subscription> {
 
-    @Override
-    public Class<Subscription> targetType() {
-        return Subscription.class;
-    }
+  @Override
+  public Class<Subscription> targetType() {
+    return Subscription.class;
+  }
 
-    @Override
-    public ActorIdentity resolveOwner(Subscription subscription) {
-        return new ActorIdentity(ActorType.CUSTOMER,
-                subscription.getCustomerId().value());
-    }
+  @Override
+  public ActorIdentity resolveOwner(Subscription subscription) {
+    return new ActorIdentity(ActorType.CUSTOMER, subscription.getCustomerId().value());
+  }
 }

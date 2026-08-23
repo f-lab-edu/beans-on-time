@@ -6,18 +6,14 @@ import com.bluetoya.beansontime.subscription.application.port.out.ExistsSubscrip
 import com.bluetoya.beansontime.subscription.application.port.out.LoadSubscriptionPort;
 import com.bluetoya.beansontime.subscription.application.port.out.SaveSubscriptionPort;
 import com.bluetoya.beansontime.subscription.domain.*;
-
 import java.util.Optional;
-
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
 @Component
 @RequiredArgsConstructor
 public class InMemorySubscriptionAdapterQuery
-    implements SaveSubscriptionPort,
-        ExistsSubscriptionPort,
-        LoadSubscriptionPort {
+    implements SaveSubscriptionPort, ExistsSubscriptionPort, LoadSubscriptionPort {
 
   private final InMemorySubscriptionRepository subscriptionRepository;
 
