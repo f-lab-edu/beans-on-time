@@ -1,4 +1,4 @@
-package com.bluetoya.beansontime.security.application;
+package com.bluetoya.beansontime.subscription.application.port.out;
 
 import com.bluetoya.beansontime.customer.domain.CustomerId;
 

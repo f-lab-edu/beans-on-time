@@ -1,0 +1,5 @@
+package com.bluetoya.beansontime.product.application.port.in;
+
+import com.bluetoya.beansontime.product.domain.Money;
+
+public record RegisterProductCommand(String name, Money basePrice) {}

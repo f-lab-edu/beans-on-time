@@ -1,4 +1,4 @@
-package com.bluetoya.beansontime.subscription.domain;
+package com.bluetoya.beansontime.product.domain;
 
 public record ProductId(long id) {
 
@@ -6,5 +6,9 @@ public record ProductId(long id) {
     if (id < 1) {
       throw new IllegalArgumentException("ProductId must be greater than 0");
     }
+  }
+
+  static ProductId generate() {
+    return new ProductId((long) (Math.random() * 1000000000));
   }
 }

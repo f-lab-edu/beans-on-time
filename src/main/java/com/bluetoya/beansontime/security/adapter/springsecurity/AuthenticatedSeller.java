@@ -8,7 +8,7 @@ import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 
 @RequiredArgsConstructor
-public class AuthenticatedCustomer implements UserDetails {
+public class AuthenticatedSeller implements UserDetails {
   @Getter private final long id;
   private final String username;
   private final String password;

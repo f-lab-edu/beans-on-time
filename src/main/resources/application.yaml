@@ -8,3 +8,6 @@ spring:
       lifecycle-management: start_only
       skip:
         in-tests: true
+logging:
+  level:
+    org.springframework.security: TRACE

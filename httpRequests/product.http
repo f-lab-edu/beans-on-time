@@ -1,0 +1,19 @@
+@baseUrl = http://localhost:8080
+
+### 상품 생성
+POST {{baseUrl}}/products
+Content-Type: application/json
+Authorization: Basic seller1 password1
+
+{
+  "name": "상품명1",
+  "basePrice": 5000
+}
+
+> {%
+    client.test("상품 등록 성공", function() {
+        client.assert(response.status === 201, "응답 상태는 201이어야 합니다.");
+    });
+
+    client.global.set("productId", response.body.productId);
+%}

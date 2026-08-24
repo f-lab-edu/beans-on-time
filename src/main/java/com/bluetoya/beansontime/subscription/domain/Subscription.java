@@ -1,6 +1,7 @@
 package com.bluetoya.beansontime.subscription.domain;
 
 import com.bluetoya.beansontime.customer.domain.CustomerId;
+import com.bluetoya.beansontime.product.domain.ProductId;
 import com.bluetoya.beansontime.subscription.application.exception.InvalidSubscriptionStateChangeException;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
@@ -8,22 +9,18 @@ import lombok.RequiredArgsConstructor;
 @Getter
 @RequiredArgsConstructor
 public class Subscription {
-  private final SubscriptionId subscriptionId;
+  private final SubscriptionId id;
   private final CustomerId customerId;
   private final ProductId productId;
   private Cycle cycle;
   private SubscriptionStatus subscriptionStatus;
 
   public Subscription(CustomerId customerId, ProductId productId, Cycle cycle) {
-    this.subscriptionId = SubscriptionId.generate();
+    this.id = SubscriptionId.generate();
     this.customerId = customerId;
     this.productId = productId;
     this.cycle = cycle;
     this.subscriptionStatus = SubscriptionStatus.ACTIVE;
-  }
-
-  public boolean isOwnedBy(CustomerId customerId) {
-    return this.customerId.equals(customerId);
   }
 
   public void pause() {

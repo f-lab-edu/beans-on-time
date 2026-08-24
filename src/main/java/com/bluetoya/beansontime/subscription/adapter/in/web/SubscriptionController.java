@@ -1,9 +1,9 @@
 package com.bluetoya.beansontime.subscription.adapter.in.web;
 
+import com.bluetoya.beansontime.product.domain.ProductId;
 import com.bluetoya.beansontime.subscription.adapter.in.web.request.SubscribeRequest;
-import com.bluetoya.beansontime.subscription.adapter.in.web.response.CycleResponse;
-import com.bluetoya.beansontime.subscription.adapter.in.web.response.FindSubscriptionResponse;
 import com.bluetoya.beansontime.subscription.adapter.in.web.response.SubscribeResponse;
+import com.bluetoya.beansontime.subscription.adapter.in.web.response.SubscriptionDetailResponse;
 import com.bluetoya.beansontime.subscription.application.port.in.*;
 import com.bluetoya.beansontime.subscription.domain.*;
 import java.util.UUID;
@@ -18,11 +18,11 @@ public class SubscriptionController {
   private final SubscribeUseCase subscribeUseCase;
   private final PauseSubscriptionUseCase pauseSubscriptionUseCase;
   private final ResumeSubscriptionUseCase resumeSubscriptionUseCase;
-  private final FindSubscriptionQuery findSubscriptionQuery;
+  private final GetSubscriptionDetailQuery findSubscriptionQuery;
 
   @GetMapping("/{id}")
-  FindSubscriptionResponse find(@PathVariable UUID id) {
-    SubscriptionQueryResult result = findSubscriptionQuery.find(new SubscriptionId(id));
+  SubscriptionDetailResponse find(@PathVariable UUID id) {
+    SubscriptionDetail result = findSubscriptionQuery.find(new SubscriptionId(id));
     return toResponse(result);
   }
 
@@ -50,12 +50,23 @@ public class SubscriptionController {
         new Cycle(CycleUnit.valueOf(request.cycle().unit()), request.cycle().interval()));
   }
 
-  private FindSubscriptionResponse toResponse(SubscriptionQueryResult result) {
-    return new FindSubscriptionResponse(
-        result.subscriptionId(),
-        result.customerId(),
-        result.productId(),
-        new CycleResponse(result.cycleUnit(), result.cycleInterval()),
-        result.status());
+  private SubscriptionDetailResponse toResponse(SubscriptionDetail detail) {
+    return new SubscriptionDetailResponse(
+        toSubscriptionResponse(detail.subscriptionInfo()), toProductResponse(detail.productInfo()));
+  }
+
+  private SubscriptionDetailResponse.SubscriptionResponse toSubscriptionResponse(
+      SubscriptionInfo subscription) {
+    return new SubscriptionDetailResponse.SubscriptionResponse(
+        subscription.subscriptionId(),
+        subscription.customerId(),
+        subscription.cycleUnit(),
+        subscription.cycleInterval(),
+        subscription.status());
+  }
+
+  private SubscriptionDetailResponse.ProductResponse toProductResponse(ProductInfo product) {
+    return new SubscriptionDetailResponse.ProductResponse(
+        product.availability().name(), product.productId(), product.name(), product.basePrice());
   }
 }
