@@ -1,169 +1,173 @@
-# Coding Guidelines
+# 코딩 지침
 
-## Purpose
+## 목적
 
-Code should communicate business intent clearly and remain easy to change.
+코드는 비즈니스 의도를 명확하게 전달하고 변경하기 쉬워야 한다.
 
-Prefer clarity over cleverness.
+영리한 코드보다 명료한 코드를 선호한다.
 
 ---
 
-# Naming
+# 이름
 
-Use names that express business meaning.
+비즈니스 의미를 드러내는 이름을 사용한다.
 
-Prefer:
+다음을 선호한다.
 
+~~~text
 RegisterProductService
 PauseSubscriptionUseCase
 SaveProductPort
 SellerId
+~~~
 
-Avoid vague names such as:
+책임을 실제로 나타내지 않는 한 다음과 같은 모호한 이름을 피한다.
 
+~~~text
 Manager
 Processor
 Helper
 Util
 CommonService
-
-unless the name genuinely represents the responsibility.
-
----
-
-# Business Vocabulary
-
-Use business terminology consistently across:
-
-- Domain classes,
-- Use Cases,
-- Ports,
-- tests,
-- documentation.
-
-When the business says "subscribe", prefer subscribe over create.
-
-When the business says "pause", prefer pause over updateStatus.
+~~~
 
 ---
 
-# Methods
+# 비즈니스 용어
 
-Methods should have one understandable responsibility.
+다음 영역에서 비즈니스 용어를 일관되게 사용한다.
 
-Prefer short orchestration methods whose steps communicate the use case.
+- 도메인 클래스
+- 유즈케이스
+- 포트
+- 테스트
+- 문서
 
-Extract methods when doing so clarifies intent.
+비즈니스에서 “구독한다”라고 표현하면 create보다 subscribe를 사용한다.
 
-Do not extract every small expression merely to reduce line count.
-
----
-
-# State
-
-Prefer immutable state where practical.
-
-Do not expose unrestricted setters on Domain objects.
-
-State changes should preferably occur through meaningful Domain behavior.
+“일시정지한다”라고 표현하면 updateStatus보다 pause를 사용한다.
 
 ---
 
-# Dependencies
+# 메서드
 
-Use constructor injection.
+메서드는 이해할 수 있는 하나의 책임을 가져야 한다.
 
-Dependencies should be explicit.
+각 단계가 유즈케이스를 잘 드러내는 짧은 오케스트레이션 메서드를 선호한다.
 
-Avoid static access to infrastructure from Application or Domain code.
+의도가 더 명확해질 때 메서드를 추출한다.
 
-Framework dependencies must remain in appropriate outer layers.
+단순히 줄 수를 줄이기 위해 모든 작은 표현식을 메서드로 추출하지 않는다.
 
 ---
 
-# Primitive Obsession
+# 상태
 
-Use Domain-specific types when they improve semantics or safety.
+가능하면 불변 상태를 선호한다.
 
-Prefer:
+도메인 객체에 제한 없는 setter를 노출하지 않는다.
 
+상태 변경은 의미 있는 도메인 행위로 수행한다.
+
+---
+
+# 의존성
+
+생성자 주입을 사용한다.
+
+의존성을 명시적으로 표현한다.
+
+애플리케이션 또는 도메인 코드에서 인프라스트럭처에 정적으로 접근하지 않는다.
+
+프레임워크 의존성은 적절한 외부 계층에 둔다.
+
+---
+
+# 기본 타입 남용
+
+도메인 의미나 타입 안전성을 높인다면 도메인 전용 타입을 사용한다.
+
+다음을 선호한다.
+
+~~~text
 SellerId
 CustomerId
 ProductId
+~~~
 
-over passing unrelated long values throughout business code.
+관련 없는 여러 long 값을 코드 전반에 전달하지 않는다.
 
-Do not wrap primitives when the wrapper adds no useful domain meaning.
-
----
-
-# Abstraction
-
-Do not generalize based only on similar code.
-
-Ask whether two concepts share the same semantics and change reasons.
-
-Prefer temporary duplication over an incorrect abstraction.
-
-Avoid generic frameworks created solely for possible future reuse.
+단순 값을 감싼 타입이 도메인 의미를 추가하지 않는다면 값 객체를 만들지 않는다.
 
 ---
 
-# Comments
+# 추상화
 
-Code should primarily explain itself through naming and structure.
+코드 모양이 비슷하다는 이유만으로 일반화하지 않는다.
 
-Use comments to explain:
+두 개념이 같은 의미와 변경 이유를 공유하는지 확인한다.
 
-- why a non-obvious decision exists,
-- architectural constraints,
-- important trade-offs,
-- temporary limitations.
+잘못된 추상화보다 일시적인 중복을 선호한다.
 
-Do not use comments to restate obvious implementation details.
+미래 재사용 가능성만을 위해 범용 프레임워크를 만들지 않는다.
 
 ---
 
-# Scope of Changes
+# 주석
 
-Keep changes focused on the requested task.
+코드는 이름과 구조를 통해 스스로 설명하는 것을 우선한다.
 
-Avoid unrelated cleanup while implementing a feature.
+주석은 다음 내용을 설명할 때 사용한다.
 
-Large refactors should be intentional and separately reviewable when practical.
+- 명확하지 않은 결정을 내린 이유
+- 아키텍처 제약
+- 중요한 절충점
+- 일시적인 제한
 
-Do not silently replace an established project convention with a new one.
-
----
-
-# Error Handling
-
-Use exceptions that communicate business meaning.
-
-Avoid broad catch blocks unless recovery or translation is intentional.
-
-Do not swallow exceptions.
-
-Do not introduce generic exception hierarchies without demonstrated value.
+코드가 이미 명확히 보여주는 구현 내용을 주석으로 반복하지 않는다.
 
 ---
 
-# Framework Usage
+# 변경 범위
 
-Framework convenience must not override architectural boundaries.
+요청한 작업에 변경 범위를 집중한다.
 
-Do not expose Spring Security types to the Domain.
+기능을 구현하면서 관련 없는 정리를 하지 않는다.
 
-Do not add persistence annotations to Domain models merely for adapter convenience.
+큰 리팩터링은 의도적으로 수행하고, 가능하면 별도로 검토할 수 있게 한다.
 
-Do not introduce a framework dependency when plain Java can express the Domain concept.
+정착된 프로젝트 관례를 설명 없이 새로운 방식으로 바꾸지 않는다.
 
 ---
 
-# Simplicity
+# 오류 처리
 
-Implement the smallest coherent solution that satisfies the current requirement.
+비즈니스 의미를 전달하는 예외를 사용한다.
 
-Do not design for imaginary future features.
+복구 또는 변환 의도가 명확하지 않다면 넓은 범위의 catch를 피한다.
 
-Allow the architecture to evolve as real requirements reveal new boundaries.
+예외를 무시하지 않는다.
+
+실제 필요가 입증되지 않은 범용 예외 계층을 도입하지 않는다.
+
+---
+
+# 프레임워크 사용
+
+프레임워크 편의 기능 때문에 아키텍처 경계를 훼손하지 않는다.
+
+Spring Security 타입을 도메인에 노출하지 않는다.
+
+어댑터의 편의를 위해 도메인 모델에 영속성 어노테이션을 추가하지 않는다.
+
+순수 Java로 표현할 수 있는 개념에 프레임워크 의존성을 도입하지 않는다.
+
+---
+
+# 단순성
+
+현재 요구사항을 만족하는 가장 작고 일관된 해결책을 구현한다.
+
+상상한 미래 기능을 위해 설계하지 않는다.
+
+실제 요구사항이 새로운 경계를 드러낼 때 아키텍처가 발전하도록 한다.

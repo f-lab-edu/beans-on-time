@@ -1,188 +1,192 @@
-# Testing Strategy
+# 테스트 전략
 
-## Purpose
+## 목적
 
-Tests are part of the project's design feedback loop.
+테스트는 프로젝트 설계에 피드백을 주는 수단이다.
 
-Tests should verify meaningful behavior while respecting architectural boundaries.
+아키텍처 경계를 존중하면서 의미 있는 동작을 검증한다.
 
-Do not pursue coverage numbers at the expense of useful tests.
-
----
-
-# Domain Unit Tests
-
-Domain tests should use real Domain objects.
-
-Do not mock the Aggregate under test.
-
-Test:
-
-- invariants,
-- state transitions,
-- Value Object validation,
-- Domain behavior.
-
-Example:
-
-Given an ACTIVE Subscription
-When pause() is called
-Then the Subscription becomes PAUSED
-
-Also verify invalid transitions.
+유용한 테스트를 희생하면서 커버리지 수치만 높이지 않는다.
 
 ---
 
-# Application Unit Tests
+# 도메인 단위 테스트
 
-Application tests should verify use-case orchestration.
+도메인 테스트에서는 실제 도메인 객체를 사용한다.
 
-Prefer:
+테스트 대상 애그리거트를 mock 객체로 대체하지 않는다.
 
-- real Domain objects,
-- mocked Output Ports and external collaborators.
+다음을 테스트한다.
 
-Typical checks include:
+- 불변식
+- 상태 전이
+- 값 객체 검증
+- 도메인 행위
 
-- correct Domain behavior is triggered,
-- expected object is persisted,
-- query result is returned,
-- required collaborator is invoked.
+예:
 
-Do not mock Domain behavior merely to make an Application Service test easier.
+~~~text
+Given ACTIVE 상태의 구독
+When pause()를 호출
+Then 구독은 PAUSED가 된다
+~~~
 
----
-
-# Query Tests
-
-Queries should primarily verify returned data.
-
-Do not assert only that a mocked port was called if the Query's observable contract is its
-return value.
-
-If a query combines multiple data sources, verify the resulting projection.
+잘못된 상태 전이도 검증한다.
 
 ---
 
-# Adapter Tests
+# 애플리케이션 단위 테스트
 
-Adapters should be tested when they contain meaningful behavior such as:
+애플리케이션 테스트는 유즈케이스의 오케스트레이션을 검증한다.
 
-- HTTP mapping,
-- persistence mapping,
-- SecurityContext translation,
-- serialization,
-- external API mapping.
+다음을 선호한다.
 
-Simple delegation does not automatically require extensive tests.
+- 실제 도메인 객체
+- mock으로 대체한 출력 포트와 외부 협력 객체
 
----
+일반적으로 다음 내용을 확인한다.
 
-# Security Tests
+- 올바른 도메인 행위가 실행되는가
+- 예상한 객체가 저장되는가
+- 조회 결과가 반환되는가
+- 필요한 협력 객체가 호출되는가
 
-SecurityCurrentCustomerProvider and SecurityCurrentSellerProvider may be tested without a
-full Spring Context by setting SecurityContextHolder directly.
-
-Always clear SecurityContextHolder after tests.
-
-Verify at minimum:
-
-- valid principal returns the expected Domain identifier,
-- missing or incompatible authentication produces the expected authentication failure.
+애플리케이션 서비스 테스트를 쉽게 만들기 위해 도메인 행위를 mock 객체로 대체하지 않는다.
 
 ---
 
-# AOP Authorization Tests
+# 조회 테스트
 
-Separate authorization logic testing from Spring AOP wiring testing.
+조회는 반환한 데이터를 중심으로 검증한다.
 
-## Authorization Logic Test
+조회 결과가 관찰 가능한 계약이라면 mock 포트 호출 여부만 검증하지 않는다.
 
-The Aspect advice may be directly invoked to verify:
+여러 데이터 소스를 조합하는 조회라면 최종 조회 모델을 검증한다.
 
-- owner succeeds,
-- non-owner receives AccessDeniedException.
+---
 
-This validates authorization logic.
+# 어댑터 테스트
 
-## Proxy Wiring Test
+어댑터가 다음과 같은 의미 있는 동작을 포함하면 테스트한다.
 
-When necessary, add a small Spring test proving:
+- HTTP 매핑
+- 영속성 매핑
+- SecurityContext 변환
+- 직렬화
+- 외부 API 매핑
 
-annotation
-→ Spring proxy
+단순 위임 코드라는 이유만으로 광범위한 테스트를 만들지 않는다.
+
+---
+
+# 보안 테스트
+
+SecurityCurrentCustomerProvider와 SecurityCurrentSellerProvider는 전체 Spring Context 없이
+SecurityContextHolder를 직접 설정하여 테스트할 수 있다.
+
+테스트 후에는 반드시 SecurityContextHolder를 비운다.
+
+최소한 다음을 검증한다.
+
+- 올바른 인증 주체에서 예상한 도메인 식별자를 반환한다.
+- 인증 정보가 없거나 호환되지 않으면 예상한 인증 실패가 발생한다.
+
+---
+
+# AOP 인가 테스트
+
+인가 로직 테스트와 Spring AOP 연결 테스트를 분리한다.
+
+## 인가 로직 테스트
+
+Aspect advice를 직접 호출하여 다음을 검증할 수 있다.
+
+- 소유자는 성공한다.
+- 소유자가 아니면 AccessDeniedException이 발생한다.
+
+이 테스트는 인가 로직을 검증한다.
+
+## 프록시 연결 테스트
+
+필요하면 다음 연결을 증명하는 작은 Spring 테스트를 추가한다.
+
+~~~text
+어노테이션
+→ Spring 프록시
 → Aspect advice
-→ authorization result
+→ 인가 결과
+~~~
 
-Do not use a full application context if a smaller configuration can prove the wiring.
+전체 애플리케이션 연결을 검증할 필요가 없다면 전체 Context를 사용하지 않는다.
 
 ---
 
-# Given / When / Then
+# Given / When / Then 구조
 
-Prefer tests structured conceptually as:
+테스트는 개념적으로 다음 구조를 선호한다.
 
+~~~text
 Given
 When
 Then
+~~~
 
-The structure should emphasize scenario behavior rather than framework implementation.
-
----
-
-# Assertions
-
-Prefer assertions on observable results and state.
-
-Use interaction verification when the interaction itself is part of the contract.
-
-Examples where verification may be useful:
-
-- an Aggregate must be saved after a successful command,
-- an external side effect must occur exactly once.
-
-Avoid excessive verify() calls that couple tests to internal implementation structure.
+구조는 프레임워크 구현보다 시나리오의 동작을 강조해야 한다.
 
 ---
 
-# Fixtures
+# 단언
 
-Shared fixtures may reduce repetitive object construction.
+관찰 가능한 결과와 상태를 우선하여 단언한다.
 
-A fixture should return a new Aggregate instance for each test.
+상호작용 자체가 계약일 때 상호작용 검증을 사용한다.
 
-Avoid shared mutable static Domain objects.
+검증이 유용한 예:
 
-Prefer simple fixture methods over complex test-builder frameworks unless test setup
-actually becomes difficult to manage.
+- 성공한 명령 이후 애그리거트를 반드시 저장해야 한다.
+- 외부 부수 효과가 정확히 한 번 발생해야 한다.
 
----
-
-# Test Scope
-
-Use the smallest test scope that proves the behavior.
-
-Prefer:
-
-Domain unit test
-→ Application unit test
-→ focused adapter/integration test
-
-before defaulting to:
-
-@SpringBootTest
-
-Full-context tests are useful only when the full application wiring is what needs to be
-verified.
+내부 구현 구조에 테스트를 결합하는 과도한 verify() 호출을 피한다.
 
 ---
 
-# Completion Rule
+# 픽스처
 
-When production behavior changes:
+공유 픽스처는 반복되는 객체 생성을 줄일 수 있다.
 
-- add or update relevant tests,
-- run targeted tests during implementation,
-- run the broader relevant test suite before completion.
+픽스처는 각 테스트마다 새로운 애그리거트 인스턴스를 반환해야 한다.
 
-Do not claim tests pass unless they were actually executed successfully.
+변경 가능한 static 도메인 객체를 공유하지 않는다.
+
+테스트 준비가 실제로 복잡해지기 전에는 복잡한 Test Builder보다 단순한 픽스처 메서드를
+선호한다.
+
+---
+
+# 테스트 범위
+
+동작을 증명할 수 있는 가장 작은 테스트 범위를 사용한다.
+
+다음 순서를 우선한다.
+
+~~~text
+도메인 단위 테스트
+→ 애플리케이션 단위 테스트
+→ 범위가 제한된 어댑터 또는 통합 테스트
+~~~
+
+기본적으로 전체 SpringBootTest를 사용하지 않는다.
+
+전체 Context 연결 자체가 검증 대상일 때만 전체 Context 테스트를 사용한다.
+
+---
+
+# 완료 규칙
+
+프로덕션 동작을 변경하면 다음을 수행한다.
+
+- 관련 테스트를 추가하거나 수정한다.
+- 구현 중에는 대상 테스트를 실행한다.
+- 완료 전에는 관련된 더 넓은 테스트 모음을 실행한다.
+
+실제로 실행하지 않은 테스트를 통과했다고 보고하지 않는다.

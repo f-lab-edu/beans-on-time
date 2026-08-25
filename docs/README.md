@@ -1,91 +1,130 @@
-# Architecture Decision Records
+# 프로젝트 문서
 
-## Purpose
+## 문서 목록
 
-Architecture Decision Records document significant technical and architectural decisions
-made during the evolution of Beans on Time.
+- `architecture.md` — 헥사고날 아키텍처, 의존 방향, 포트와 CQS
+- `domain-model.md` — 애그리거트 경계와 도메인 소유권 개요
+- `subscription.md` — 구독 확정 규칙, 결정 이유, 상품·청구·배송 후속 논의
+- `coding-guidelines.md` — 코드 작성 원칙
+- `testing.md` — 테스트 전략
+- `adr/security.md` — 인증, 인가, 소유권 인가 결정
 
-ADRs explain why an important decision was made, not merely what the current code looks
-like.
+구독, 상품, 청구, 배송 관련 작업 전에는 `subscription.md`를 반드시 확인한다.
 
----
+## 도메인 컨텍스트 상태
 
-# When to Create an ADR
+도메인 설계 문서는 다음 세 상태를 명확히 구분한다.
 
-Consider an ADR when a decision affects areas such as:
+### 확정된 규칙
 
-- architectural boundaries,
-- persistence strategy,
-- database technology,
-- framework adoption,
-- communication between domains,
-- consistency guarantees,
-- concurrency strategy,
-- security architecture,
-- major testing strategy,
-- technology replacement or migration.
+현재 코드와 테스트가 반드시 따라야 하는 규칙이다. 새 요구사항이 확정된 규칙과
+충돌하면 기존 규칙을 조용히 덮어쓰지 않고 충돌 내용과 선택지를 보고한다.
 
-Do not create ADRs for routine implementation details.
+### 결정 이유
 
----
+현재 구조를 선택한 핵심 이유다. 모든 결정을 ADR로 만들지는 않지만, 향후 잘못
+단순화하거나 되돌리기 쉬운 결정에는 짧은 이유를 함께 기록한다.
 
-# ADR Lifecycle
+### 후속 논의 대상
 
-An accepted ADR represents a historical decision.
+필요성이나 문제가 발견되었지만 정책과 구현 방식을 확정하지 않은 항목이다. 현재 구현
+요구사항이 아니며, 명시적인 요청 없이 코드·열거형·필드·인터페이스·정책·전략·이벤트·
+어댑터·DB 스키마·범용 추상화를 선제적으로 추가하지 않는다.
 
-Do not rewrite an existing ADR simply because the architecture later changes.
-
-If a previous decision is replaced:
-
-1. create a new ADR,
-2. explain the new context and decision,
-3. reference the previous ADR,
-4. mark the previous ADR as superseded when appropriate.
-
-The decision history is valuable.
+새 정책이 실제로 확정될 때만 해당 항목을 “후속 논의 대상”에서 “확정된 규칙”으로
+옮기고, 중요한 결정이면 이유를 함께 기록한다.
 
 ---
 
-# Recommended Format
+# 아키텍처 결정 기록
 
-Each ADR should contain:
+## 목적
 
-# ADR-NNN: Title
+아키텍처 결정 기록(ADR)은 Beans on Time이 발전하는 과정에서 이루어진 중요한 기술적,
+아키텍처적 결정을 기록한다.
 
-## Status
-
-Proposed / Accepted / Superseded / Deprecated
-
-## Context
-
-Describe the problem, constraints, and forces that require a decision.
-
-## Decision
-
-Describe the chosen approach.
-
-## Alternatives Considered
-
-Describe meaningful alternatives that were evaluated.
-
-## Consequences
-
-Describe positive and negative consequences, including trade-offs.
-
-## References
-
-Reference related ADRs, issues, documentation, or implementation when useful.
+ADR은 현재 코드의 모습만 적는 문서가 아니라 중요한 결정을 내린 이유를 설명한다.
 
 ---
 
-# Decision Quality
+# ADR을 작성할 시점
 
-An ADR should answer:
+다음 영역에 영향을 주는 결정은 ADR 작성을 검토한다.
 
-- What problem were we solving?
-- Why was a decision necessary?
-- What alternatives existed?
-- Why did we choose this option?
-- What trade-offs did we knowingly accept?
+- 아키텍처 경계
+- 영속성 전략
+- 데이터베이스 기술
+- 프레임워크 도입
+- 도메인 간 통신
+- 일관성 보장
+- 동시성 전략
+- 보안 아키텍처
+- 주요 테스트 전략
+- 기술 교체 또는 마이그레이션
 
-Avoid turning ADRs into detailed implementation manuals.
+일상적인 구현 세부사항을 ADR로 만들지 않는다.
+
+---
+
+# ADR 생명주기
+
+승인된 ADR은 과거의 결정을 나타낸다.
+
+아키텍처가 나중에 변경되었다는 이유로 기존 ADR을 다시 작성하지 않는다.
+
+기존 결정을 대체한다면 다음 절차를 따른다.
+
+1. 새 ADR을 작성한다.
+2. 새로운 맥락과 결정을 설명한다.
+3. 이전 ADR을 참조한다.
+4. 필요하면 이전 ADR을 대체됨 상태로 표시한다.
+
+결정의 이력 자체가 중요한 정보다.
+
+---
+
+# 권장 형식
+
+각 ADR에는 다음 내용을 포함한다.
+
+```text
+# ADR-NNN: 제목
+
+## 상태
+
+제안 / 승인 / 대체됨 / 폐기됨
+
+## 맥락
+
+결정이 필요했던 문제, 제약과 영향 요인을 설명한다.
+
+## 결정
+
+선택한 접근 방법을 설명한다.
+
+## 검토한 대안
+
+검토한 의미 있는 대안을 설명한다.
+
+## 결과
+
+장점과 단점을 포함하여 결정으로 생기는 결과와 절충점을 설명한다.
+
+## 참고
+
+필요하면 관련 ADR, 이슈, 문서 또는 구현을 참조한다.
+```
+
+---
+
+# 결정의 품질
+
+ADR은 다음 질문에 답해야 한다.
+
+- 어떤 문제를 해결하려 했는가?
+- 왜 결정이 필요했는가?
+- 어떤 대안이 있었는가?
+- 왜 이 방식을 선택했는가?
+- 어떤 절충점을 의도적으로 받아들였는가?
+
+ADR을 상세 구현 설명서로 만들지 않는다.

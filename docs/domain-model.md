@@ -1,77 +1,91 @@
-# Domain Model
+# 도메인 모델
 
-## Purpose
+## 목적
 
-This document records the current Domain model and Aggregate boundaries of Beans on Time.
+이 문서는 Beans on Time의 현재 도메인 모델과 애그리거트 경계를 기록한다.
 
-The model should evolve with actual business requirements.
+도메인 모델은 실제 비즈니스 요구사항에 따라 발전해야 한다.
 
-Do not treat this document as justification for speculative modeling.
+추측에 기반한 모델링을 정당화하는 문서로 사용하지 않는다.
+
+상세 도메인 문서는 `docs/README.md`에 정의한 “확정된 규칙”, “결정 이유”, “후속 논의
+대상”을 구분한다.
 
 ---
 
-# Subscription
+# 구독
 
-Subscription is an Aggregate Root representing a Customer's recurring coffee delivery
-subscription.
+`Subscription`은 고객의 반복적인 커피 배송 구독을 표현하는 애그리거트 루트다.
 
-Current concepts include:
+현재 주요 개념은 다음과 같다.
 
 - SubscriptionId
 - CustomerId
 - ProductId
 - Cycle
+- SubscriptionPeriod
+- BillingAnchorDay
 - SubscriptionStatus
+- SubscriptionSuspensionReason
 
-Subscription owns its lifecycle and state transitions.
+구독은 자신의 생명주기와 상태 전이를 소유한다.
 
-Current state behavior includes:
+생명주기 상태는 다음 세 값이다.
 
-ACTIVE → PAUSED
-PAUSED → ACTIVE
+- ACTIVE
+- PAUSED
+- CANCELLED
 
-Business operations should be expressed through behavior-oriented methods.
+CANCELLED는 최종 생명주기 상태다. 생명주기 상태와 실행 차단 사유 집합은 서로 독립적인
+상태 축이다. 구독 회차, 청구 일정, 납품 주기도 서로 다른 시간 개념이다.
 
-Examples:
+구독의 상세한 확정 규칙은 `docs/subscription.md`에 기록한다. 구독 또는 관련 상품,
+청구, 배송 동작을 변경하기 전에 해당 문서를 읽는다. 문서는 확정된 규칙, 결정 이유,
+아직 결정되지 않은 후속 논의 대상을 구분한다.
 
+비즈니스 동작은 행위 중심 메서드로 표현한다.
+
+예:
+
+~~~java
 subscription.pause();
 subscription.resume();
+~~~
 
-Invalid transitions should be rejected by the Domain.
+잘못된 상태 전이는 도메인에서 거부한다.
 
 ---
 
-## Subscription References
+## 구독의 참조
 
-Customer and Product have independent lifecycles.
+고객과 상품은 서로 독립적인 생명주기를 가진다.
 
-Subscription therefore keeps references using identifiers.
+따라서 구독은 식별자를 사용해 이들을 참조한다.
 
-Subscription must not contain Customer or Product Aggregate objects.
+`Subscription` 안에 `Customer` 또는 `Product` 애그리거트 객체를 포함하지 않는다.
 
-Example:
+예:
 
+~~~text
 Subscription
 - CustomerId
 - ProductId
+~~~
 
 ---
 
-# Product
+# 상품
 
-Product is an Aggregate Root representing a coffee product offered by a Seller.
+`Product`는 판매자가 제공하는 커피 상품을 표현하는 애그리거트 루트다.
 
-Product is owned and managed by a Seller while being publicly visible to Customers.
+상품은 판매자가 소유하고 관리하며 고객에게 공개된다.
 
-Current minimum use cases:
+현재 최소 유즈케이스는 다음과 같다.
 
-- Product registration
-- Public single Product query
+- 상품 등록
+- 공개 단건 상품 조회
 
-Initial Product modeling should remain minimal and expand only when real requirements
-appear.
-
-Potential concepts include:
+현재 주요 개념은 다음과 같다.
 
 - ProductId
 - SellerId
@@ -80,88 +94,89 @@ Potential concepts include:
 - Price
 - ProductStatus
 - ProductImage
-- supported grind types
-- size options
+- 지원하는 분쇄 방식
+- 크기 선택지
 
-Do not introduce all potential concepts before they are required.
+현재 `ProductStatus`는 판매 생명주기인 `ACTIVE`와 `INACTIVE`를 가진다.
 
----
-
-## Product Ownership
-
-A Product belongs to a Seller.
-
-The Product Aggregate references the Seller using SellerId.
-
-SellerId must represent a Seller domain identity rather than a Security concept.
-
-Product registration must derive SellerId from the authenticated Seller rather than trust
-a SellerId submitted by a client.
+`ProductStatus`는 상품 납품 가능 상태가 아니다. 납품 가능 상태는
+`docs/subscription.md`에 후속 논의 대상으로 기록한다. 상품 모델은 최소한으로
+유지하고 실제 요구사항이 생길 때 확장한다.
 
 ---
 
-## Product Query
+## 상품 소유권
 
-Product information may be publicly queried.
+상품은 판매자에게 속한다.
 
-A public Product query does not require Product ownership authorization.
+상품 애그리거트는 `SellerId`를 사용해 판매자를 참조한다.
 
-Seller ownership authorization should be introduced when a use case such as Product
-modification requires it.
+`SellerId`는 보안 개념이 아니라 판매자 도메인 식별자를 표현해야 한다.
 
----
-
-# Customer
-
-Customer represents the customer business concept.
-
-CustomerId belongs to the Customer domain even when Subscription or Security uses it.
-
-A complete Customer Aggregate does not need to exist merely because CustomerId exists.
+상품 등록 시 클라이언트가 제출한 `SellerId`를 신뢰하지 않고 인증된 판매자로부터
+`SellerId`를 가져온다.
 
 ---
 
-# Seller
+## 상품 조회
 
-Seller represents the seller business concept.
+상품 정보는 공개적으로 조회할 수 있다.
 
-SellerId belongs to the Seller domain.
+공개 상품 조회에는 상품 소유권 인가가 필요하지 않다.
 
-A complete Seller Aggregate should be introduced only when Seller-specific business
-behavior requires one.
+상품 수정처럼 판매자가 소유한 변경 유즈케이스가 생길 때 판매자 소유권 인가를
+도입한다.
 
 ---
 
-# Value Objects
+# 고객
 
-Use Value Objects when a value has domain meaning, validation, or type-safety value.
+`Customer`는 고객이라는 비즈니스 개념을 표현한다.
 
-Current examples include:
+구독이나 보안이 사용하더라도 `CustomerId`는 고객 도메인에 속한다.
+
+`CustomerId`가 존재한다는 이유만으로 완전한 고객 애그리거트를 만들 필요는 없다.
+
+---
+
+# 판매자
+
+`Seller`는 판매자라는 비즈니스 개념을 표현한다.
+
+`SellerId`는 판매자 도메인에 속한다.
+
+판매자 고유 비즈니스 행위가 필요할 때만 완전한 판매자 애그리거트를 도입한다.
+
+---
+
+# 값 객체
+
+값에 도메인 의미, 검증 또는 타입 안전성의 이점이 있으면 값 객체를 사용한다.
+
+현재 예:
 
 - SubscriptionId
 - ProductId
 - CustomerId
 - SellerId
 - Cycle
-
-Possible future example:
-
 - Money
 
-Value Objects should normally be immutable.
+값 객체는 일반적으로 불변이어야 한다.
 
-Java records are appropriate when they clearly express the domain concept.
+Java record가 도메인 개념을 명확하게 표현한다면 사용할 수 있다.
 
-Do not create a Value Object solely to wrap every primitive.
+모든 기본 타입을 감싸기 위해 값 객체를 만들지 않는다.
 
-Introduce one when it provides meaningful domain semantics or protects an invariant.
+의미 있는 도메인 의미를 제공하거나 불변식을 보호할 때 도입한다.
 
 ---
 
-# Identity Ownership
+# 식별자 소유권
 
-Place identifiers in the domain that owns their meaning.
+식별자는 해당 의미를 소유하는 도메인에 둔다.
 
+~~~text
 CustomerId
 → customer.domain
 
@@ -173,54 +188,60 @@ ProductId
 
 SubscriptionId
 → subscription.domain
+~~~
 
-The package of the current consumer does not determine ownership.
+현재 소비하는 코드의 패키지가 식별자의 소유권을 결정하지 않는다.
 
-Ask:
+다음 질문을 기준으로 판단한다.
 
-"What concept does this type represent?"
+> 이 타입은 어떤 개념을 표현하는가?
 
-rather than:
+다음 질문을 기준으로 판단하지 않는다.
 
-"Which class currently uses this type?"
+> 현재 어떤 클래스가 이 타입을 사용하는가?
 
 ---
 
-# Domain Exceptions
+# 도메인 예외
 
-Exceptions representing a Domain invariant or invalid state transition belong close to
-the Domain.
+도메인 불변식이나 잘못된 상태 전이를 나타내는 예외는 도메인 가까이에 둔다.
 
-Example:
+예:
 
-InvalidSubscriptionStateTransitionException
+~~~text
+InvalidSubscriptionStateChangeException
+InvalidSubscriptionPausePeriodException
+InvalidSubscriptionResumeDateException
+~~~
 
-Application-level failures such as resource absence or use-case conflicts may belong to
-the Application layer.
+리소스 부재나 유즈케이스 충돌 같은 애플리케이션 수준 실패는 애플리케이션 계층에 둘 수
+있다.
 
-Examples:
+예:
 
+~~~text
 SubscriptionNotFoundException
 DuplicateSubscriptionException
 ProductNotFoundException
+~~~
 
-Do not create generic business exception hierarchies until an actual need appears.
+실제 필요가 생기기 전에는 범용 비즈니스 예외 계층을 만들지 않는다.
 
 ---
 
-# Modeling Principles
+# 모델링 원칙
 
-Prefer behavior-rich models where meaningful Domain behavior exists.
+의미 있는 도메인 행위가 있다면 행위가 풍부한 모델을 선호한다.
 
-Avoid anemic modeling caused by moving every business rule into Application Services.
+모든 비즈니스 규칙을 애플리케이션 서비스로 옮겨 빈약한 도메인 모델을 만들지 않는다.
 
-At the same time, do not force simple data concepts to contain artificial behavior merely
-to appear object-oriented.
+반대로 단순 데이터 개념을 객체 지향적으로 보이게 만들기 위해 인위적인 행위를
+강제하지 않는다.
 
-Use Aggregate boundaries to define consistency boundaries.
+애그리거트 경계를 일관성 경계로 사용한다.
 
-Use identities across Aggregate boundaries.
+애그리거트 사이에서는 식별자를 사용한다.
 
-Allow Query models to differ from Domain models.
+조회 모델은 도메인 모델과 다른 구조를 가질 수 있다.
 
-Keep the Domain model independent from persistence representation.
+도메인 모델을 영속성 표현으로부터 독립적으로 유지한다.
