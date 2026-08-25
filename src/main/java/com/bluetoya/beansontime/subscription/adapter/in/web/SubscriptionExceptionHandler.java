@@ -14,7 +14,7 @@ public class SubscriptionExceptionHandler {
   ProblemDetail handleSubscriptionNotFound(SubscriptionNotFoundException exception) {
     ProblemDetail problem = ProblemDetail.forStatus(HttpStatus.NOT_FOUND);
 
-    problem.setTitle(exception.toString());
+    problem.setTitle("구독을 찾을 수 없음");
     problem.setDetail(exception.getMessage());
 
     return problem;
@@ -24,7 +24,7 @@ public class SubscriptionExceptionHandler {
   ProblemDetail handleDuplicateSubscription(DuplicateSubscriptionException exception) {
     ProblemDetail problem = ProblemDetail.forStatus(HttpStatus.CONFLICT);
 
-    problem.setTitle(exception.toString());
+    problem.setTitle("중복 구독");
     problem.setDetail(exception.getMessage());
 
     return problem;
@@ -34,7 +34,7 @@ public class SubscriptionExceptionHandler {
   ProblemDetail handleInvalidSubscriptionState(InvalidSubscriptionStateChangeException exception) {
     ProblemDetail problem = ProblemDetail.forStatus(HttpStatus.CONFLICT);
 
-    problem.setTitle(exception.toString());
+    problem.setTitle("구독 상태 변경 불가");
     problem.setDetail(exception.getMessage());
 
     return problem;
