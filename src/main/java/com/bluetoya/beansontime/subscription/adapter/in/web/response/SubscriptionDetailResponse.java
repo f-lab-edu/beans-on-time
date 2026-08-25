@@ -6,5 +6,6 @@ public record SubscriptionDetailResponse(
   public record SubscriptionResponse(
       String subscriptionId, long customerId, String cycleUnit, int cycleInterval, String status) {}
 
-  public record ProductResponse(String availability, long productId, String name, int basePrice) {}
+  public record ProductResponse(
+      String availability, long productId, String name, Integer basePrice) {}
 }

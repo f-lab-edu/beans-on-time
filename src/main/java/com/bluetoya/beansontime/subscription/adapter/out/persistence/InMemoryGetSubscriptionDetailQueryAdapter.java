@@ -1,10 +1,10 @@
 package com.bluetoya.beansontime.subscription.adapter.out.persistence;
 
 import com.bluetoya.beansontime.product.adapter.out.persistence.InMemoryProductRepository;
+import com.bluetoya.beansontime.product.application.port.in.ProductAvailability;
+import com.bluetoya.beansontime.product.application.port.in.ProductInfo;
 import com.bluetoya.beansontime.product.domain.Product;
 import com.bluetoya.beansontime.subscription.application.exception.SubscriptionNotFoundException;
-import com.bluetoya.beansontime.subscription.application.port.in.ProductAvailability;
-import com.bluetoya.beansontime.subscription.application.port.in.ProductInfo;
 import com.bluetoya.beansontime.subscription.application.port.in.SubscriptionDetail;
 import com.bluetoya.beansontime.subscription.application.port.in.SubscriptionInfo;
 import com.bluetoya.beansontime.subscription.application.port.out.GetSubscriptionDetailQueryPort;
