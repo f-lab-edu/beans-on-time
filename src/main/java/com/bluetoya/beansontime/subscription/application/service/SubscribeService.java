@@ -9,6 +9,8 @@ import com.bluetoya.beansontime.subscription.application.port.out.ExistsSubscrip
 import com.bluetoya.beansontime.subscription.application.port.out.SaveSubscriptionPort;
 import com.bluetoya.beansontime.subscription.domain.Subscription;
 import com.bluetoya.beansontime.subscription.domain.SubscriptionId;
+import java.time.Clock;
+import java.time.LocalDate;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -18,6 +20,7 @@ public class SubscribeService implements SubscribeUseCase {
   private final SaveSubscriptionPort saveSubscriptionPort;
   private final ExistsSubscriptionPort existsSubscriptionPort;
   private final CurrentCustomerProvider currentCustomerProvider;
+  private final Clock clock;
 
   @Override
   public SubscriptionId subscribe(SubscribeCommand command) {
@@ -27,7 +30,8 @@ public class SubscribeService implements SubscribeUseCase {
       throw new DuplicateSubscriptionException("중복 구독 불가");
     }
 
-    Subscription subscription = new Subscription(customerId, command.productId(), command.cycle());
+    Subscription subscription =
+        new Subscription(customerId, command.productId(), command.cycle(), LocalDate.now(clock));
     saveSubscriptionPort.save(subscription);
     return subscription.getId();
   }

@@ -5,8 +5,8 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public enum SubscriptionStatus {
   ACTIVE("활성화"),
-  HOLD("일시중지"),
-  CANCEL("취소"),
+  PAUSED("일시정지"),
+  CANCELLED("취소"),
   ;
 
   private final String description;

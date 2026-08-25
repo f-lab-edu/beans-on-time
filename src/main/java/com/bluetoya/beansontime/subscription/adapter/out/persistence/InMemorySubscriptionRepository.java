@@ -28,6 +28,6 @@ public class InMemorySubscriptionRepository {
             subscription ->
                 subscription.getCustomerId().equals(customerId)
                     && subscription.getProductId().equals(productId)
-                    && subscription.getSubscriptionStatus() != SubscriptionStatus.CANCEL);
+                    && subscription.getLifecycleStatus() != SubscriptionStatus.CANCELLED);
   }
 }

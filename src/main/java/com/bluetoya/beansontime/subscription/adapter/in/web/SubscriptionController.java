@@ -7,7 +7,9 @@ import com.bluetoya.beansontime.subscription.adapter.in.web.response.SubscribeRe
 import com.bluetoya.beansontime.subscription.adapter.in.web.response.SubscriptionDetailResponse;
 import com.bluetoya.beansontime.subscription.application.port.in.*;
 import com.bluetoya.beansontime.subscription.domain.*;
+import java.time.LocalDate;
 import java.util.UUID;
+import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 
@@ -34,9 +36,9 @@ public class SubscriptionController {
   }
 
   @PatchMapping("/hold")
-  void pause(@RequestParam UUID subscriptionId) {
+  void pause(@RequestParam UUID subscriptionId, @RequestParam LocalDate pauseUntilDate) {
     pauseSubscriptionUseCase.pause(
-        new PauseSubscriptionCommand(new SubscriptionId(subscriptionId)));
+        new PauseSubscriptionCommand(new SubscriptionId(subscriptionId), pauseUntilDate));
   }
 
   @PatchMapping("/resume")
@@ -63,7 +65,18 @@ public class SubscriptionController {
         subscription.customerId(),
         subscription.cycleUnit(),
         subscription.cycleInterval(),
-        subscription.status());
+        subscription.lifecycleStatus(),
+        subscription.suspensionReasons().stream()
+            .map(Enum::name)
+            .collect(Collectors.toUnmodifiableSet()),
+        subscription.startedDate(),
+        subscription.currentPeriodStartDate(),
+        subscription.currentPeriodEndDate(),
+        subscription.billingAnchorDay(),
+        subscription.nextBillingDate(),
+        subscription.pausedAt(),
+        subscription.resumeDate(),
+        subscription.executionBlocked());
   }
 
   private SubscriptionDetailResponse.ProductResponse toProductResponse(ProductInfo product) {

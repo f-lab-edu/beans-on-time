@@ -41,7 +41,16 @@ public class InMemoryGetSubscriptionDetailQueryAdapter implements GetSubscriptio
         subscription.getCustomerId().value(),
         subscription.getCycle().getUnit().name(),
         subscription.getCycle().getInterval(),
-        subscription.getSubscriptionStatus().name());
+        subscription.getLifecycleStatus().name(),
+        subscription.getSuspensionReasons(),
+        subscription.getStartedDate(),
+        subscription.getCurrentPeriod().startDate(),
+        subscription.getCurrentPeriod().endDate(),
+        subscription.getBillingAnchorDay().value(),
+        subscription.getNextBillingDate(),
+        subscription.getPausedAt(),
+        subscription.getResumeDate(),
+        subscription.isExecutionBlocked());
   }
 
   private ProductInfo toProductInfo(Product product) {
