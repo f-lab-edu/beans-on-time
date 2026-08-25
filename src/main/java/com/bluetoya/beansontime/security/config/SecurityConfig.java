@@ -60,7 +60,7 @@ public class SecurityConfig {
       UserDetails user = users.get(username);
 
       if (user == null) {
-        throw new UsernameNotFoundException("User not found: " + username);
+        throw new UsernameNotFoundException("사용자를 찾을 수 없습니다: " + username);
       }
 
       return user;
