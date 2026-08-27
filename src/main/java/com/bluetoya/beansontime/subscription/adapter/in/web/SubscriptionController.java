@@ -35,22 +35,23 @@ public class SubscriptionController {
     return new SubscribeResponse(subscriptionId.value());
   }
 
-  @PatchMapping("/hold")
-  void pause(@RequestParam UUID subscriptionId, @RequestParam LocalDate pauseUntilDate) {
+  @PatchMapping("/{id}/pause")
+  void pause(@PathVariable UUID id, @RequestParam LocalDate pauseUntilDate) {
     pauseSubscriptionUseCase.pause(
-        new PauseSubscriptionCommand(new SubscriptionId(subscriptionId), pauseUntilDate));
+        new PauseSubscriptionCommand(new SubscriptionId(id), pauseUntilDate));
   }
 
-  @PatchMapping("/resume")
-  void resume(@RequestParam UUID subscriptionId) {
-    resumeSubscriptionUseCase.resume(
-        new ResumeSubscriptionCommand(new SubscriptionId(subscriptionId)));
+  @PatchMapping("/{id}/resume")
+  void resume(@PathVariable UUID id) {
+    resumeSubscriptionUseCase.resume(new ResumeSubscriptionCommand(new SubscriptionId(id)));
   }
 
   private SubscribeCommand toCommand(SubscribeRequest request) {
     return new SubscribeCommand(
         new ProductId(request.productId()),
-        new Cycle(CycleUnit.valueOf(request.cycle().unit()), request.cycle().interval()));
+        new DeliveryCycle(
+            DeliveryCycleUnit.valueOf(request.deliveryCycle().unit()),
+            request.deliveryCycle().interval()));
   }
 
   private SubscriptionDetailResponse toResponse(SubscriptionDetail detail) {
@@ -63,8 +64,8 @@ public class SubscriptionController {
     return new SubscriptionDetailResponse.SubscriptionResponse(
         subscription.subscriptionId(),
         subscription.customerId(),
-        subscription.cycleUnit(),
-        subscription.cycleInterval(),
+        subscription.deliveryCycleUnit(),
+        subscription.deliveryCycleInterval(),
         subscription.lifecycleStatus(),
         subscription.suspensionReasons().stream()
             .map(Enum::name)
@@ -72,10 +73,11 @@ public class SubscriptionController {
         subscription.startedDate(),
         subscription.currentPeriodStartDate(),
         subscription.currentPeriodEndDate(),
+        subscription.remainingPaidDays(),
         subscription.billingAnchorDay(),
         subscription.nextBillingDate(),
         subscription.pausedAt(),
-        subscription.resumeDate(),
+        subscription.scheduledResumeDate(),
         subscription.executionBlocked());
   }
 

@@ -64,6 +64,7 @@ class SubscriptionDetailOwnershipResolverTest {
             LocalDate.of(2026, 8, 31),
             LocalDate.of(2026, 8, 31),
             LocalDate.of(2026, 9, 29),
+            null,
             31,
             LocalDate.of(2026, 9, 30),
             null,

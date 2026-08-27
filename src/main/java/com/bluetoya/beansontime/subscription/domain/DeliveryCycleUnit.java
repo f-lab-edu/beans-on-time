@@ -3,7 +3,7 @@ package com.bluetoya.beansontime.subscription.domain;
 import lombok.RequiredArgsConstructor;
 
 @RequiredArgsConstructor
-public enum CycleUnit {
+public enum DeliveryCycleUnit {
   ONE_WEEK("1주"),
   ONE_MONTH("1달"),
   ;

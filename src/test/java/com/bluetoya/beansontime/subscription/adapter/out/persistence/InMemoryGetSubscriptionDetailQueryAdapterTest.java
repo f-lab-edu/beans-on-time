@@ -14,8 +14,8 @@ import com.bluetoya.beansontime.product.domain.ProductId;
 import com.bluetoya.beansontime.product.domain.SellerId;
 import com.bluetoya.beansontime.subscription.application.port.in.SubscriptionDetail;
 import com.bluetoya.beansontime.subscription.application.port.in.SubscriptionInfo;
-import com.bluetoya.beansontime.subscription.domain.Cycle;
-import com.bluetoya.beansontime.subscription.domain.CycleUnit;
+import com.bluetoya.beansontime.subscription.domain.DeliveryCycle;
+import com.bluetoya.beansontime.subscription.domain.DeliveryCycleUnit;
 import com.bluetoya.beansontime.subscription.domain.Subscription;
 import com.bluetoya.beansontime.subscription.domain.SubscriptionStatus;
 import java.time.LocalDate;
@@ -45,7 +45,7 @@ class InMemoryGetSubscriptionDetailQueryAdapterTest {
         new Subscription(
             new CustomerId(1),
             product.getId(),
-            new Cycle(CycleUnit.ONE_MONTH, 1),
+            new DeliveryCycle(DeliveryCycleUnit.ONE_MONTH, 1),
             LocalDate.of(2026, 8, 31));
     subscription.addSuspensionReason(PRODUCT_UNAVAILABLE);
     subscription.addSuspensionReason(PAYMENT_FAILED);
@@ -57,18 +57,19 @@ class InMemoryGetSubscriptionDetailQueryAdapterTest {
     SubscriptionInfo info = detail.subscriptionInfo();
     assertThat(info.subscriptionId()).isEqualTo(subscription.getId().value().toString());
     assertThat(info.customerId()).isEqualTo(1);
-    assertThat(info.cycleUnit()).isEqualTo("ONE_MONTH");
-    assertThat(info.cycleInterval()).isEqualTo(1);
+    assertThat(info.deliveryCycleUnit()).isEqualTo("ONE_MONTH");
+    assertThat(info.deliveryCycleInterval()).isEqualTo(1);
     assertThat(info.lifecycleStatus()).isEqualTo(SubscriptionStatus.PAUSED.name());
     assertThat(info.suspensionReasons())
         .containsExactlyInAnyOrder(PRODUCT_UNAVAILABLE, PAYMENT_FAILED);
     assertThat(info.startedDate()).isEqualTo(LocalDate.of(2026, 8, 31));
-    assertThat(info.currentPeriodStartDate()).isEqualTo(LocalDate.of(2026, 8, 31));
-    assertThat(info.currentPeriodEndDate()).isEqualTo(LocalDate.of(2026, 9, 29));
+    assertThat(info.currentPeriodStartDate()).isNull();
+    assertThat(info.currentPeriodEndDate()).isNull();
+    assertThat(info.remainingPaidDays()).isEqualTo(19);
     assertThat(info.billingAnchorDay()).isEqualTo(31);
-    assertThat(info.nextBillingDate()).isEqualTo(LocalDate.of(2026, 9, 30));
+    assertThat(info.nextBillingDate()).isEqualTo(LocalDate.of(2026, 11, 4));
     assertThat(info.pausedAt()).isEqualTo(LocalDateTime.of(2026, 9, 10, 14, 30));
-    assertThat(info.resumeDate()).isEqualTo(LocalDate.of(2026, 10, 16));
+    assertThat(info.scheduledResumeDate()).isEqualTo(LocalDate.of(2026, 10, 16));
     assertThat(info.executionBlocked()).isTrue();
     assertThat(detail.productInfo().availability()).isEqualTo(ProductAvailability.AVAILABLE);
     assertThat(detail.productInfo().productId()).isEqualTo(product.getId().id());
@@ -82,7 +83,7 @@ class InMemoryGetSubscriptionDetailQueryAdapterTest {
         new Subscription(
             new CustomerId(1),
             new ProductId(999),
-            new Cycle(CycleUnit.ONE_MONTH, 1),
+            new DeliveryCycle(DeliveryCycleUnit.ONE_MONTH, 1),
             LocalDate.of(2026, 8, 31));
     subscriptionRepository.save(subscription);
 

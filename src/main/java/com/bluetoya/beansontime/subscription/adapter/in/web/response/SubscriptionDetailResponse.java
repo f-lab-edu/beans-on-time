@@ -10,17 +10,18 @@ public record SubscriptionDetailResponse(
   public record SubscriptionResponse(
       String subscriptionId,
       long customerId,
-      String cycleUnit,
-      int cycleInterval,
+      String deliveryCycleUnit,
+      int deliveryCycleInterval,
       String lifecycleStatus,
       Set<String> suspensionReasons,
       LocalDate startedDate,
       LocalDate currentPeriodStartDate,
       LocalDate currentPeriodEndDate,
+      Integer remainingPaidDays,
       int billingAnchorDay,
       LocalDate nextBillingDate,
       LocalDateTime pausedAt,
-      LocalDate resumeDate,
+      LocalDate scheduledResumeDate,
       boolean executionBlocked) {}
 
   public record ProductResponse(

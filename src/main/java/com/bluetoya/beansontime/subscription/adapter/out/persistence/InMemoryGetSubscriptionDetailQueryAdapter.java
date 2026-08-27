@@ -10,6 +10,7 @@ import com.bluetoya.beansontime.subscription.application.port.in.SubscriptionInf
 import com.bluetoya.beansontime.subscription.application.port.out.GetSubscriptionDetailQueryPort;
 import com.bluetoya.beansontime.subscription.domain.Subscription;
 import com.bluetoya.beansontime.subscription.domain.SubscriptionId;
+import com.bluetoya.beansontime.subscription.domain.SubscriptionPeriod;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
@@ -36,20 +37,23 @@ public class InMemoryGetSubscriptionDetailQueryAdapter implements GetSubscriptio
   }
 
   private SubscriptionInfo toSubscriptionInfo(Subscription subscription) {
+    SubscriptionPeriod currentPeriod = subscription.getCurrentPeriod();
+
     return new SubscriptionInfo(
         subscription.getId().value().toString(),
         subscription.getCustomerId().value(),
-        subscription.getCycle().getUnit().name(),
-        subscription.getCycle().getInterval(),
+        subscription.getDeliveryCycle().getUnit().name(),
+        subscription.getDeliveryCycle().getInterval(),
         subscription.getLifecycleStatus().name(),
         subscription.getSuspensionReasons(),
         subscription.getStartedDate(),
-        subscription.getCurrentPeriod().startDate(),
-        subscription.getCurrentPeriod().endDate(),
+        currentPeriod == null ? null : currentPeriod.startDate(),
+        currentPeriod == null ? null : currentPeriod.endDate(),
+        subscription.getRemainingPaidDays(),
         subscription.getBillingAnchorDay().value(),
         subscription.getNextBillingDate(),
         subscription.getPausedAt(),
-        subscription.getResumeDate(),
+        subscription.getScheduledResumeDate(),
         subscription.isExecutionBlocked());
   }
 

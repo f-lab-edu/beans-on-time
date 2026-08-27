@@ -12,8 +12,8 @@ import com.bluetoya.beansontime.subscription.application.port.in.SubscribeComman
 import com.bluetoya.beansontime.subscription.application.port.out.CurrentCustomerProvider;
 import com.bluetoya.beansontime.subscription.application.port.out.ExistsSubscriptionPort;
 import com.bluetoya.beansontime.subscription.application.port.out.SaveSubscriptionPort;
-import com.bluetoya.beansontime.subscription.domain.Cycle;
-import com.bluetoya.beansontime.subscription.domain.CycleUnit;
+import com.bluetoya.beansontime.subscription.domain.DeliveryCycle;
+import com.bluetoya.beansontime.subscription.domain.DeliveryCycleUnit;
 import com.bluetoya.beansontime.subscription.domain.Subscription;
 import java.time.Clock;
 import java.time.Instant;
@@ -34,7 +34,8 @@ class SubscribeServiceTest {
     when(existsPort.isExists(any(), any())).thenReturn(false);
     SubscribeService service = new SubscribeService(savePort, existsPort, customerProvider, clock);
 
-    service.subscribe(new SubscribeCommand(new ProductId(10), new Cycle(CycleUnit.ONE_MONTH, 1)));
+    service.subscribe(
+        new SubscribeCommand(new ProductId(10), new DeliveryCycle(DeliveryCycleUnit.ONE_MONTH, 1)));
 
     ArgumentCaptor<Subscription> captor = ArgumentCaptor.forClass(Subscription.class);
     verify(savePort).save(captor.capture());

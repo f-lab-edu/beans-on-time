@@ -19,7 +19,10 @@ public record BillingAnchorDay(int value) {
 
   public LocalDate nextBillingDateAfter(LocalDate date) {
     Objects.requireNonNull(date, "기준 날짜는 필수입니다.");
-    return billingDateIn(YearMonth.from(date).plusMonths(1));
+    YearMonth currentMonth = YearMonth.from(date);
+    LocalDate candidate = billingDateIn(currentMonth);
+
+    return candidate.isAfter(date) ? candidate : billingDateIn(currentMonth.plusMonths(1));
   }
 
   public LocalDate billingDateIn(YearMonth targetMonth) {

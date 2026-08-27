@@ -22,8 +22,10 @@
 - SubscriptionId
 - CustomerId
 - ProductId
-- Cycle
+- DeliveryCycle
 - SubscriptionPeriod
+- remainingPaidDays
+- scheduledResumeDate
 - BillingAnchorDay
 - SubscriptionStatus
 - SubscriptionSuspensionReason
@@ -159,7 +161,7 @@ Subscription
 - ProductId
 - CustomerId
 - SellerId
-- Cycle
+- DeliveryCycle
 - Money
 
 값 객체는 일반적으로 불변이어야 한다.
@@ -212,6 +214,8 @@ SubscriptionId
 InvalidSubscriptionStateChangeException
 InvalidSubscriptionPausePeriodException
 InvalidSubscriptionResumeDateException
+InvalidSubscriptionPeriodStateException
+SubscriptionResumeRequiresPaymentException
 ~~~
 
 리소스 부재나 유즈케이스 충돌 같은 애플리케이션 수준 실패는 애플리케이션 계층에 둘 수

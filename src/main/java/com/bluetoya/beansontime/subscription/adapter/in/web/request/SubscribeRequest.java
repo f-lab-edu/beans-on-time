@@ -4,4 +4,5 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.Positive;
 
 public record SubscribeRequest(
-    @Positive(message = "상품 ID는 0보다 커야 합니다.") long productId, @Valid CycleRequest cycle) {}
+    @Positive(message = "상품 ID는 0보다 커야 합니다.") long productId,
+    @Valid DeliveryCycleRequest deliveryCycle) {}

@@ -2,58 +2,38 @@
 
 ## 문서 목적
 
-이 문서는 구독과 이에 연결되는 상품, 청구, 배송 작업에서 따라야 할
-현재 도메인 규칙의 기준 문서다.
+이 문서는 구독과 이에 연결되는 상품, 청구, 배송 작업에서 따라야 할 현재 도메인 규칙의
+기준 문서다. 다음 내용을 명확히 구분한다.
 
-문서는 다음을 명확히 구분한다.
-
-- **확정된 규칙**: 현재 코드와 테스트가 따라야 하는 규칙
+- **확정된 규칙**: 현재 코드와 테스트가 따라야 하는 구현 제약
 - **결정 이유**: 현재 구조를 선택한 핵심 이유
-- **후속 논의 대상**: 필요성은 예상되지만 세부 정책이나 구현이 확정되지 않은 항목
+- **후속 논의 대상**: 필요성은 예상되지만 정책이나 구현이 확정되지 않은 항목
 
-관련 코드를 변경하기 전에 이 문서를 읽는다. 확정된 규칙과 충돌하는 요구사항이 있으면
-임의로 우회하거나 기존 의미를 바꾸지 말고 충돌 내용을 작업 결과에 보고한다.
-
----
-
-## 공통 도메인 용어
-
-설계 문서와 작업 보고에서는 다음 한국어 용어를 기본으로 사용한다. Java 코드 식별자는
-기존 이름을 유지한다.
-
-- 애그리거트
-- 애그리거트 루트
-- 불변식
-- 생명주기 상태
-- 실행 차단 사유
-- 도메인 행위
-- 애플리케이션 서비스
-- 조회 모델
-- 소유권 인가
-
-같은 개념을 설명할 때 영어와 한국어 표현을 불필요하게 혼용하지 않는다.
+공통 설계·비즈니스 용어는 `docs/glossary.md`를 따른다. 새 요구사항이 확정된 규칙과
+충돌하면 기존 규칙을 임의로 변경하지 않고 충돌 내용과 선택지를 먼저 확인한다.
 
 ---
 
-# 확정된 규칙
+## 확정된 규칙
 
-## 1. 구독 애그리거트의 책임과 상태
+### 구독 애그리거트의 책임
 
-`Subscription`은 고객의 반복 커피 구독을 표현하는 애그리거트 루트다. 다른 애그리거트를
-객체 그래프로 포함하지 않고 `CustomerId`, `ProductId`로 참조한다.
+`Subscription`은 고객의 반복 커피 구독을 표현하는 애그리거트 루트다. 다른
+애그리거트를 객체 그래프로 포함하지 않고 `CustomerId`, `ProductId`로 참조한다.
 
 현재 주요 상태는 다음과 같다.
 
 - `SubscriptionId id`
 - `CustomerId customerId`
 - `ProductId productId`
-- `Cycle cycle`
+- `DeliveryCycle deliveryCycle`
 - `LocalDate startedDate`
 - `SubscriptionPeriod currentPeriod`
+- `Integer remainingPaidDays`
 - `BillingAnchorDay billingAnchorDay`
 - `LocalDate nextBillingDate`
 - `LocalDateTime pausedAt`
-- `LocalDate resumeDate`
+- `LocalDate scheduledResumeDate`
 - `SubscriptionStatus lifecycleStatus`
 - `Set<SubscriptionSuspensionReason> suspensionReasons`
 
@@ -61,323 +41,303 @@
 도메인 행위를 통해서만 수행한다. 일반 setter를 추가하거나 변경 가능한 컬렉션을 외부에
 직접 노출하지 않는다.
 
-### 1.1 생명주기 상태
+### 생명주기 상태와 실행 차단 사유
 
-생명주기 상태는 다음 세 값만 사용한다.
+생명주기 상태는 `ACTIVE`, `PAUSED`, `CANCELLED`만 사용한다. `CANCELLED`는 최종
+생명주기 상태이며 `cancel()`은 멱등이다.
 
-- `ACTIVE`
-- `PAUSED`
-- `CANCELLED`
-
-`SUSPENDED`를 생명주기 상태로 저장하지 않는다. `CANCELLED`는 최종 생명주기
-상태이며, `pause`와 `resume`은 허용하지 않는다.
-
-### 1.2 실행 차단 사유
-
-시스템 또는 외부 조건이 구독 실행을 막는 원인은 생명주기 상태와 별도로
-관리한다.
-
-현재 `SubscriptionSuspensionReason`은 다음 두 값만 가진다.
+시스템 또는 외부 조건이 구독 실행을 막는 원인은 생명주기와 별도 상태 축인
+`SubscriptionSuspensionReason` 집합으로 관리한다.
 
 - `PRODUCT_UNAVAILABLE`
 - `PAYMENT_FAILED`
 
-타입은 `Set<SubscriptionSuspensionReason>`이며 여러 사유가 동시에 존재할 수 있다.
-현재 애그리거트 내부 구현은 `EnumSet`을 사용하고 외부에는 수정할 수 없는 복사본을
-반환한다. 추가와 제거는 멱등 도메인 행위다.
-
-생명주기 상태와 실행 차단 사유는 독립적인 상태 축이다. 다음은 모두 유효하다.
+여러 사유는 동시에 존재할 수 있고 독립적으로 추가·제거한다. 생명주기 전이는 실행 차단
+사유를 임의로 제거하지 않는다.
 
 ```text
-ACTIVE + [PRODUCT_UNAVAILABLE, PAYMENT_FAILED]
-PAUSED + [PRODUCT_UNAVAILABLE]
+executionBlocked = lifecycleStatus != ACTIVE || !suspensionReasons.isEmpty()
 ```
 
-일시정지와 재개는 실행 차단 사유를 제거하지 않는다. 취소 후 실행 차단 사유를
-보존할지 정리할지는 아직 별도 정책으로 확정하지 않았다.
+이는 구독 공통 상태에 의한 실행 차단만 의미한다. 청구나 배송의 최종 실행 조건을 모두
+판단하는 API로 확대하지 않는다.
 
-## 2. 구독 공통 실행 차단 판단
+### 상태별 필드 불변식
 
-`isExecutionBlocked()`의 책임은 다음 하나뿐이다.
+`Subscription`은 생성과 모든 상태 전이가 끝난 뒤 다음 조합을 만족해야 한다.
 
-> 구독 자체의 공통 상태 때문에 후속 실행이 차단되어 있는가?
-
-현재 규칙은 다음과 같다.
-
-```text
-lifecycleStatus != ACTIVE
-또는
-suspensionReasons가 비어 있지 않음
-```
-
-다음 경우에만 `false`다.
+#### ACTIVE
 
 ```text
 lifecycleStatus == ACTIVE
-그리고
-suspensionReasons.isEmpty()
+currentPeriod != null
+remainingPaidDays == null
+pausedAt == null
+scheduledResumeDate == null
+nextBillingDate != null
 ```
 
-| 생명주기 상태 | 실행 차단 사유 | isExecutionBlocked() |
-| --- | --- | --- |
-| ACTIVE | 없음 | false |
-| ACTIVE | PRODUCT_UNAVAILABLE | true |
-| ACTIVE | PAYMENT_FAILED | true |
-| PAUSED | 없음 | true |
-| PAUSED | PRODUCT_UNAVAILABLE | true |
-| CANCELLED | 무관 | true |
-
-`isExecutionBlocked() == false`는 결제 가능, 배송 가능, 상품 공급 가능, 또는 오늘이
-실행 예정일이라는 뜻이 아니다. 향후 청구와 배송은 구독 공통 차단이
-없는지 확인한 뒤 각 기능의 일정과 정책을 추가로 판단해야 한다.
-
-## 3. PAUSED 문맥 불변식
-
-`pausedAt`과 `resumeDate`는 과거 일시정지 이력이 아니라 현재 `PAUSED` 상태의 문맥을
-표현한다.
-
-구독 애그리거트는 생성 경로와 관계없이 다음 불변식을 만족해야 한다.
+#### PAUSED
 
 ```text
-PAUSED    -> pausedAt != null && resumeDate != null
-ACTIVE    -> pausedAt == null && resumeDate == null
-CANCELLED -> pausedAt == null && resumeDate == null
+lifecycleStatus == PAUSED
+currentPeriod == null
+remainingPaidDays != null
+remainingPaidDays >= 0
+pausedAt != null
+scheduledResumeDate != null
+nextBillingDate != null
 ```
 
-현재 InMemory 구조에서는 신규 생성과 `pause`, `resume`, `cancel` 도메인 행위가 이
-불변식을 보장한다. JDBC 영속성과 복원 전용 생성 경로는 아직 존재하지 않는다.
+#### CANCELLED
 
-향후 `Subscription.restore(...)` 같은 복원 경로가 추가되면 저장된 모든 값으로
-애그리거트를 만들 때도 같은 불변식을 검증해야 한다. 영속성 어댑터가 불완전한
-PAUSED 문맥을 그대로 도메인에 복원해서는 안 된다. 이 규칙을 이유로 현재 사용되지 않는
-복원 전용 생성 경로를 미리 만들지는 않는다.
+```text
+lifecycleStatus == CANCELLED
+currentPeriod == null
+remainingPaidDays == null
+pausedAt == null
+scheduledResumeDate == null
+nextBillingDate == null
+```
 
-과거 일시정지 이력이 필요해지면 별도 이력, 이벤트, 감사 모델을 검토한다. 현재
-애그리거트의 `pausedAt`과 `resumeDate`에 과거 값을 남기지 않는다.
+현재 InMemory 구조에는 복원 전용 생성 경로가 없다. 향후 JDBC와
+`Subscription.restore(...)` 같은 복원 경로가 생기면 저장된 값으로 애그리거트를 만들
+때도 위 불변식을 검증해야 한다. 이 요구를 이유로 사용되지 않는 복원 API를 미리 만들지
+않는다.
 
-## 4. 시간 타입과 KST 계약
+### 날짜와 KST 계약
+
+구독의 선결제 이용 기간은 `LocalDate` 단위로 계산한다. 부분 일자에 대한 시간 단위
+보상이나 일할 계산은 하지 않는다.
+
+- Pause 요청 당일은 사용한 유료 일자다.
+- Resume 당일은 사용 가능한 유료 일자다.
+- Pause 요청일과 실제 Resume 날짜 사이의 완전한 날짜만 동결한다.
+
+```text
+04/10 Pause, 04/10 Resume -> 동결 0일
+04/10 Pause, 04/11 Resume -> 동결 0일
+04/10 Pause, 04/12 Resume -> 04/11, 동결 1일
+04/10 Pause, 04/20 Resume -> 04/11 ~ 04/19, 동결 9일
+```
 
 날짜와 시각 이름은 다음 규칙을 따른다.
 
 - `...Date`: `LocalDate`, 업무상 날짜가 중요함
 - `...At`: `LocalDateTime`, 실제 발생 시각이 중요함
 
-모든 구독 업무 날짜와 시각은 KST(`Asia/Seoul`) 기준으로 취급한다.
+모든 구독 업무 날짜와 시각은 KST(`Asia/Seoul`) 기준이다. 애플리케이션 서비스가
+주입된 `Clock`으로 `LocalDate.now(clock)`, `LocalDateTime.now(clock)`을 구해 도메인에
+전달한다. 도메인은 현재 시간을 직접 조회하지 않는다.
+
+### currentPeriod
+
+`currentPeriod`는 ACTIVE 상태에서 현재 실제로 사용할 수 있는 선결제 이용 구간이다.
+`startDate`와 `endDate` 양 끝 날짜를 포함한다.
+
+PAUSED에서는 현재 이용 가능한 구간이 없으므로 `currentPeriod`가 없다. 과거 이용
+이력이나 남은 일수 계산을 위해 PAUSED 상태에 기존 값을 보존하지 않는다. CANCELLED에서도
+존재하지 않는다.
+
+Resume 뒤에는 과거 사용 구간을 포함하지 않고 실제 Resume 날짜부터 현재 이용 가능한
+구간만 새로 구성한다. 따라서 같은 날 Resume이면 `04/10 ~ 04/30`, 다음 날 Resume이면
+`04/11 ~ 04/30`처럼 표현할 수 있다.
+
+### remainingPaidDays
+
+`remainingPaidDays`는 PAUSED 상태에서 아직 사용하지 않은 선결제 이용 일수다. Pause
+요청 당일은 사용한 날이므로 제외한다.
 
 ```text
-인프라스트럭처 / 설정
--> Asia/Seoul 기준 Clock 제공
-
-애플리케이션 서비스
--> LocalDate.now(clock)
--> LocalDateTime.now(clock)
-
-도메인
--> 전달받은 값을 KST 업무 시간이라는 계약 아래 사용
+remainingPaidDays = DAYS.between(pauseDate, currentPeriod.endDate)
 ```
 
-`LocalDateTime`이 시간대 정보를 보유하지 않는다는 점은 현재 한국 단일 시간대 범위에서
-의도적으로 수용한다. 도메인에 `Clock`을 주입하거나 도메인에서 `LocalDate.now()`,
-`LocalDateTime.now()`를 직접 호출하지 않는다. `DateTimeUtils.now()` 같은 전역 정적
-현재 시각 유틸도 만들지 않는다.
+예를 들어 `currentPeriod = 04/01 ~ 04/30`, `pauseDate = 04/10`이면
+`04/11 ~ 04/30`의 20일이 남는다. 마지막 유료일에 Pause하면 0이며, 0도 유효한
+PAUSED 상태다.
 
-다중 시간대 지원이나 DB 저장 정책을 설계하게 되면 `Instant`, `OffsetDateTime`,
-`ZonedDateTime` 사용 여부를 별도로 검토한다. 현재 모델 전체를 이 타입으로 변경하지
-않는다.
+ACTIVE와 CANCELLED에서는 `remainingPaidDays`가 없다. 현재는 별도 값 객체가 필요한
+추가 규칙이 없으므로 nullable `Integer`로 상태별 존재 여부를 표현한다.
 
-## 5. SubscriptionPeriod와 Cycle
+### DeliveryCycle
 
-세 개념은 서로 다른 시간 의미를 가진다.
+`DeliveryCycle`은 상품 납품 반복 주기다. 결제 회차나 청구 일정이 아니다. 이전의 모호한
+명칭은 사용하지 않는다.
 
-### 5.1 SubscriptionPeriod
+현재 실제 배송 일정 계산은 구현하지 않는다. 구독 회차, 청구 일정, 납품 주기를 하나의
+시간축이나 동일한 정책으로 처리하지 않는다.
 
-- `SubscriptionPeriod`: 현재 결제를 통해 이미 확정된 구독 회차의 유효 기간.
-  `startDate`와 `endDate` 양 끝 날짜를 모두 포함한다.
-- 청구 일정: `billingAnchorDay`는 최초 결제 기준 월의 날짜를 보존하고,
-  `nextBillingDate`는 다음 결제 예정 업무 날짜를 표현한다.
-
-일시정지가 발생해도 이미 확정된 `currentPeriod`를 변경하지 않는다.
-
-### 5.2 Cycle의 현재 의미
-
-- `Cycle`: 결제 회차가 아니라 상품 납품 반복 주기다.
-
-예를 들어 `Cycle = 2주`이고 `currentPeriod = 09/01 ~ 09/30`이면 배송 후보가
-`09/01`, `09/15`, `09/29`일 수 있다. 현재는 실제 배송 일정 계산을 구현하지 않는다.
-구독 회차, 청구 일정, 납품 주기를 하나의 시간축으로 합치거나 동일한 정책으로 처리하지 않는다.
-
-## 6. BillingAnchorDay와 회차 확정
-
-### 6.1 최초 회차와 BillingAnchorDay
+### BillingAnchorDay와 최초 구독
 
 신규 구독의 시작일을 `D`라고 하면 다음처럼 초기화한다.
 
 ```text
 startedDate = D
 billingAnchorDay = D.dayOfMonth
-nextBillingDate = 다음 대상 월에 billingAnchorDay를 적용한 날짜
+nextBillingDate = D 이후 처음 도래하는 billing anchor date
 currentPeriod = D ~ nextBillingDate.minusDays(1)
 lifecycleStatus = ACTIVE
-suspensionReasons = empty
+remainingPaidDays = null
 pausedAt = null
-resumeDate = null
+scheduledResumeDate = null
 ```
 
-대상 월에 `billingAnchorDay`가 없으면 그 달의 마지막 날을 사용한다. 직전 결제일에
-`plusMonths(1)`을 반복해서 원래 기준일을 잃지 않는다.
+대상 월에 `billingAnchorDay`가 없으면 그 달의 마지막 날을 사용한다. 월말 보정된 실제
+날짜를 다음 달 anchor로 바꾸지 않는다.
 
 ```text
 billingAnchorDay = 31
-2026-01-31 -> 2026-02-28 -> 2026-03-31 -> 2026-04-30
+2026-01-31 -> 2026-02-28 -> 2026-03-31
 
 billingAnchorDay = 31
-2028-02 -> 2028-02-29
+2028-01-31 -> 2028-02-29 -> 2028-03-31
 ```
 
-### 6.2 currentPeriod와 nextBillingDate
-
-`currentPeriod.endDate = nextBillingDate.minusDays(1)`은 구독 전체 생명주기에서
-항상 성립하는 불변식이 아니다. 최초 생성이나 기존 회차 종료 후 재개처럼 새로운
-정상 회차를 확정할 때 적용하는 계산 규칙이다.
-
-## 7. 일시정지 도메인 행위
-
-허용되는 생명주기 전이는 `ACTIVE -> PAUSED`다. `PAUSED` 또는 `CANCELLED`에서 다시
-일시정지하면 `InvalidSubscriptionStateChangeException`을 발생시킨다. 실행 차단 사유가
-존재하는 ACTIVE 구독도 고객 의사로 일시정지할 수 있다.
-
-일시정지 요청이 성공하면 즉시 다음 상태가 된다.
+`BillingAnchorDay.nextBillingDateAfter(date)`는 이름 그대로 `date`보다 뒤에 있는 첫
+billing anchor date를 반환한다. 현재 월의 후보가 `date`보다 뒤면 현재 월을 반환하고,
+그렇지 않으면 다음 달 후보를 반환한다.
 
 ```text
-lifecycleStatus = PAUSED
+anchor 31, 2026-10-10 -> 2026-10-31
+anchor 1,  2026-10-31 -> 2026-11-01
+anchor 31, 2026-10-31 -> 2026-11-30
+anchor 31, 2026-02-10 -> 2026-02-28
+```
+
+Resume의 새 `currentPeriod`와 `nextBillingDate`는 이 helper로 계산하지 않는다. Pause
+당시 남은 일수와 실제 동결 일수를 사용한다.
+
+### 일시정지
+
+일시정지는 이미 결제한 선결제 이용 기간의 남은 부분을 동결하고 실제 재개 시 이어서
+사용하는 행위다. 허용되는 생명주기 전이는 `ACTIVE -> PAUSED`다. 실행 차단 사유가 있는
+ACTIVE 구독도 고객 의사로 일시정지할 수 있다.
+
+도메인 입력은 `pauseUntilDate`, `pausedAt`이다. `pauseDate`는
+`pausedAt.toLocalDate()`에서 도출한다.
+
+먼저 다음 날짜 불변식을 검증한다.
+
+```text
+pauseUntilDate >= pauseDate
+currentPeriod.startDate <= pauseDate <= currentPeriod.endDate
+```
+
+첫 조건 위반은 클라이언트가 종료일을 수정할 수 있는
+`InvalidSubscriptionPausePeriodException`이다. 두 번째 조건 위반은 정상 ACTIVE
+구독과 애플리케이션의 현재 업무 날짜가 불일치한 내부 기간 상태 문제이므로
+`InvalidSubscriptionPeriodStateException`으로 표현한다.
+
+검증 후 다음 값을 계산하고 상태를 전이한다.
+
+```text
+remainingPaidDays = DAYS.between(pauseDate, currentPeriod.endDate)
+scheduledResumeDate = pauseUntilDate.plusDays(1)
+nextBillingDate = scheduledResumeDate.plusDays(remainingPaidDays)
+currentPeriod = null
 pausedAt = 요청 발생 시각
-resumeDate = pauseUntilDate.plusDays(1)
-currentPeriod = 변경 없음
-nextBillingDate = 변경 없음
-suspensionReasons = 변경 없음
+lifecycleStatus = PAUSED
 ```
 
-즉 현재 회차 종료까지 기다렸다가 PAUSED가 되는 이전 정책은 폐기되었다. 이미 확정된
-`currentPeriod`를 일시정지 종료 날짜에 맞춰 이동하거나 새로 만들지 않는다.
+Pause 시 `billingAnchorDay`는 변경하지 않는다. `scheduledResumeDate`는 미래 계획이며
+그 전에 Manual Resume이 발생하면 실제 청구 일정이 달라질 수 있기 때문이다.
 
-### 7.1 일시정지 날짜 불변식
+#### PAUSED의 nextBillingDate
 
-도메인 행위의 입력은 `pauseUntilDate`와 `pausedAt`이다. 별도 `pausedDate`를 받지 않고
-업무 날짜는 `pausedAt.toLocalDate()`에서 도출한다.
+PAUSED 상태의 `nextBillingDate`는 현재 `scheduledResumeDate`에 정상 재개한다는 계획을
+기준으로 한 다음 결제 예정일이다.
 
 ```text
-pauseUntilDate >= pausedAt.toLocalDate()
+nextBillingDate = scheduledResumeDate + remainingPaidDays
 ```
 
-동일 날짜는 허용한다. 과거 날짜이면 `InvalidSubscriptionPausePeriodException`을
-발생시킨다. `pauseUntilDate >= nextBillingDate` 제한은 사용하지 않는다.
+예를 들어 `remainingPaidDays = 20`, `scheduledResumeDate = 05/01`이면
+`nextBillingDate = 05/21`이다. Manual Resume이 일찍 또는 늦게 발생하면 실제 Resume
+날짜로 다시 계산한다. Auto Resume 실패 뒤 예정 결제일을 재계산하는 정책은 아직
+확정하지 않는다.
+
+### 수동 재개
+
+Manual Resume은 고객이 날짜를 선택하는 기능이 아니다. 수동 재개 요청이 발생한 현재
+KST 업무 날짜에 즉시 재개한다.
 
 ```text
-pausedAt = 2026-09-10T14:30
-pauseUntilDate = 2026-09-10
-resumeDate = 2026-09-11
+ResumeSubscriptionCommand(subscriptionId)
+-> ResumeSubscriptionService
+-> LocalDate resumedDate = LocalDate.now(clock)
+-> subscription.resume(resumedDate)
 ```
 
-### 7.2 일시정지와 nextBillingDate
-
-일시정지할 때 `nextBillingDate = resumeDate`로 강제 변경하지 않고 기존 값을 유지한다.
-
-```text
-currentPeriod = 09/01 ~ 09/30
-nextBillingDate = 10/01
-일시정지 = 09/10 ~ 09/20
-resumeDate = 09/21
-
-일시정지 이후에도 nextBillingDate = 10/01
-```
-
-일시정지가 `nextBillingDate`를 넘어갈 때 결제 예정일을 어떻게 조정할지는 확정되지 않은
-후속 청구 정책이다.
-
-## 8. 수동 재개 도메인 행위
-
-허용되는 생명주기 전이는 `PAUSED -> ACTIVE`다. `ACTIVE` 또는 `CANCELLED`에서
-재개하면 `InvalidSubscriptionStateChangeException`을 발생시킨다.
-
-### 8.1 resumeDate와 수동 재개의 관계
-
-`resumeDate`는 자동 재개 예정일이다. 수동 재개의 최소 날짜나 최대 날짜가 아니다.
-고객은 일시정지 요청 이후라면 예정일 전에도, 예정일 당일에도, 예정일이 지난 후에도 아직
-PAUSED 상태인 구독을 수동 재개할 수 있다.
-
-```text
-pausedAt = 2026-09-10T14:30
-resumeDate = 2026-09-30
-
-허용: 2026-09-10, 2026-09-20, 2026-09-30, 2026-10-02
-거부: 2026-09-09
-```
-
-수동 재개 날짜의 유일한 현재 하한 불변식은 다음과 같다.
+`ResumeSubscriptionCommand`에는 `resumedDate`가 없다. 도메인은 방어적 시간 순서
+불변식으로 다음을 검증한다.
 
 ```text
 resumedDate >= pausedAt.toLocalDate()
 ```
 
-이를 위반하면 `InvalidSubscriptionResumeDateException`을 발생시킨다. 다음 제한은
-추가하지 않는다.
+이 조건은 클라이언트 입력 검증이 아니다. 정상 흐름에서 위반되면 애플리케이션 Clock이나
+복원 상태의 문제이므로 `InvalidSubscriptionResumeDateException`은 내부 상태 예외로
+취급하고 4xx 전용 Handler를 두지 않는다.
+
+`scheduledResumeDate`는 Manual Resume 가능 범위를 제한하지 않는다. 해당 날짜 이전,
+당일, 이후에도 아직 PAUSED라면 요청 시점에 재개할 수 있다. 문서의 날짜 예시는 고객이
+날짜를 고르는 입력 예시가 아니라 각 날짜에 실제 요청이 발생한 시나리오다.
+
+#### 재개 날짜 계산
+
+Pause가 없었다면 원래 도래했을 결제일과 실제 동결 일수는 다음처럼 계산한다.
 
 ```text
-resumedDate >= resumeDate
-resumedDate <= resumeDate
+pauseDate = pausedAt.toLocalDate()
+baseNextBillingDate = pauseDate.plusDays(remainingPaidDays + 1)
+frozenDays = max(0, DAYS.between(pauseDate.plusDays(1), resumedDate))
+actualNextBillingDate = baseNextBillingDate.plusDays(frozenDays)
 ```
 
-### 8.2 기존 currentPeriod 안에서 재개
-
-다음 조건이면 기존 회차와 청구 일정을 유지한다.
-
-```text
-pausedAt.toLocalDate() <= resumedDate <= currentPeriod.endDate
-```
-
-결과는 다음과 같다.
-
-```text
-lifecycleStatus = ACTIVE
-currentPeriod = 변경 없음
-nextBillingDate = 변경 없음
-pausedAt = null
-resumeDate = null
-suspensionReasons = 변경 없음
-```
-
-기존 회차와 겹치는 새 회차를 만들지 않는다.
-
-### 8.3 기존 currentPeriod 종료 후 재개
-
-`resumedDate > currentPeriod.endDate`이면 `resumedDate`부터 새 정상 회차를 확정한다.
+`remainingPaidDays > 0`이면 다음처럼 ACTIVE 이용 구간을 재구성한다.
 
 ```text
 currentPeriod.startDate = resumedDate
-nextBillingDate = BillingAnchorDay로 다음 대상 월 날짜 계산
-currentPeriod.endDate = nextBillingDate.minusDays(1)
+currentPeriod.endDate = actualNextBillingDate.minusDays(1)
+nextBillingDate = actualNextBillingDate
+remainingPaidDays = null
 pausedAt = null
-resumeDate = null
-suspensionReasons = 변경 없음
+scheduledResumeDate = null
+lifecycleStatus = ACTIVE
 ```
 
-예시는 다음과 같다.
+Pause 당일과 Resume 당일은 모두 사용 일자이므로 같은 날과 다음 날 Resume은
+`frozenDays = 0`이다. 이 경우 기존 결제 일정과 `billingAnchorDay`를 유지한다.
+
+완전히 동결된 날짜가 하나 이상이면 실제 결제 일정이 이동했으므로 Resume 성공 시
+다음처럼 정기 결제 기준을 재정렬한다.
 
 ```text
-기존 currentPeriod = 09/01 ~ 09/30
-billingAnchorDay = 31
-resumedDate = 10/10
-
-새 nextBillingDate = 11/30
-새 currentPeriod = 10/10 ~ 11/29
+frozenDays > 0
+-> billingAnchorDay = BillingAnchorDay.from(actualNextBillingDate)
 ```
 
-재개는 고객 일시정지 생명주기만 종료한다. `PRODUCT_UNAVAILABLE`, `PAYMENT_FAILED` 같은
-실행 차단 사유를 제거하지 않는다.
+월말 보정만으로 실제 결제일의 일자가 달라진 경우에는 anchor를 변경하지 않는다.
 
-## 9. 취소 도메인 행위
+#### remainingPaidDays가 0인 재개
 
-`cancel()`은 최종 상태를 `CANCELLED`로 만드는 멱등 도메인 행위다.
+마지막 유료일에 Pause한 뒤 같은 날 Resume하면 마지막 날짜를 아직 사용할 수 있으므로
+새 결제 없이 ACTIVE로 돌아간다.
+
+```text
+currentPeriod = pauseDate ~ pauseDate
+nextBillingDate = pauseDate.plusDays(1)
+billingAnchorDay = 기존 값 유지
+```
+
+다음 날 이후에는 남은 선결제 이용권이 없으므로 Manual Resume만으로 ACTIVE가 될 수
+없다. 현재 Billing 기능이 없으므로 가짜 결제나 임시 이용 구간을 만들지 않고
+`SubscriptionResumeRequiresPaymentException`을 발생시킨다. 결제 성공 전까지 PAUSED
+상태를 유지한다.
+
+### 취소
+
+`cancel()`은 다음 전이를 허용하는 멱등 도메인 행위다.
 
 ```text
 ACTIVE -> CANCELLED
@@ -385,239 +345,183 @@ PAUSED -> CANCELLED
 CANCELLED -> CANCELLED
 ```
 
-이미 CANCELLED여도 예외를 발생시키지 않는다. 취소 시 현재 PAUSED 문맥을 끝내므로
-`pausedAt`과 `resumeDate`를 null로 초기화한다.
+취소하면 `currentPeriod`, `remainingPaidDays`, `nextBillingDate`, `pausedAt`,
+`scheduledResumeDate`를 모두 비운다. 남은 선결제 기간의 환불 또는 소멸 정책은 아직
+확정하지 않는다.
 
-## 10. 예외의 의미와 위치
+### 예외와 HTTP 상태
 
-구독 불변식 위반 예외는 도메인 패키지에 둔다.
+예외를 HTTP 상태로 매핑할 때 클라이언트가 해결할 수 있는지, 현재 리소스와 충돌하는지,
+정상 흐름에서 불가능한 내부 불변식 위반인지를 구분한다.
 
-- `InvalidSubscriptionStateChangeException`: 허용되지 않는 생명주기 전이
-- `InvalidSubscriptionPausePeriodException`: 유효하지 않은 일시정지 종료일
-- `InvalidSubscriptionResumeDateException`: 일시정지 요청일보다 이른 재개 날짜
+| 예외 | 의미 | HTTP |
+|---|---|---|
+| `InvalidSubscriptionPausePeriodException` | `pauseUntilDate` 입력 오류 | `400 BAD_REQUEST` |
+| `InvalidSubscriptionStateChangeException` | 현재 생명주기 상태와 행위 충돌 | `409 CONFLICT` |
+| `SubscriptionResumeRequiresPaymentException` | 현재 잔여 이용권만으로 재개 불가 | `409 CONFLICT` |
+| `InvalidSubscriptionResumeDateException` | 내부 시간 순서 불변식 위반 | 전용 4xx Handler 없음 |
+| `InvalidSubscriptionPeriodStateException` | ACTIVE/PAUSED 기간 문맥 불변식 위반 | 전용 4xx Handler 없음 |
 
-리소스 부재나 유즈케이스 충돌 같은 애플리케이션 수준 실패와 구분한다. 현재 요구 없이
-공통 비즈니스 예외 계층을 만들지 않는다.
+도메인 불변식 예외는 구독 도메인 패키지에 둔다. 리소스 부재나 중복 구독 같은
+애플리케이션 수준 실패와 구분하며, 현재 요구 없이 범용 비즈니스 예외 계층을 만들지
+않는다.
 
-## 11. 조회 모델 조합과 상품 조회 정보
+### HTTP API와 소유권 인가
 
-구독 상세 조회는 다음 전용 조회 모델을 사용한다.
-
-```text
-subscription.application.port.in.SubscriptionDetail
-|- subscription.application.port.in.SubscriptionInfo
-`- product.application.port.in.ProductInfo
-```
-
-`SubscriptionInfo`는 구독 상세에 필요한 구독 정보를 표현하고 구독 애플리케이션
-계층이 소유한다. `ProductInfo`와 `ProductAvailability`는 상품 조회 정보와 조회 가능
-여부를 표현하므로 상품 애플리케이션 계층이 소유한다. `SubscriptionDetail`은 구독 상세
-유즈케이스를 위해 두 조회 정보를 조합한다.
-
-이 조합은 애그리거트 경계를 변경하지 않는다. `Subscription` 애그리거트는 계속
-`ProductId`로만 상품을 참조하며 `Product`, `ProductInfo`, `ProductAvailability`를 내부
-상태로 포함하지 않는다. 조회 모델을 사용하는 위치가 아니라 각 타입이 표현하는 개념을
-기준으로 소유 패키지를 정한다.
-
-`SubscriptionInfo`와 `ProductInfo`는 각 애그리거트의 복제 모델이 아니며 구독 상세
-조회에 필요한 데이터만 표현한다. `SubscriptionInfo.customerId`를 이용하는 기존 소유권
-인가 흐름을 유지한다.
-
-`ProductInfo`가 사용하는 `ProductAvailability` 값은 `AVAILABLE`, `UNAVAILABLE`이다.
-이는 상품의 판매 상태나 납품 가능 상태가 아니라, 구독이 참조하는 상품 데이터를 상세 조회에서
-정상적으로 확보했는지를 뜻한다. 조회할 수 없으면 전체 상세 조회를 실패시키지 않고
-다음 대체 정보를 사용한다.
+구독 리소스 식별자는 조회와 상태 변경에서 모두 Path Variable을 사용한다.
 
 ```text
-availability = UNAVAILABLE
-productId = 구독이 보유한 기존 productId
-name = null
-basePrice = null
+GET   /subscriptions/{id}
+PATCH /subscriptions/{id}/pause?pauseUntilDate=YYYY-MM-DD
+PATCH /subscriptions/{id}/resume
 ```
 
-명령 어댑터와 조회 어댑터의 책임을 합치지 않는다. InMemory 저장소는 물리 데이터
-조회 의미의 `findById`를 제공하고, CQS 의미는 애플리케이션 포트와 어댑터에서
-표현한다.
+도메인과 유즈케이스의 용어에 맞춰 `hold`를 사용하지 않는다. `pauseUntilDate`는 리소스
+식별자가 아니라 Pause 행위의 입력이므로 Request Parameter로 전달한다.
+
+소유권 인가는 Controller 파라미터 이름이나 위치가 아니라
+`@RequireOwnership`이 붙은 로더 또는 조회가 반환한 리소스와 등록된
+`OwnershipResolver`를 기준으로 수행한다. Path Variable 전환이 이 인가를 우회하거나
+제거하지 않는다.
+
+### 조회 모델
+
+구독 상세 조회는 `SubscriptionDetail`, `SubscriptionInfo`, `ProductInfo`를 조합한다.
+조합은 애그리거트 경계를 바꾸지 않는다. `Subscription`은 계속 `ProductId`만 보유한다.
+
+조회 모델과 HTTP Response도 도메인과 같은 용어를 사용한다.
+
+- `deliveryCycleUnit`, `deliveryCycleInterval`
+- `currentPeriodStartDate`, `currentPeriodEndDate`
+- `remainingPaidDays`
+- `scheduledResumeDate`
+- `nextBillingDate`
+
+PAUSED 조회에서는 `currentPeriod` 날짜가 null이고 `remainingPaidDays`가 존재한다.
+ACTIVE 조회에서는 그 반대다. `SubscriptionInfo.customerId`를 사용하는 기존 소유권 인가
+흐름을 유지한다.
 
 ---
 
-# 결정 이유
+## 결정 이유
 
-이 장은 현재 구조를 선택한 이유를 기록한다. 현재 코드가 따라야 하는 규칙 자체는
-“확정된 규칙”에서 관리한다.
+### 생명주기와 실행 차단 사유를 분리한 이유
 
-## 1. SUSPENDED를 생명주기 상태로 두지 않는 이유
+고객의 일시정지와 상품 공급 문제·결제 실패는 동시에 존재할 수 있다. 하나의 상태값으로
+압축하면 한 원인을 해제할 때 다른 원인이나 고객 생명주기까지 잘못 변경할 수 있다.
 
-고객의 일시정지와 `PRODUCT_UNAVAILABLE` 같은 시스템 실행 차단 조건은 동시에 존재할
-수 있다. 이를 하나의 상태값으로 표현하면 `PAUSED -> SUSPENDED` 전환 과정에서 고객이
-일시정지를 요청했다는 생명주기 문맥을 잃을 수 있다. 따라서 `SUSPENDED`를 저장하지
-않고 생명주기 상태와 실행 차단 사유를 조합해 현재 실행 차단 여부를 판단한다.
+### 일시정지가 선결제 이용 기간을 동결하는 이유
 
-## 2. 실행 차단 사유를 별도 상태 축으로 둔 이유
+일시정지는 실행만 막고 이미 결제한 기간을 계속 소진하는 기능이 아니다. 고객이 실제로
+이용하지 못한 완전한 날짜만큼 이용권과 다음 결제 일정을 뒤로 이동시켜야 한다.
 
-상품 공급 문제와 결제 실패는 동시에 발생할 수 있고 각각 독립적으로 추가·해제되어야
-한다. 하나의 상태값으로 압축하면 원인 하나를 해제할 때 다른 원인이나 고객의 생명주기
-상태까지 잘못 변경할 수 있다. 따라서 생명주기 상태와
-`Set<SubscriptionSuspensionReason>`을 독립적으로 관리한다.
+### currentPeriod를 ACTIVE 전용으로 둔 이유
 
-## 3. 일시정지 시 currentPeriod를 유지하는 이유
+PAUSED에서 과거 기간을 남은 일수 계산용으로 보존하면 같은 필드가 상태에 따라 “현재
+이용 구간”과 “과거 결제 구간”이라는 서로 다른 의미를 갖는다. ACTIVE의 현재 이용 가능
+구간은 `currentPeriod`, PAUSED의 남은 이용권은 `remainingPaidDays`로 분리한다.
 
-`currentPeriod`는 이미 결제를 통해 확정된 구독 회차다. 일시정지는 앞으로의 구독 실행을
-즉시 차단하는 행위이지, 과거에 확정된 회차를 다시 작성하는 행위가 아니다. 따라서
-일시정지는 `currentPeriod`를 이동하거나 미래 회차로 교체하지 않는다.
+### remainingPaidDays를 값 객체로 만들지 않은 이유
 
-## 4. 재개 시 회차를 조건부로 다시 만드는 이유
+현재 규칙은 0 이상이라는 상태 불변식과 날짜 계산뿐이다. 별도 값 객체가 제공할 추가
+행위나 타입 안전성 이점이 생기기 전까지 nullable `Integer`가 가장 작은 표현이다.
 
-현재 회차 안에서 재개할 때 새 회차를 만들면 기존 회차와 기간이 겹친다. 기존 회차가
-아직 유효하면 그대로 사용하고, 종료된 후 실제 공백에서 재개할 때만 `resumedDate`부터
-새 회차를 확정한다.
+### scheduledResumeDate와 PAUSED nextBillingDate를 유지하는 이유
 
-## 5. billingAnchorDay를 별도로 보존하는 이유
+일시정지에는 필수 종료일이 있고 정상 운영에서는 다음 날 Auto Resume을 시도할 예정이다.
+따라서 PAUSED 상태에서도 미래 재개 계획과 그 계획을 반영한 결제 예정일을 명시적으로
+보여준다. 실제 Manual Resume이나 Auto Resume 실패가 발생하면 실제 일정으로 다시
+계산해야 한다.
 
-월말 보정된 날짜를 다음 계산의 기준으로 사용하면 최초 결제 기준일을 잃는다. 예를 들어
-`01/31 -> 02/28` 이후 2월 28일에 단순히 한 달을 더하면 3월 28일이 된다. 최초 기준일
-31을 보존하고 매번 대상 월에 다시 적용해야 `03/31`로 복원할 수 있다.
+### 실제 동결 때만 billingAnchorDay를 재정렬하는 이유
 
-## 6. Clock을 애플리케이션에 두는 이유
+월말 보정은 기존 기준일을 잃어야 할 이유가 아니다. 반면 Pause로 완전한 날짜가 동결되어
+실제 다음 결제 일정이 이동하면 이후 정기 일정도 새 날짜에 맞춰야 한다. 따라서
+`frozenDays > 0`인 Resume 성공에서만 anchor를 새 `nextBillingDate`로 재정렬한다.
 
-현재 시간은 외부 환경에 의존하는 값이다. 도메인이 시스템 시간을 직접 조회하지 않고
-애플리케이션 서비스가 KST `Clock`으로 날짜와 시각을 만든 뒤 도메인 행위에 전달한다.
-이를 통해 도메인은 프레임워크와 시간 인프라스트럭처에 의존하지 않고, 테스트는 특정
-시각을 명확하게 제어할 수 있다.
+### Clock을 애플리케이션에 두는 이유
 
-## 7. isExecutionBlocked의 책임을 좁게 둔 이유
+현재 시간은 외부 환경 값이다. 애플리케이션 서비스가 KST Clock으로 현재 날짜와 시각을
+만들어 도메인에 전달하면 도메인은 프레임워크와 시간 인프라스트럭처에 의존하지 않고
+테스트에서 날짜를 명확히 제어할 수 있다.
 
-청구와 배송은 각각 예정일, 결제 수단, 상품 공급 가능성 같은 추가 조건을 가진다.
-구독 애그리거트가 모든 기능의 최종 실행 가능 여부까지 판단하면 아직 확정되지 않은
-정책이 도메인에 섞인다. 따라서 이 메서드는 구독 공통 상태에 의한 차단 여부만 판단한다.
+### 결제가 필요한 Resume을 완료하지 않는 이유
 
-## 8. 조회 모델 조합과 타입 소유권을 애그리거트 경계와 분리한 이유
-
-구독 상세는 구독과 상품 데이터를 조합하지만, 조회 편의를 위해 애그리거트 경계를
-합치지 않는다. `SubscriptionInfo`와 `ProductInfo`는 상세 조회에 필요한 정보만 가진
-조회 모델이며, 명령 측 애그리거트의 구조를 그대로 복제할 의무가 없다.
-
-`ProductInfo`와 `ProductAvailability`는 구독 상세에서 소비되더라도 상품 조회 개념을
-표현한다. 따라서 구독 패키지가 아니라 상품 애플리케이션 계층이 소유하고, 구독 상세
-조회 모델은 이 타입을 조합해 사용한다. 이를 통해 타입의 소유권을 현재 소비하는
-유즈케이스가 아니라 해당 타입이 표현하는 도메인 개념에 맞춘다.
+남은 이용권이 0이고 마지막 유료일이 지난 뒤에는 새 결제 결과 없이는 ACTIVE 이용
+구간과 다음 일정을 확정할 수 없다. Billing이 없는 현재 범위에서 성공한 것처럼 상태를
+만드는 것보다 명시적인 충돌로 남기는 것이 애그리거트 불변식을 보존한다.
 
 ---
 
-# 후속 논의 대상
+## 후속 논의 대상
 
-이 장의 항목은 필요성이나 문제가 발견되었지만 최종 정책 또는 구현 방식을 확정하지
-않은 내용이다. 현재 구현 요구사항이 아니며, 명시적인 사용자 요청 없이 구현하거나
-미래 확장용 타입·필드·추상화·이벤트·DB 스키마를 선제적으로 추가하지 않는다.
+이 절은 현재 구현 요구사항이 아니다. 명시적인 요청 없이 열거형, 필드, 인터페이스,
+Policy, Strategy, Event, Adapter, DB 스키마나 범용 추상화를 추가하지 않는다.
 
-> 후속 논의 대상에 있다 ≠ 현재 구현해야 한다
+### Billing과 결제
 
-관련 요구사항이 실제로 등장하면 현재 요청 범위에서 정책을 결정한다. 결정된 내용만
-“확정된 규칙”으로 옮기고, 중요한 선택이면 “결정 이유”도 함께 기록한다.
+- 실제 Billing 유즈케이스와 Payment Gateway
+- 결제 성공 후 새 `currentPeriod`, `nextBillingDate`, `billingAnchorDay` 확정
+- 결제 실패와 재시도
+- `PAYMENT_FAILED` 추가·제거 주체
+- Billing과 Pause가 같은 날 실행될 때의 순서와 동시성
+- 청구 Batch와 중복 결제 방지
 
-## 1. 청구
+### Auto Resume
 
-- PAUSED 중 `nextBillingDate`가 도래했을 때의 처리
-- 일시정지 중 지나간 `nextBillingDate` 재계산 방식
-- 청구 최종 실행 조건과 결제 수단 유효성
-- 결제 실패 후 재시도와 `PAYMENT_FAILED` 추가·제거 주체
-- 결제 성공 후 다음 `SubscriptionPeriod` 확정 방식
-- Payment 관련 상태 모델
-- 청구 배치와 실제 정기 결제
+- `scheduledResumeDate` 기반 Auto Resume Scheduler
+- `remainingPaidDays == 0`일 때 선결제 후 재개 조율
+- Auto Resume 실패 후 재시도 날짜와 PAUSED `nextBillingDate` 재계산
+- Manual Resume과 Auto Resume의 동시성
+- 중복 상태 전이와 중복 결제 방지
 
-현재 `isExecutionBlocked()`만으로 청구의 최종 실행 가능 여부를 판단하지 않는다.
-사용되지 않는 청구 정책 추상화를 미리 만들지 않는다.
+향후 Auto Resume은 `scheduledResumeDate`를 실제 `resumedDate`로 전달해 동일한 도메인
+규칙을 사용할 수 있어야 한다.
 
-## 2. 배송과 납품 주기
+### 상품과 실행 차단
 
-- `Cycle` 기반 배송 일정 생성
+- Product 납품 가능 상태
+- Product 상태와 `PRODUCT_UNAVAILABLE` 연동
+- Product 실행 차단 기간에도 유료 이용 기간을 동결할지 여부
+- 상품 상태 변경 뒤 구독 대량 처리
+
+### 배송
+
+- `DeliveryCycle` 기반 배송 일정
 - `nextDeliveryDate` 필요 여부
-- 일시정지 중 배송 건너뛰기
-- 일시정지 중 누락된 배송의 보상 여부
-- 재개 후 배송 일정 재조정
-- 기존 `Cycle` 기준일 유지 여부
-- 재개 날짜를 새 배송 기준일로 사용할지 여부
-- 상품 납품 가능성과 배송 전용 최종 실행 조건
+- Pause 중 배송 건너뛰기와 보상
+- Resume 뒤 배송 일정 재조정
 
-현재 `Cycle`은 납품 반복 주기라는 의미만 확정되어 있다. 사용되지 않는
-배송 정책이나 배송 애그리거트를 미리 만들지 않는다.
+### 취소
 
-## 3. 상품과 구독 연결
+- Cancel 시 남은 선결제 기간의 환불 또는 소멸 정책
+- CANCELLED에서 실행 차단 사유를 보존할지 여부
 
-- 기존 상품 판매 상태와 별개인 납품 가능 상태가 필요한지 여부
-- 일시적·영구적 납품 불가의 구체적 상태 모델
-- 상품 상태에 따른 구독 실행 차단 사유 추가·제거
-- 상품 영구 중지 시 구독 취소 여부
-- 판매자 또는 운영 권한을 가진 관리자의 상품 상태 변경 유즈케이스
-- 상품 상태 변경 결과를 구독에 전파하는 방식
+### 영속화와 복원
 
-`ProductAvailability` 조회 값이나 `SubscriptionSuspensionReason.PRODUCT_UNAVAILABLE`의
-존재를 상품 납품 상태 구현이 완료되었다는 뜻으로 해석하지 않는다.
-
-## 4. 자동화와 대량 처리
-
-- 자동 재개 Scheduler
-- 수동 재개와 자동 재개의 애플리케이션 유즈케이스 구성
-- 상품 상태 변경 후 구독 대량 처리
-- `ApplicationEventPublisher`
-- `@Async`
-- Virtual Thread
-- Batch
-- Transactional Outbox
-- 메시징 시스템
-
-`resumeDate`는 자동 재개 예정일이라는 의미가 확정되어 있지만, 자동 재개 실행 기능은
-아직 없다.
-
-## 5. 관리자와 시스템 실행 주체
-
-현재 관리자는 별도 애그리거트가 아니다. 실제 요구가 생기면 우선 보안의 인증·인가
-주체로 표현하는 방향을 검토한다.
-
-시스템은 인증된 사용자 애그리거트나 `ROLE_SYSTEM`이 아니다. 스케줄러 또는 이벤트
-리스너 같은 자동 처리 주체를 의미한다. 예를 들어 판매자나 관리자가 상품 상태 변경을
-요청하고 시스템이 그 결과에 따른 구독 후속 처리를 수행할 수 있다. 이 흐름과
-권한 정책은 아직 구현되지 않았다.
-
-## 6. 영속화와 애그리거트 복원
-
-- JDBC 도입과 DB 스키마
-- `Subscription.restore(...)` 또는 재구성 방식
-- 복원 과정에서 PAUSED 문맥 불변식을 검증하는 위치와 실패 처리
+- JDBC와 DB 스키마
+- 애그리거트 복원 API
+- 복원 시 상태별 필드 불변식 검증 위치와 실패 처리
 - DB column 시간대 정책
 
-현재 InMemory 구조에는 복원 전용 생성 경로가 없다. 복원 요구사항이 생기기 전에
-사용되지 않는 복원 생성 객체나 영속성 전용 도메인 API를 추가하지 않는다.
+### 시간과 이력
 
-## 7. 시간대 전략
-
-- 다중 시간대 지원
+- 다중 시간대
 - `Instant`, `OffsetDateTime`, `ZonedDateTime` 전환 여부
-- DB 및 외부 시스템과 시간을 교환하는 방식
-
-현재 InMemory 구조와 KST `Clock` 계약을 유지한다.
-
-## 8. 이력과 기타 미정 정책
-
-- 일시정지 이력
-- 구독 상태 변경 이력
-- 감사 로그
-- CANCELLED 상태에서 실행 차단 사유를 보존하거나 정리할지 여부
+- Pause 이력, 상태 변경 이력, 감사 로그
 
 ---
 
-# 작업 체크리스트
+## 작업 체크리스트
 
-구독 또는 관련 애그리거트를 수정할 때 다음을 확인한다.
+구독, 상품, 청구 또는 배송을 변경할 때 다음을 확인한다.
 
-1. 루트 `AGENTS.md`와 관련 아키텍처·도메인·보안 문서를 읽는다.
-2. 이 문서의 확정된 규칙을 현재 구현 제약으로 확인한다.
-3. 새 요구사항과 확정된 규칙의 충돌 여부를 확인한다.
-4. 관련 후속 논의 대상은 참고하되 현재 요청 없이 구현하지 않는다.
-5. 현재 요청 범위에 필요한 최소 설계를 수행한다.
-6. 새 정책이 확정되면 후속 논의 대상에서 확정된 규칙으로 옮긴다.
-7. 향후 잘못 되돌리기 쉬운 선택이면 결정 이유를 기록한다.
-8. 상태 변경은 의미 있는 도메인 행위를 통해 수행한다.
-9. 변경 가능한 컬렉션을 조회 메서드로 직접 노출하지 않는다.
-10. 프로덕션 동작을 바꾸면 가장 작은 범위의 테스트로 의도를 증명하고 관련 전체
-    테스트를 실행한다.
+1. 루트 `AGENTS.md`, `docs/glossary.md`, 관련 아키텍처·도메인·보안 문서를 읽는다.
+2. 이 문서의 확정된 규칙과 새 요구사항의 충돌 여부를 확인한다.
+3. 후속 논의 대상은 참고하되 현재 요청 없이 구현하지 않는다.
+4. 현재 요청 범위에 필요한 최소 설계를 수행한다.
+5. 새 정책이 확정되면 확정된 규칙으로 옮기고 중요한 결정 이유를 기록한다.
+6. 상태 변경은 의미 있는 도메인 행위로 수행한다.
+7. 코드, 테스트, 조회 모델, HTTP API와 문서에서 같은 비즈니스 용어를 사용한다.
+8. 날짜 경계와 상태별 불변식을 테스트한다.
+9. 구현 후 `docs/review-guidelines.md`를 기준으로 자체 리뷰한다.

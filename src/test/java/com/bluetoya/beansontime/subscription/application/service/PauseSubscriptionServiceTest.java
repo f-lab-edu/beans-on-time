@@ -13,10 +13,9 @@ import com.bluetoya.beansontime.subscription.application.port.in.OwnedSubscripti
 import com.bluetoya.beansontime.subscription.application.port.in.PauseSubscriptionCommand;
 import com.bluetoya.beansontime.subscription.application.port.out.LoadSubscriptionPort;
 import com.bluetoya.beansontime.subscription.application.port.out.SaveSubscriptionPort;
-import com.bluetoya.beansontime.subscription.domain.Cycle;
-import com.bluetoya.beansontime.subscription.domain.CycleUnit;
+import com.bluetoya.beansontime.subscription.domain.DeliveryCycle;
+import com.bluetoya.beansontime.subscription.domain.DeliveryCycleUnit;
 import com.bluetoya.beansontime.subscription.domain.Subscription;
-import com.bluetoya.beansontime.subscription.domain.SubscriptionPeriod;
 import com.bluetoya.beansontime.subscription.domain.SubscriptionStatus;
 import com.bluetoya.beansontime.subscription.domain.exception.InvalidSubscriptionPausePeriodException;
 import java.time.Clock;
@@ -35,10 +34,8 @@ class PauseSubscriptionServiceTest {
         new Subscription(
             new CustomerId(1),
             new ProductId(10),
-            new Cycle(CycleUnit.ONE_MONTH, 1),
+            new DeliveryCycle(DeliveryCycleUnit.ONE_MONTH, 1),
             LocalDate.of(2026, 9, 1));
-    SubscriptionPeriod currentPeriod = subscription.getCurrentPeriod();
-    LocalDate nextBillingDate = subscription.getNextBillingDate();
     LoadSubscriptionPort loadPort = mock(LoadSubscriptionPort.class);
     SaveSubscriptionPort savePort = mock(SaveSubscriptionPort.class);
     when(loadPort.load(subscription.getId())).thenReturn(Optional.of(subscription));
@@ -50,9 +47,10 @@ class PauseSubscriptionServiceTest {
 
     assertThat(subscription.getLifecycleStatus()).isEqualTo(SubscriptionStatus.PAUSED);
     assertThat(subscription.getPausedAt()).isEqualTo(LocalDateTime.of(2026, 9, 10, 14, 30));
-    assertThat(subscription.getResumeDate()).isEqualTo(LocalDate.of(2026, 9, 21));
-    assertThat(subscription.getNextBillingDate()).isEqualTo(nextBillingDate);
-    assertThat(subscription.getCurrentPeriod()).isEqualTo(currentPeriod);
+    assertThat(subscription.getScheduledResumeDate()).isEqualTo(LocalDate.of(2026, 9, 21));
+    assertThat(subscription.getRemainingPaidDays()).isEqualTo(20);
+    assertThat(subscription.getNextBillingDate()).isEqualTo(LocalDate.of(2026, 10, 11));
+    assertThat(subscription.getCurrentPeriod()).isNull();
     assertThat(subscription.isExecutionBlocked()).isTrue();
     verify(savePort).save(subscription);
   }
@@ -63,7 +61,7 @@ class PauseSubscriptionServiceTest {
         new Subscription(
             new CustomerId(1),
             new ProductId(10),
-            new Cycle(CycleUnit.ONE_MONTH, 1),
+            new DeliveryCycle(DeliveryCycleUnit.ONE_MONTH, 1),
             LocalDate.of(2026, 9, 1));
     LoadSubscriptionPort loadPort = mock(LoadSubscriptionPort.class);
     SaveSubscriptionPort savePort = mock(SaveSubscriptionPort.class);

@@ -8,17 +8,18 @@ import java.util.Set;
 public record SubscriptionInfo(
     String subscriptionId,
     long customerId,
-    String cycleUnit,
-    int cycleInterval,
+    String deliveryCycleUnit,
+    int deliveryCycleInterval,
     String lifecycleStatus,
     Set<SubscriptionSuspensionReason> suspensionReasons,
     LocalDate startedDate,
     LocalDate currentPeriodStartDate,
     LocalDate currentPeriodEndDate,
+    Integer remainingPaidDays,
     int billingAnchorDay,
     LocalDate nextBillingDate,
     LocalDateTime pausedAt,
-    LocalDate resumeDate,
+    LocalDate scheduledResumeDate,
     boolean executionBlocked) {
 
   public SubscriptionInfo {

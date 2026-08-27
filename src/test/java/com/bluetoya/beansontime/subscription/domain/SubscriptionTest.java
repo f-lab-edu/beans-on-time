@@ -11,269 +11,345 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import com.bluetoya.beansontime.customer.domain.CustomerId;
 import com.bluetoya.beansontime.product.domain.ProductId;
 import com.bluetoya.beansontime.subscription.domain.exception.InvalidSubscriptionPausePeriodException;
+import com.bluetoya.beansontime.subscription.domain.exception.InvalidSubscriptionPeriodStateException;
 import com.bluetoya.beansontime.subscription.domain.exception.InvalidSubscriptionResumeDateException;
 import com.bluetoya.beansontime.subscription.domain.exception.InvalidSubscriptionStateChangeException;
+import com.bluetoya.beansontime.subscription.domain.exception.SubscriptionResumeRequiresPaymentException;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.temporal.ChronoUnit;
 import java.util.Set;
 import org.junit.jupiter.api.Test;
 
 class SubscriptionTest {
 
-  private static final LocalDateTime PAUSED_AT = LocalDateTime.of(2026, 9, 10, 14, 30);
-
   @Test
-  void initializesRollingPeriodFromJanuaryThirtyFirst() {
+  void initializesAnActivePeriodFromJanuaryThirtyFirstWithoutLosingTheAnchor() {
     Subscription subscription = subscriptionStartedOn(LocalDate.of(2026, 1, 31));
 
     assertThat(subscription.getStartedDate()).isEqualTo(LocalDate.of(2026, 1, 31));
+    assertThat(subscription.getDeliveryCycle())
+        .usingRecursiveComparison()
+        .isEqualTo(new DeliveryCycle(DeliveryCycleUnit.ONE_MONTH, 1));
     assertThat(subscription.getBillingAnchorDay()).isEqualTo(new BillingAnchorDay(31));
     assertThat(subscription.getNextBillingDate()).isEqualTo(LocalDate.of(2026, 2, 28));
-    assertThat(subscription.getCurrentPeriod())
-        .isEqualTo(new SubscriptionPeriod(LocalDate.of(2026, 1, 31), LocalDate.of(2026, 2, 27)));
-    assertThat(subscription.getLifecycleStatus()).isEqualTo(ACTIVE);
+    assertActivePeriod(subscription, LocalDate.of(2026, 1, 31), LocalDate.of(2026, 2, 27));
     assertThat(subscription.getSuspensionReasons()).isEmpty();
-    assertThat(subscription.getPausedAt()).isNull();
-    assertThat(subscription.getResumeDate()).isNull();
   }
 
   @Test
-  void adjustsJanuaryThirtyFirstToLeapYearFebruary() {
+  void adjustsJanuaryThirtyFirstToLeapYearFebruaryWithoutLosingTheAnchor() {
     Subscription subscription = subscriptionStartedOn(LocalDate.of(2028, 1, 31));
 
+    assertThat(subscription.getBillingAnchorDay()).isEqualTo(new BillingAnchorDay(31));
     assertThat(subscription.getNextBillingDate()).isEqualTo(LocalDate.of(2028, 2, 29));
-    assertThat(subscription.getCurrentPeriod().endDate())
-        .isEqualTo(subscription.getNextBillingDate().minusDays(1));
+    assertActivePeriod(subscription, LocalDate.of(2028, 1, 31), LocalDate.of(2028, 2, 28));
   }
 
   @Test
-  void adjustsAnchorDayThirtyToTheLastDayOfFebruary() {
-    Subscription subscription = subscriptionStartedOn(LocalDate.of(2026, 1, 30));
+  void pausesByReplacingTheCurrentPeriodWithRemainingPaidDays() {
+    Subscription subscription = subscriptionStartedOn(LocalDate.of(2026, 4, 1));
+    LocalDateTime pausedAt = LocalDateTime.of(2026, 4, 10, 14, 30);
 
-    assertThat(subscription.getBillingAnchorDay()).isEqualTo(new BillingAnchorDay(30));
-    assertThat(subscription.getNextBillingDate()).isEqualTo(LocalDate.of(2026, 2, 28));
-  }
-
-  @Test
-  void pauseImmediatelyBlocksExecutionWithoutChangingPeriodOrBillingDate() {
-    Subscription subscription = subscriptionStartedOn(LocalDate.of(2026, 9, 1));
-    SubscriptionPeriod currentPeriod = subscription.getCurrentPeriod();
-    LocalDate nextBillingDate = subscription.getNextBillingDate();
-
-    subscription.pause(LocalDate.of(2026, 9, 20), PAUSED_AT);
+    subscription.pause(LocalDate.of(2026, 4, 19), pausedAt);
 
     assertThat(subscription.getLifecycleStatus()).isEqualTo(PAUSED);
-    assertThat(subscription.isExecutionBlocked()).isTrue();
-    assertThat(subscription.getPausedAt()).isEqualTo(PAUSED_AT);
-    assertThat(subscription.getResumeDate()).isEqualTo(LocalDate.of(2026, 9, 21));
-    assertThat(subscription.getCurrentPeriod()).isEqualTo(currentPeriod);
-    assertThat(subscription.getNextBillingDate()).isEqualTo(nextBillingDate);
+    assertThat(subscription.getCurrentPeriod()).isNull();
+    assertThat(subscription.getRemainingPaidDays()).isEqualTo(20);
+    assertThat(subscription.getPausedAt()).isEqualTo(pausedAt);
+    assertThat(subscription.getScheduledResumeDate()).isEqualTo(LocalDate.of(2026, 4, 20));
+    assertThat(subscription.getNextBillingDate()).isEqualTo(LocalDate.of(2026, 5, 10));
+    assertThat(subscription.getBillingAnchorDay()).isEqualTo(new BillingAnchorDay(1));
   }
 
   @Test
-  void pauseBeyondNextBillingDateStillPreservesBillingDate() {
-    Subscription subscription = subscriptionStartedOn(LocalDate.of(2026, 9, 1));
+  void allowsZeroRemainingPaidDaysWhenPausedOnTheLastPaidDay() {
+    Subscription subscription = subscriptionStartedOn(LocalDate.of(2026, 7, 1));
 
-    subscription.pause(LocalDate.of(2026, 10, 20), PAUSED_AT);
+    subscription.pause(LocalDate.of(2026, 7, 31), LocalDateTime.of(2026, 7, 31, 10, 0));
 
-    assertThat(subscription.getResumeDate()).isEqualTo(LocalDate.of(2026, 10, 21));
-    assertThat(subscription.getNextBillingDate()).isEqualTo(LocalDate.of(2026, 10, 1));
+    assertThat(subscription.getLifecycleStatus()).isEqualTo(PAUSED);
+    assertThat(subscription.getCurrentPeriod()).isNull();
+    assertThat(subscription.getRemainingPaidDays()).isZero();
+    assertThat(subscription.getScheduledResumeDate()).isEqualTo(LocalDate.of(2026, 8, 1));
+    assertThat(subscription.getNextBillingDate()).isEqualTo(LocalDate.of(2026, 8, 1));
   }
 
   @Test
-  void rejectsPauseUntilDateBeforePausedAtDateWithoutChangingState() {
-    Subscription subscription = subscriptionStartedOn(LocalDate.of(2026, 9, 1));
+  void rejectsPauseUntilDateBeforePauseDateWithoutChangingState() {
+    Subscription subscription = subscriptionStartedOn(LocalDate.of(2026, 4, 1));
     SubscriptionPeriod currentPeriod = subscription.getCurrentPeriod();
-    LocalDate nextBillingDate = subscription.getNextBillingDate();
 
-    assertThatThrownBy(() -> subscription.pause(LocalDate.of(2026, 9, 9), PAUSED_AT))
+    assertThatThrownBy(
+            () ->
+                subscription.pause(LocalDate.of(2026, 4, 9), LocalDateTime.of(2026, 4, 10, 14, 30)))
         .isInstanceOf(InvalidSubscriptionPausePeriodException.class);
 
     assertThat(subscription.getLifecycleStatus()).isEqualTo(ACTIVE);
     assertThat(subscription.getCurrentPeriod()).isEqualTo(currentPeriod);
-    assertThat(subscription.getNextBillingDate()).isEqualTo(nextBillingDate);
+    assertThat(subscription.getRemainingPaidDays()).isNull();
     assertThat(subscription.getPausedAt()).isNull();
-    assertThat(subscription.getResumeDate()).isNull();
+    assertThat(subscription.getScheduledResumeDate()).isNull();
   }
 
   @Test
-  void allowsPauseUntilDateEqualToPausedAtDate() {
-    Subscription subscription = subscriptionStartedOn(LocalDate.of(2026, 9, 1));
+  void rejectsAPauseDateOutsideTheCurrentActivePeriodAsAnInternalInvariantViolation() {
+    Subscription subscription = subscriptionStartedOn(LocalDate.of(2026, 4, 1));
 
-    subscription.pause(LocalDate.of(2026, 9, 10), PAUSED_AT);
+    assertThatThrownBy(
+            () -> subscription.pause(LocalDate.of(2026, 5, 2), LocalDateTime.of(2026, 5, 1, 10, 0)))
+        .isInstanceOf(InvalidSubscriptionPeriodStateException.class)
+        .isInstanceOf(IllegalStateException.class);
+  }
+
+  @Test
+  void sameDayResumeDoesNotMoveTheBillingSchedule() {
+    Subscription subscription = subscriptionStartedOn(LocalDate.of(2026, 4, 1));
+    subscription.pause(LocalDate.of(2026, 4, 19), LocalDateTime.of(2026, 4, 10, 10, 0));
+
+    subscription.resume(LocalDate.of(2026, 4, 10));
+
+    assertActivePeriod(subscription, LocalDate.of(2026, 4, 10), LocalDate.of(2026, 4, 30));
+    assertThat(subscription.getNextBillingDate()).isEqualTo(LocalDate.of(2026, 5, 1));
+    assertThat(subscription.getBillingAnchorDay()).isEqualTo(new BillingAnchorDay(1));
+  }
+
+  @Test
+  void nextDayResumeDoesNotMoveTheBillingSchedule() {
+    Subscription subscription = subscriptionStartedOn(LocalDate.of(2026, 4, 1));
+    subscription.pause(LocalDate.of(2026, 4, 19), LocalDateTime.of(2026, 4, 10, 10, 0));
+
+    subscription.resume(LocalDate.of(2026, 4, 11));
+
+    assertActivePeriod(subscription, LocalDate.of(2026, 4, 11), LocalDate.of(2026, 4, 30));
+    assertThat(subscription.getNextBillingDate()).isEqualTo(LocalDate.of(2026, 5, 1));
+    assertThat(subscription.getBillingAnchorDay()).isEqualTo(new BillingAnchorDay(1));
+  }
+
+  @Test
+  void resumeAfterOneFullyFrozenDayMovesTheScheduleAndRealignsTheAnchor() {
+    Subscription subscription = subscriptionStartedOn(LocalDate.of(2026, 4, 1));
+    subscription.pause(LocalDate.of(2026, 4, 19), LocalDateTime.of(2026, 4, 10, 10, 0));
+
+    subscription.resume(LocalDate.of(2026, 4, 12));
+
+    assertActivePeriod(subscription, LocalDate.of(2026, 4, 12), LocalDate.of(2026, 5, 1));
+    assertThat(subscription.getNextBillingDate()).isEqualTo(LocalDate.of(2026, 5, 2));
+    assertThat(subscription.getBillingAnchorDay()).isEqualTo(new BillingAnchorDay(2));
+  }
+
+  @Test
+  void manualResumeBeforeTheScheduledDateUsesTheActualRequestDate() {
+    Subscription subscription = subscriptionStartedOn(LocalDate.of(2026, 4, 1));
+    subscription.pause(LocalDate.of(2026, 4, 30), LocalDateTime.of(2026, 4, 10, 10, 0));
+    assertThat(subscription.getScheduledResumeDate()).isEqualTo(LocalDate.of(2026, 5, 1));
+    assertThat(subscription.getNextBillingDate()).isEqualTo(LocalDate.of(2026, 5, 21));
+
+    subscription.resume(LocalDate.of(2026, 4, 20));
+
+    assertActivePeriod(subscription, LocalDate.of(2026, 4, 20), LocalDate.of(2026, 5, 9));
+    assertThat(subscription.getNextBillingDate()).isEqualTo(LocalDate.of(2026, 5, 10));
+    assertThat(subscription.getBillingAnchorDay()).isEqualTo(new BillingAnchorDay(10));
+  }
+
+  @Test
+  void resumeOnTheScheduledDateKeepsThePlannedNextBillingDate() {
+    Subscription subscription = subscriptionStartedOn(LocalDate.of(2026, 4, 1));
+    subscription.pause(LocalDate.of(2026, 4, 19), LocalDateTime.of(2026, 4, 10, 10, 0));
+    LocalDate plannedNextBillingDate = subscription.getNextBillingDate();
+
+    subscription.resume(subscription.getScheduledResumeDate());
+
+    assertThat(subscription.getNextBillingDate()).isEqualTo(plannedNextBillingDate);
+    assertActivePeriod(subscription, LocalDate.of(2026, 4, 20), LocalDate.of(2026, 5, 9));
+  }
+
+  @Test
+  void manualResumeAfterTheScheduledDateUsesTheActualRequestDate() {
+    Subscription subscription = subscriptionStartedOn(LocalDate.of(2026, 4, 1));
+    subscription.pause(LocalDate.of(2026, 4, 19), LocalDateTime.of(2026, 4, 10, 10, 0));
+
+    subscription.resume(LocalDate.of(2026, 4, 25));
+
+    assertActivePeriod(subscription, LocalDate.of(2026, 4, 25), LocalDate.of(2026, 5, 14));
+    assertThat(subscription.getNextBillingDate()).isEqualTo(LocalDate.of(2026, 5, 15));
+    assertThat(subscription.getBillingAnchorDay()).isEqualTo(new BillingAnchorDay(15));
+  }
+
+  @Test
+  void oneRemainingPaidDayCreatesAValidOneDayPeriod() {
+    Subscription subscription = subscriptionStartedOn(LocalDate.of(2028, 2, 1));
+    subscription.pause(LocalDate.of(2028, 3, 4), LocalDateTime.of(2028, 2, 28, 10, 0));
+    assertThat(subscription.getRemainingPaidDays()).isEqualTo(1);
+
+    subscription.resume(LocalDate.of(2028, 3, 5));
+
+    assertActivePeriod(subscription, LocalDate.of(2028, 3, 5), LocalDate.of(2028, 3, 5));
+    assertThat(subscription.getNextBillingDate()).isEqualTo(LocalDate.of(2028, 3, 6));
+    assertThat(subscription.getBillingAnchorDay()).isEqualTo(new BillingAnchorDay(6));
+  }
+
+  @Test
+  void zeroRemainingPaidDaysCanResumeOnTheSameDayWithoutPayment() {
+    Subscription subscription = subscriptionStartedOn(LocalDate.of(2026, 7, 1));
+    subscription.pause(LocalDate.of(2026, 7, 31), LocalDateTime.of(2026, 7, 31, 10, 0));
+
+    subscription.resume(LocalDate.of(2026, 7, 31));
+
+    assertActivePeriod(subscription, LocalDate.of(2026, 7, 31), LocalDate.of(2026, 7, 31));
+    assertThat(subscription.getNextBillingDate()).isEqualTo(LocalDate.of(2026, 8, 1));
+    assertThat(subscription.getBillingAnchorDay()).isEqualTo(new BillingAnchorDay(1));
+  }
+
+  @Test
+  void zeroRemainingPaidDaysRequiresPaymentWhenResumingAfterTheLastPaidDay() {
+    Subscription subscription = subscriptionStartedOn(LocalDate.of(2026, 7, 1));
+    subscription.pause(LocalDate.of(2026, 8, 10), LocalDateTime.of(2026, 7, 31, 10, 0));
+
+    assertThatThrownBy(() -> subscription.resume(LocalDate.of(2026, 8, 1)))
+        .isInstanceOf(SubscriptionResumeRequiresPaymentException.class);
 
     assertThat(subscription.getLifecycleStatus()).isEqualTo(PAUSED);
-    assertThat(subscription.getResumeDate()).isEqualTo(LocalDate.of(2026, 9, 11));
-    assertThat(subscription.getNextBillingDate()).isEqualTo(LocalDate.of(2026, 10, 1));
+    assertThat(subscription.getCurrentPeriod()).isNull();
+    assertThat(subscription.getRemainingPaidDays()).isZero();
+    assertThat(subscription.getScheduledResumeDate()).isEqualTo(LocalDate.of(2026, 8, 11));
   }
 
   @Test
-  void cannotPauseAgainWhilePaused() {
-    Subscription subscription = subscriptionStartedOn(LocalDate.of(2026, 9, 1));
-    subscription.pause(LocalDate.of(2026, 9, 20), PAUSED_AT);
+  void repeatedPauseAndResumePreservesTheOriginalThirtyPaidDays() {
+    Subscription subscription = subscriptionStartedOn(LocalDate.of(2026, 9, 5));
 
-    assertThatThrownBy(() -> subscription.pause(LocalDate.of(2026, 10, 15), PAUSED_AT.plusDays(1)))
-        .isInstanceOf(InvalidSubscriptionStateChangeException.class);
-  }
-
-  @Test
-  void cannotPauseOrResumeAfterCancellation() {
-    Subscription subscription = subscriptionStartedOn(LocalDate.of(2026, 9, 1));
-    subscription.cancel();
-
-    assertThatThrownBy(() -> subscription.pause(LocalDate.of(2026, 9, 20), PAUSED_AT))
-        .isInstanceOf(InvalidSubscriptionStateChangeException.class);
-    assertThatThrownBy(() -> subscription.resume(LocalDate.of(2026, 9, 20)))
-        .isInstanceOf(InvalidSubscriptionStateChangeException.class);
-  }
-
-  @Test
-  void cancelIsIdempotentFromActiveState() {
-    Subscription subscription = subscriptionStartedOn(LocalDate.of(2026, 9, 1));
-
-    subscription.cancel();
-    subscription.cancel();
-
-    assertThat(subscription.getLifecycleStatus()).isEqualTo(CANCELLED);
-  }
-
-  @Test
-  void cancelClearsPausedContextAndRemainsIdempotent() {
-    Subscription subscription = subscriptionStartedOn(LocalDate.of(2026, 9, 1));
-    subscription.pause(LocalDate.of(2026, 9, 20), PAUSED_AT);
-
-    subscription.cancel();
-    subscription.cancel();
-
-    assertThat(subscription.getLifecycleStatus()).isEqualTo(CANCELLED);
-    assertThat(subscription.getPausedAt()).isNull();
-    assertThat(subscription.getResumeDate()).isNull();
-  }
-
-  @Test
-  void suspensionReasonDoesNotPreventCustomerPause() {
-    Subscription subscription = subscriptionStartedOn(LocalDate.of(2026, 9, 1));
-    subscription.addSuspensionReason(PRODUCT_UNAVAILABLE);
-
-    subscription.pause(LocalDate.of(2026, 9, 20), PAUSED_AT);
-
-    assertThat(subscription.getLifecycleStatus()).isEqualTo(PAUSED);
-    assertThat(subscription.getSuspensionReasons()).containsExactly(PRODUCT_UNAVAILABLE);
-  }
-
-  @Test
-  void manualResumeBeforeScheduledResumeDatePreservesCurrentPeriodAndSuspensionReasons() {
-    Subscription subscription = subscriptionStartedOn(LocalDate.of(2026, 9, 1));
-    SubscriptionPeriod currentPeriod = subscription.getCurrentPeriod();
-    LocalDate nextBillingDate = subscription.getNextBillingDate();
-    subscription.addSuspensionReason(PRODUCT_UNAVAILABLE);
-    subscription.pause(LocalDate.of(2026, 9, 25), PAUSED_AT);
-    assertThat(subscription.getResumeDate()).isEqualTo(LocalDate.of(2026, 9, 26));
-
+    subscription.pause(LocalDate.of(2026, 9, 19), LocalDateTime.of(2026, 9, 10, 10, 0));
     subscription.resume(LocalDate.of(2026, 9, 20));
+    SubscriptionPeriod first = subscription.getCurrentPeriod();
+    assertThat(first)
+        .isEqualTo(new SubscriptionPeriod(LocalDate.of(2026, 9, 20), LocalDate.of(2026, 10, 13)));
+    assertThat(subscription.getNextBillingDate()).isEqualTo(LocalDate.of(2026, 10, 14));
 
-    assertThat(subscription.getLifecycleStatus()).isEqualTo(ACTIVE);
-    assertThat(subscription.getCurrentPeriod()).isEqualTo(currentPeriod);
-    assertThat(subscription.getNextBillingDate()).isEqualTo(nextBillingDate);
-    assertThat(subscription.getPausedAt()).isNull();
-    assertThat(subscription.getResumeDate()).isNull();
-    assertThat(subscription.getSuspensionReasons()).containsExactly(PRODUCT_UNAVAILABLE);
-    assertThat(subscription.isExecutionBlocked()).isTrue();
-  }
-
-  @Test
-  void manualResumeAfterScheduledResumeDateIsAllowedWhileStillPaused() {
-    Subscription subscription = subscriptionStartedOn(LocalDate.of(2026, 9, 1));
-    subscription.pause(LocalDate.of(2026, 9, 29), PAUSED_AT);
-    assertThat(subscription.getResumeDate()).isEqualTo(LocalDate.of(2026, 9, 30));
-
+    subscription.pause(LocalDate.of(2026, 10, 1), LocalDateTime.of(2026, 9, 25, 10, 0));
     subscription.resume(LocalDate.of(2026, 10, 2));
+    SubscriptionPeriod second = subscription.getCurrentPeriod();
+    assertThat(second)
+        .isEqualTo(new SubscriptionPeriod(LocalDate.of(2026, 10, 2), LocalDate.of(2026, 10, 19)));
+    assertThat(subscription.getNextBillingDate()).isEqualTo(LocalDate.of(2026, 10, 20));
 
-    assertThat(subscription.getLifecycleStatus()).isEqualTo(ACTIVE);
-    assertThat(subscription.getCurrentPeriod())
-        .isEqualTo(new SubscriptionPeriod(LocalDate.of(2026, 10, 2), LocalDate.of(2026, 10, 31)));
-    assertThat(subscription.getNextBillingDate()).isEqualTo(LocalDate.of(2026, 11, 1));
-    assertThat(subscription.getPausedAt()).isNull();
-    assertThat(subscription.getResumeDate()).isNull();
+    subscription.pause(LocalDate.of(2026, 10, 14), LocalDateTime.of(2026, 10, 5, 10, 0));
+    subscription.resume(LocalDate.of(2026, 10, 15));
+    SubscriptionPeriod third = subscription.getCurrentPeriod();
+    assertThat(third)
+        .isEqualTo(new SubscriptionPeriod(LocalDate.of(2026, 10, 15), LocalDate.of(2026, 10, 28)));
+    assertThat(subscription.getNextBillingDate()).isEqualTo(LocalDate.of(2026, 10, 29));
+
+    long paidDays =
+        inclusiveDays(LocalDate.of(2026, 9, 5), LocalDate.of(2026, 9, 10))
+            + inclusiveDays(first.startDate(), LocalDate.of(2026, 9, 25))
+            + inclusiveDays(second.startDate(), LocalDate.of(2026, 10, 5))
+            + inclusiveDays(third.startDate(), third.endDate());
+    assertThat(paidDays).isEqualTo(30);
   }
 
   @Test
-  void rejectsResumeDateBeforePauseRequestDateWithoutChangingState() {
+  void pauseAndResumeAcrossLeapYearFebruaryUsesRemainingPaidDays() {
+    Subscription subscription = subscriptionStartedOn(LocalDate.of(2028, 1, 31));
+    subscription.pause(LocalDate.of(2028, 2, 29), LocalDateTime.of(2028, 2, 20, 10, 0));
+
+    assertThat(subscription.getRemainingPaidDays()).isEqualTo(8);
+    assertThat(subscription.getScheduledResumeDate()).isEqualTo(LocalDate.of(2028, 3, 1));
+    assertThat(subscription.getNextBillingDate()).isEqualTo(LocalDate.of(2028, 3, 9));
+
+    subscription.resume(LocalDate.of(2028, 3, 1));
+
+    assertActivePeriod(subscription, LocalDate.of(2028, 3, 1), LocalDate.of(2028, 3, 8));
+    assertThat(subscription.getNextBillingDate()).isEqualTo(LocalDate.of(2028, 3, 9));
+    assertThat(subscription.getBillingAnchorDay()).isEqualTo(new BillingAnchorDay(9));
+  }
+
+  @Test
+  void longPauseAcrossTheYearBoundaryPreservesRemainingPaidDays() {
+    Subscription subscription = subscriptionStartedOn(LocalDate.of(2026, 11, 15));
+    subscription.pause(LocalDate.of(2027, 2, 4), LocalDateTime.of(2026, 11, 20, 10, 0));
+
+    assertThat(subscription.getRemainingPaidDays()).isEqualTo(24);
+    assertThat(subscription.getScheduledResumeDate()).isEqualTo(LocalDate.of(2027, 2, 5));
+    assertThat(subscription.getNextBillingDate()).isEqualTo(LocalDate.of(2027, 3, 1));
+
+    subscription.resume(LocalDate.of(2027, 2, 5));
+
+    assertActivePeriod(subscription, LocalDate.of(2027, 2, 5), LocalDate.of(2027, 2, 28));
+    assertThat(subscription.getNextBillingDate()).isEqualTo(LocalDate.of(2027, 3, 1));
+  }
+
+  @Test
+  void rejectsResumeDateBeforePauseDateAsAnInternalTimeInvariantViolation() {
     Subscription subscription = subscriptionStartedOn(LocalDate.of(2026, 9, 1));
-    SubscriptionPeriod currentPeriod = subscription.getCurrentPeriod();
-    LocalDate nextBillingDate = subscription.getNextBillingDate();
-    subscription.pause(LocalDate.of(2026, 9, 20), PAUSED_AT);
+    LocalDateTime pausedAt = LocalDateTime.of(2026, 9, 10, 10, 0);
+    subscription.pause(LocalDate.of(2026, 9, 20), pausedAt);
 
     assertThatThrownBy(() -> subscription.resume(LocalDate.of(2026, 9, 9)))
-        .isInstanceOf(InvalidSubscriptionResumeDateException.class);
+        .isInstanceOf(InvalidSubscriptionResumeDateException.class)
+        .isInstanceOf(IllegalStateException.class);
 
     assertThat(subscription.getLifecycleStatus()).isEqualTo(PAUSED);
-    assertThat(subscription.getCurrentPeriod()).isEqualTo(currentPeriod);
-    assertThat(subscription.getNextBillingDate()).isEqualTo(nextBillingDate);
-    assertThat(subscription.getPausedAt()).isEqualTo(PAUSED_AT);
-    assertThat(subscription.getResumeDate()).isEqualTo(LocalDate.of(2026, 9, 21));
+    assertThat(subscription.getCurrentPeriod()).isNull();
+    assertThat(subscription.getRemainingPaidDays()).isEqualTo(20);
+    assertThat(subscription.getPausedAt()).isEqualTo(pausedAt);
+    assertThat(subscription.getScheduledResumeDate()).isEqualTo(LocalDate.of(2026, 9, 21));
   }
 
   @Test
-  void allowsResumeOnPauseRequestDateWithoutReplacingCurrentPeriod() {
-    Subscription subscription = subscriptionStartedOn(LocalDate.of(2026, 9, 1));
-    SubscriptionPeriod currentPeriod = subscription.getCurrentPeriod();
-    subscription.pause(LocalDate.of(2026, 9, 20), PAUSED_AT);
-
-    subscription.resume(LocalDate.of(2026, 9, 10));
-
-    assertThat(subscription.getLifecycleStatus()).isEqualTo(ACTIVE);
-    assertThat(subscription.getCurrentPeriod()).isEqualTo(currentPeriod);
-    assertThat(subscription.getPausedAt()).isNull();
-    assertThat(subscription.getResumeDate()).isNull();
-  }
-
-  @Test
-  void resumeAfterCurrentPeriodConfirmsANewBillingPeriodFromAnchorDay() {
-    Subscription subscription = subscriptionStartedOn(LocalDate.of(2026, 8, 31));
-    subscription.pause(LocalDate.of(2026, 10, 20), PAUSED_AT);
-
-    subscription.resume(LocalDate.of(2026, 10, 10));
-
-    assertThat(subscription.getLifecycleStatus()).isEqualTo(ACTIVE);
-    assertThat(subscription.getNextBillingDate()).isEqualTo(LocalDate.of(2026, 11, 30));
-    assertThat(subscription.getCurrentPeriod())
-        .isEqualTo(new SubscriptionPeriod(LocalDate.of(2026, 10, 10), LocalDate.of(2026, 11, 29)));
-    assertThat(subscription.getCurrentPeriod().endDate())
-        .isEqualTo(subscription.getNextBillingDate().minusDays(1));
-    assertThat(subscription.getPausedAt()).isNull();
-    assertThat(subscription.getResumeDate()).isNull();
-  }
-
-  @Test
-  void cannotResumeAnActiveSubscription() {
-    Subscription subscription = subscriptionStartedOn(LocalDate.of(2026, 9, 1));
-
-    assertThatThrownBy(() -> subscription.resume(LocalDate.of(2026, 9, 20)))
+  void rejectsInvalidLifecycleTransitionsAndKeepsCancelIdempotent() {
+    Subscription paused = subscriptionStartedOn(LocalDate.of(2026, 9, 1));
+    paused.pause(LocalDate.of(2026, 9, 20), LocalDateTime.of(2026, 9, 10, 10, 0));
+    assertThatThrownBy(
+            () -> paused.pause(LocalDate.of(2026, 10, 15), LocalDateTime.of(2026, 9, 11, 10, 0)))
         .isInstanceOf(InvalidSubscriptionStateChangeException.class);
+
+    Subscription active = subscriptionStartedOn(LocalDate.of(2026, 9, 1));
+    assertThatThrownBy(() -> active.resume(LocalDate.of(2026, 9, 20)))
+        .isInstanceOf(InvalidSubscriptionStateChangeException.class);
+
+    Subscription cancelled = subscriptionStartedOn(LocalDate.of(2026, 9, 1));
+    cancelled.cancel();
+    assertThatThrownBy(
+            () -> cancelled.pause(LocalDate.of(2026, 9, 20), LocalDateTime.of(2026, 9, 10, 10, 0)))
+        .isInstanceOf(InvalidSubscriptionStateChangeException.class);
+    assertThatThrownBy(() -> cancelled.resume(LocalDate.of(2026, 9, 20)))
+        .isInstanceOf(InvalidSubscriptionStateChangeException.class);
+    cancelled.cancel();
+    assertCancelledState(cancelled);
   }
 
   @Test
-  void managesMultipleSuspensionReasonsIdempotentlyAndIndependentlyFromLifecycle() {
-    Subscription subscription = subscriptionStartedOn(LocalDate.of(2026, 9, 1));
+  void cancelClearsEveryDateFieldFromActiveAndPausedStates() {
+    Subscription active = subscriptionStartedOn(LocalDate.of(2026, 9, 1));
+    active.cancel();
+    assertCancelledState(active);
 
+    Subscription paused = subscriptionStartedOn(LocalDate.of(2026, 9, 1));
+    paused.pause(LocalDate.of(2026, 9, 20), LocalDateTime.of(2026, 9, 10, 10, 0));
+    paused.cancel();
+    assertCancelledState(paused);
+  }
+
+  @Test
+  void suspensionReasonsRemainIndependentFromLifecycleTransitions() {
+    Subscription subscription = subscriptionStartedOn(LocalDate.of(2026, 9, 1));
     subscription.addSuspensionReason(PRODUCT_UNAVAILABLE);
     subscription.addSuspensionReason(PRODUCT_UNAVAILABLE);
     subscription.addSuspensionReason(PAYMENT_FAILED);
 
-    assertThat(subscription.getLifecycleStatus()).isEqualTo(ACTIVE);
+    subscription.pause(LocalDate.of(2026, 9, 20), LocalDateTime.of(2026, 9, 10, 10, 0));
+    subscription.resume(LocalDate.of(2026, 9, 20));
+
     assertThat(subscription.getSuspensionReasons())
         .containsExactlyInAnyOrder(PRODUCT_UNAVAILABLE, PAYMENT_FAILED);
+    assertThat(subscription.isExecutionBlocked()).isTrue();
 
     subscription.removeSuspensionReason(PRODUCT_UNAVAILABLE);
     subscription.removeSuspensionReason(PRODUCT_UNAVAILABLE);
-
-    assertThat(subscription.getSuspensionReasons()).containsExactly(PAYMENT_FAILED);
-
     subscription.removeSuspensionReason(PAYMENT_FAILED);
-
     assertThat(subscription.getSuspensionReasons()).isEmpty();
-    assertThat(subscription.getLifecycleStatus()).isEqualTo(ACTIVE);
+    assertThat(subscription.isExecutionBlocked()).isFalse();
   }
 
   @Test
@@ -290,23 +366,16 @@ class SubscriptionTest {
   @Test
   void isExecutionBlockedByLifecycleOrSuspensionReasons() {
     Subscription active = subscriptionStartedOn(LocalDate.of(2026, 9, 1));
-    Subscription productBlockedActive = subscriptionStartedOn(LocalDate.of(2026, 9, 1));
-    productBlockedActive.addSuspensionReason(PRODUCT_UNAVAILABLE);
-    Subscription paymentBlockedActive = subscriptionStartedOn(LocalDate.of(2026, 9, 1));
-    paymentBlockedActive.addSuspensionReason(PAYMENT_FAILED);
+    Subscription blockedActive = subscriptionStartedOn(LocalDate.of(2026, 9, 1));
+    blockedActive.addSuspensionReason(PRODUCT_UNAVAILABLE);
     Subscription paused = subscriptionStartedOn(LocalDate.of(2026, 9, 1));
-    paused.pause(LocalDate.of(2026, 9, 20), PAUSED_AT);
-    Subscription blockedPaused = subscriptionStartedOn(LocalDate.of(2026, 9, 1));
-    blockedPaused.addSuspensionReason(PRODUCT_UNAVAILABLE);
-    blockedPaused.pause(LocalDate.of(2026, 9, 20), PAUSED_AT);
+    paused.pause(LocalDate.of(2026, 9, 20), LocalDateTime.of(2026, 9, 10, 10, 0));
     Subscription cancelled = subscriptionStartedOn(LocalDate.of(2026, 9, 1));
     cancelled.cancel();
 
     assertThat(active.isExecutionBlocked()).isFalse();
-    assertThat(productBlockedActive.isExecutionBlocked()).isTrue();
-    assertThat(paymentBlockedActive.isExecutionBlocked()).isTrue();
+    assertThat(blockedActive.isExecutionBlocked()).isTrue();
     assertThat(paused.isExecutionBlocked()).isTrue();
-    assertThat(blockedPaused.isExecutionBlocked()).isTrue();
     assertThat(cancelled.isExecutionBlocked()).isTrue();
   }
 
@@ -318,10 +387,41 @@ class SubscriptionTest {
         .isEqualTo("com.bluetoya.beansontime.subscription.domain.exception");
     assertThat(InvalidSubscriptionResumeDateException.class.getPackageName())
         .isEqualTo("com.bluetoya.beansontime.subscription.domain.exception");
+    assertThat(InvalidSubscriptionPeriodStateException.class.getPackageName())
+        .isEqualTo("com.bluetoya.beansontime.subscription.domain.exception");
+    assertThat(SubscriptionResumeRequiresPaymentException.class.getPackageName())
+        .isEqualTo("com.bluetoya.beansontime.subscription.domain.exception");
   }
 
   private Subscription subscriptionStartedOn(LocalDate startedDate) {
     return new Subscription(
-        new CustomerId(1), new ProductId(1), new Cycle(CycleUnit.ONE_MONTH, 1), startedDate);
+        new CustomerId(1),
+        new ProductId(1),
+        new DeliveryCycle(DeliveryCycleUnit.ONE_MONTH, 1),
+        startedDate);
+  }
+
+  private void assertActivePeriod(
+      Subscription subscription, LocalDate startDate, LocalDate endDate) {
+    assertThat(subscription.getLifecycleStatus()).isEqualTo(ACTIVE);
+    assertThat(subscription.getCurrentPeriod())
+        .isEqualTo(new SubscriptionPeriod(startDate, endDate));
+    assertThat(subscription.getRemainingPaidDays()).isNull();
+    assertThat(subscription.getPausedAt()).isNull();
+    assertThat(subscription.getScheduledResumeDate()).isNull();
+    assertThat(subscription.getNextBillingDate()).isNotNull();
+  }
+
+  private void assertCancelledState(Subscription subscription) {
+    assertThat(subscription.getLifecycleStatus()).isEqualTo(CANCELLED);
+    assertThat(subscription.getCurrentPeriod()).isNull();
+    assertThat(subscription.getRemainingPaidDays()).isNull();
+    assertThat(subscription.getPausedAt()).isNull();
+    assertThat(subscription.getScheduledResumeDate()).isNull();
+    assertThat(subscription.getNextBillingDate()).isNull();
+  }
+
+  private long inclusiveDays(LocalDate startDate, LocalDate endDate) {
+    return ChronoUnit.DAYS.between(startDate, endDate) + 1;
   }
 }
