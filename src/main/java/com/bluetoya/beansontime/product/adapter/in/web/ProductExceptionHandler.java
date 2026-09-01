@@ -1,7 +1,7 @@
 package com.bluetoya.beansontime.product.adapter.in.web;
 
 import com.bluetoya.beansontime.product.application.exception.ProductNotFoundException;
-import com.bluetoya.beansontime.product.domain.exception.InvalidProductStateChangeException;
+import com.bluetoya.beansontime.product.domain.exception.InvalidSupplyStateChangeException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -18,10 +18,10 @@ public class ProductExceptionHandler {
     return problem;
   }
 
-  @ExceptionHandler(InvalidProductStateChangeException.class)
-  ProblemDetail handleInvalidProductStateChange(InvalidProductStateChangeException exception) {
+  @ExceptionHandler(InvalidSupplyStateChangeException.class)
+  ProblemDetail handleInvalidSupplyStateChange(InvalidSupplyStateChangeException exception) {
     ProblemDetail problem = ProblemDetail.forStatus(HttpStatus.CONFLICT);
-    problem.setTitle("상품 상태 변경 불가");
+    problem.setTitle("상품 공급 상태 변경 불가");
     problem.setDetail(exception.getMessage());
     return problem;
   }

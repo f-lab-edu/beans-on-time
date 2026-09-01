@@ -506,7 +506,7 @@ Policy, Strategy, Event, Adapter, DB 스키마나 범용 추상화를 추가하�
 - Product 실행 차단 기간에도 유료 이용 기간을 동결할지 여부
 - `DISCONTINUED` Product의 기존 Subscription 최종 처리
 - 환불, 잔여 이용 기간 소멸, 대체 상품 전환
-- 상품 상태 변경 뒤 구독 대량 처리와 Event, Async, Batch 도입 여부
+- 상품 공급 상태 변경 뒤 구독 대량 처리와 Event, Async, Batch 도입 여부
 - Product와 Subscription 갱신의 동시성 및 최종적 일관성
 
 ### 배송

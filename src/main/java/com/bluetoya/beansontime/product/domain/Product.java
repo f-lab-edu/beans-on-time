@@ -1,6 +1,6 @@
 package com.bluetoya.beansontime.product.domain;
 
-import com.bluetoya.beansontime.product.domain.exception.InvalidProductStateChangeException;
+import com.bluetoya.beansontime.product.domain.exception.InvalidSupplyStateChangeException;
 import java.util.List;
 import java.util.Set;
 import lombok.Getter;
@@ -18,7 +18,7 @@ public class Product {
   private final List<ProductSizeOption> sizeOptions;
   private final Set<GrindType> grindTypes;
 
-  private ProductStatus status;
+  private SupplyStatus supplyStatus;
 
   public Product(SellerId sellerId, String name, Money basePrice) {
     this.id = ProductId.generate();
@@ -29,31 +29,31 @@ public class Product {
     this.images = List.of();
     this.sizeOptions = List.of();
     this.grindTypes = Set.of();
-    this.status = ProductStatus.AVAILABLE;
+    this.supplyStatus = SupplyStatus.AVAILABLE;
   }
 
   public void stopSupply() {
-    if (status == ProductStatus.DISCONTINUED) {
-      throw new InvalidProductStateChangeException("영구 종료된 상품의 공급을 일시 중지할 수 없습니다.");
+    if (supplyStatus == SupplyStatus.DISCONTINUED) {
+      throw new InvalidSupplyStateChangeException("영구 종료된 상품의 공급을 일시 중지할 수 없습니다.");
     }
 
-    status = ProductStatus.TEMPORARILY_UNAVAILABLE;
+    supplyStatus = SupplyStatus.TEMPORARILY_UNAVAILABLE;
   }
 
   public void resumeSupply() {
-    if (status == ProductStatus.DISCONTINUED) {
-      throw new InvalidProductStateChangeException("영구 종료된 상품의 공급을 재개할 수 없습니다.");
+    if (supplyStatus == SupplyStatus.DISCONTINUED) {
+      throw new InvalidSupplyStateChangeException("영구 종료된 상품의 공급을 재개할 수 없습니다.");
     }
 
-    status = ProductStatus.AVAILABLE;
+    supplyStatus = SupplyStatus.AVAILABLE;
   }
 
   public void discontinue() {
-    status = ProductStatus.DISCONTINUED;
+    supplyStatus = SupplyStatus.DISCONTINUED;
   }
 
   public boolean isSubscribable() {
-    return status == ProductStatus.AVAILABLE;
+    return supplyStatus == SupplyStatus.AVAILABLE;
   }
 
   public record ProductImage(String url, int order) {}

@@ -96,12 +96,12 @@ Subscription
 - Name
 - Description
 - Price
-- ProductStatus
+- SupplyStatus
 - ProductImage
 - 지원하는 분쇄 방식
 - 크기 선택지
 
-`ProductStatus`는 `AVAILABLE`, `TEMPORARILY_UNAVAILABLE`, `DISCONTINUED`를
+`SupplyStatus`는 `AVAILABLE`, `TEMPORARILY_UNAVAILABLE`, `DISCONTINUED`를
 가진다. 현재 Feature에서는 판매 가능 여부와 공급 가능 여부를 별도 상태 축으로
 분리하지 않는다. `DISCONTINUED`는 복구할 수 없는 종료 상태다. 세부 상태 전이와
 구독 연동 규칙은 `docs/product.md`에 기록한다.

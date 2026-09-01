@@ -1,12 +1,12 @@
 package com.bluetoya.beansontime.product.domain;
 
-import static com.bluetoya.beansontime.product.domain.ProductStatus.AVAILABLE;
-import static com.bluetoya.beansontime.product.domain.ProductStatus.DISCONTINUED;
-import static com.bluetoya.beansontime.product.domain.ProductStatus.TEMPORARILY_UNAVAILABLE;
+import static com.bluetoya.beansontime.product.domain.SupplyStatus.AVAILABLE;
+import static com.bluetoya.beansontime.product.domain.SupplyStatus.DISCONTINUED;
+import static com.bluetoya.beansontime.product.domain.SupplyStatus.TEMPORARILY_UNAVAILABLE;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-import com.bluetoya.beansontime.product.domain.exception.InvalidProductStateChangeException;
+import com.bluetoya.beansontime.product.domain.exception.InvalidSupplyStateChangeException;
 import org.junit.jupiter.api.Test;
 
 class ProductTest {
@@ -17,7 +17,7 @@ class ProductTest {
 
     product.stopSupply();
 
-    assertThat(product.getStatus()).isEqualTo(TEMPORARILY_UNAVAILABLE);
+    assertThat(product.getSupplyStatus()).isEqualTo(TEMPORARILY_UNAVAILABLE);
   }
 
   @Test
@@ -27,7 +27,7 @@ class ProductTest {
 
     product.stopSupply();
 
-    assertThat(product.getStatus()).isEqualTo(TEMPORARILY_UNAVAILABLE);
+    assertThat(product.getSupplyStatus()).isEqualTo(TEMPORARILY_UNAVAILABLE);
   }
 
   @Test
@@ -37,7 +37,7 @@ class ProductTest {
 
     product.resumeSupply();
 
-    assertThat(product.getStatus()).isEqualTo(AVAILABLE);
+    assertThat(product.getSupplyStatus()).isEqualTo(AVAILABLE);
   }
 
   @Test
@@ -46,7 +46,7 @@ class ProductTest {
 
     product.resumeSupply();
 
-    assertThat(product.getStatus()).isEqualTo(AVAILABLE);
+    assertThat(product.getSupplyStatus()).isEqualTo(AVAILABLE);
   }
 
   @Test
@@ -55,7 +55,7 @@ class ProductTest {
 
     product.discontinue();
 
-    assertThat(product.getStatus()).isEqualTo(DISCONTINUED);
+    assertThat(product.getSupplyStatus()).isEqualTo(DISCONTINUED);
   }
 
   @Test
@@ -65,7 +65,7 @@ class ProductTest {
 
     product.discontinue();
 
-    assertThat(product.getStatus()).isEqualTo(DISCONTINUED);
+    assertThat(product.getSupplyStatus()).isEqualTo(DISCONTINUED);
   }
 
   @Test
@@ -75,7 +75,7 @@ class ProductTest {
 
     product.discontinue();
 
-    assertThat(product.getStatus()).isEqualTo(DISCONTINUED);
+    assertThat(product.getSupplyStatus()).isEqualTo(DISCONTINUED);
   }
 
   @Test
@@ -83,8 +83,8 @@ class ProductTest {
     Product product = product();
     product.discontinue();
 
-    assertThatThrownBy(product::stopSupply).isInstanceOf(InvalidProductStateChangeException.class);
-    assertThat(product.getStatus()).isEqualTo(DISCONTINUED);
+    assertThatThrownBy(product::stopSupply).isInstanceOf(InvalidSupplyStateChangeException.class);
+    assertThat(product.getSupplyStatus()).isEqualTo(DISCONTINUED);
   }
 
   @Test
@@ -92,9 +92,8 @@ class ProductTest {
     Product product = product();
     product.discontinue();
 
-    assertThatThrownBy(product::resumeSupply)
-        .isInstanceOf(InvalidProductStateChangeException.class);
-    assertThat(product.getStatus()).isEqualTo(DISCONTINUED);
+    assertThatThrownBy(product::resumeSupply).isInstanceOf(InvalidSupplyStateChangeException.class);
+    assertThat(product.getSupplyStatus()).isEqualTo(DISCONTINUED);
   }
 
   @Test

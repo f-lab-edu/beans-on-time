@@ -10,9 +10,9 @@
 
 ## 확정된 규칙
 
-### 상품 상태
+### 공급 상태
 
-`ProductStatus`는 현재 판매 가능 여부와 공급 가능 여부를 하나의 상태 축으로
+`SupplyStatus`는 현재 판매 가능 여부와 공급 가능 여부를 하나의 상태 축으로
 표현한다.
 
 - `AVAILABLE`: 정상 공급할 수 있고 신규 및 기존 구독을 모두 수행할 수 있다.
@@ -24,7 +24,7 @@
 `AVAILABLE`인 상품만 신규 구독할 수 있다. 이 질의는
 `Product.isSubscribable()`로 표현한다.
 
-### 상품 상태 전이
+### 공급 상태 전이
 
 | 현재 상태 | `stopSupply()` | `resumeSupply()` | `discontinue()` |
 |---|---|---|---|
@@ -49,7 +49,7 @@ Product는 Subscription 애그리거트를 직접 참조하거나 변경하지 �
   구독에 `PRODUCT_UNAVAILABLE`을 추가하거나 유지한다.
 
 연동 대상은 `ACTIVE`, `PAUSED` 구독이다. `CANCELLED` 구독은 제외한다.
-Product 상태 변경은 Subscription의 `lifecycleStatus`를 변경하지 않는다.
+Product 공급 상태 변경은 Subscription의 `lifecycleStatus`를 변경하지 않는다.
 공급 재개는 `PRODUCT_UNAVAILABLE`만 제거하며 `PAYMENT_FAILED` 등 다른 실행 차단
 사유를 변경하지 않는다.
 
@@ -61,7 +61,7 @@ PATCH /products/{id}/supply/resume
 PATCH /products/{id}/discontinue
 ```
 
-상태값을 임의로 받는 범용 수정 API를 두지 않고 도메인 행위를 노출한다. 상품
+공급 상태값을 임의로 받는 범용 수정 API를 두지 않고 도메인 행위를 노출한다. 상품
 상태 변경은 인증된 판매자 중 해당 Product의 `sellerId`와 일치하는 소유자만
 수행할 수 있다. `@RequireOwnership`이 붙은 로더가 반환한 Product를
 `ProductOwnershipResolver`가 판매자 주체와 비교한다.
