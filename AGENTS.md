@@ -1,36 +1,36 @@
 # AGENTS.md
 
-## Project Overview
+## 프로젝트 개요
 
-Beans on Time is a coffee-bean subscription service designed as a backend engineering
-portfolio and learning project.
+Beans on Time은 백엔드 엔지니어링 포트폴리오와 학습을 목적으로 만드는 커피 원두
+정기구독 서비스다.
 
-The primary goal is not only to make features work, but to maintain a high-quality
-domain model and architectural boundaries while implementing realistic business use cases.
+기능을 동작하게 만드는 것뿐 아니라, 현실적인 비즈니스 유즈케이스를 구현하면서
+품질 높은 도메인 모델과 아키텍처 경계를 유지하는 것을 핵심 목표로 한다.
 
-Core business areas include:
+주요 비즈니스 영역은 다음과 같다.
 
-- Product registration and product queries
-- Coffee subscription lifecycle management
-- Recurring billing and payment
-- Per-cycle order generation
-- Payment failure retry and recovery
-- Subscription pause and resume
+- 상품 등록과 조회
+- 커피 구독 생명주기 관리
+- 정기 청구와 결제
+- 회차별 주문 생성
+- 결제 실패 재시도와 복구
+- 구독 일시정지와 재개
 
-The project intentionally prioritizes:
+프로젝트는 다음 우선순위를 따른다.
 
-1. Domain-Driven Design
-2. Hexagonal Architecture
-3. Explicit architectural boundaries
-4. Clean and maintainable code
-5. Meaningful automated tests
-6. Simple designs that can evolve when requirements appear
+1. 도메인 주도 설계
+2. 헥사고날 아키텍처
+3. 명시적인 아키텍처 경계
+4. 깨끗하고 유지보수 가능한 코드
+5. 의미 있는 자동화 테스트
+6. 실제 요구사항에 따라 진화할 수 있는 단순한 설계
 
-Do not sacrifice these principles merely to reduce the amount of code.
+코드 양을 줄이기 위해 이 원칙을 희생하지 않는다.
 
 ---
 
-## Technology Stack
+## 기술 스택
 
 - Java 25
 - Spring Boot 4
@@ -41,82 +41,173 @@ Do not sacrifice these principles merely to reduce the amount of code.
 - Mockito
 - AssertJ
 
-Persistence is currently implemented or introduced through outbound adapters.
+영속성은 아웃바운드 어댑터를 통해 구현하거나 도입한다.
 
-Do not introduce JPA, Hibernate, WebFlux, or another major framework unless explicitly
-required by the task.
+작업에서 명시적으로 요구하지 않는 한 JPA, Hibernate, WebFlux 또는 다른 주요
+프레임워크를 도입하지 않는다.
 
-The Domain layer must remain independent of Spring and persistence frameworks.
-
----
-
-# Working Principles for AI Agents
-
-Before changing code:
-
-1. Inspect the existing package and nearby implementations.
-2. Identify the Aggregate, Use Case, Port, and Adapter involved.
-3. Follow existing project conventions before introducing a new pattern.
-4. Determine whether the requested behavior is:
-    - a domain rule,
-    - application orchestration,
-    - infrastructure concern,
-    - web concern,
-    - authentication/authorization concern.
-5. Prefer the smallest change that correctly satisfies the requirement.
-
-Do not introduce a new abstraction only because duplication might occur in the future.
-
-Prefer:
-
-- concrete domain language,
-- explicit dependencies,
-- small vertical slices,
-- incremental design evolution.
-
-Avoid:
-
-- speculative generalization,
-- unnecessary framework abstractions,
-- generic `common`, `util`, `manager`, or `helper` classes,
-- large unrelated refactors,
-- changing working code outside the requested scope.
-
-When an architectural decision is unclear, preserve the existing architecture and make the
-least invasive choice.
+도메인 계층은 Spring과 영속성 프레임워크에 의존하지 않아야 한다.
 
 ---
 
-# Domain-Driven Design Rules
+# AI 에이전트 작업 원칙
 
-## Aggregate Boundaries
+코드를 변경하기 전에 다음을 수행한다.
 
-Treat Aggregate boundaries as business consistency boundaries.
+1. 기존 패키지와 인접 구현을 확인한다.
+2. 관련 애그리거트, 유즈케이스, 포트, 어댑터를 식별한다.
+3. 새 패턴을 도입하기 전에 기존 프로젝트 관례를 따른다.
+4. 요청한 동작이 다음 중 어느 책임인지 판단한다.
+   - 도메인 규칙
+   - 애플리케이션 오케스트레이션
+   - 인프라스트럭처 관심사
+   - 웹 관심사
+   - 인증 또는 인가 관심사
+5. 요구사항을 올바르게 만족하는 가장 작은 변경을 우선한다.
 
-An Aggregate must:
+미래에 중복될 가능성만으로 새 추상화를 도입하지 않는다.
 
-- protect its own invariants,
-- own its state transitions,
-- expose behavior-oriented methods where business behavior exists.
+다음을 선호한다.
 
-Do not move domain behavior into Application Services merely to simplify the Aggregate.
+- 구체적인 도메인 언어
+- 명시적인 의존성
+- 작은 수직 기능 단위
+- 점진적인 설계 발전
 
-Example:
+다음을 피한다.
+
+- 추측에 기반한 일반화
+- 불필요한 프레임워크 추상화
+- 범용 `common`, `util`, `manager`, `helper` 클래스
+- 요청 범위를 벗어나는 큰 리팩터링
+- 관련 없는 정상 동작 코드의 변경
+
+아키텍처 결정이 불명확하면 기존 아키텍처를 보존하고 가장 침습성이 낮은 선택을 한다.
+
+## Git 커밋
+
+사용자가 커밋을 명시적으로 요청한 경우에만 커밋한다.
+
+사용자가 별도로 요구하지 않는 한 커밋 메시지에 다음과 같은 AI 관련 trailer나 문구를
+추가하지 않는다.
+
+- `Co-authored-by: Codex`
+- `Assisted-by: Codex`
+- `Generated-by: AI`
+- 그 밖에 AI가 작성 또는 지원했음을 나타내는 문구
+
+## 구현 후 자체 리뷰
+
+코드를 변경한 작업은 완료를 보고하기 전에 다음 절차를 수행한다.
+
+1. 사용자 요청과 현재 작업에서 변경한 전체 diff를 다시 확인한다.
+2. 변경 영역의 인접 구현과 관련 애그리거트·아키텍처·보안 문서를 다시 확인한다.
+3. Java 프로덕션 코드나 테스트를 변경했으면 `./gradlew spotlessCheck test`를 실행한다.
+4. `docs/review-guidelines.md`를 기준으로 실제 동작, 도메인 규칙, 아키텍처 경계와
+   코드·테스트·문서의 일관성을 리뷰한다.
+5. 요청 범위 안에서 근거가 확인된 리뷰 지적만 수정한다.
+6. 수정 후 관련 자동 검증과 리뷰를 다시 수행한다.
+
+지원되는 환경에서는 읽기 전용 코드 리뷰 기능을 우선 사용할 수 있다. 사용할 수 없다는
+이유로 자체 리뷰를 생략하지 않는다.
+
+리뷰 결과는 `PASS`, `NEEDS_FIX`, `BLOCKED`로 구분한다. 수정과 재리뷰는 기본 두 차례까지
+반복한다. 그 뒤에도 리뷰 지적이 남거나 같은 지적이 반복되면 임의로 변경 범위를 넓히지
+않고 남은 위험과 필요한 결정을 보고한다.
+
+리뷰 지적은 실제 영향과 발생 조건을 설명할 수 있어야 한다. 개인적인 스타일 선호, 현재
+요구사항과 무관한 미래 확장 가능성, 영향 경로가 없는 추측은 리뷰 지적으로 만들지
+않는다. 변경을 막지는 않지만 반복적으로 확인할 가치가 있는 관례는 `보완 제안`으로
+분리한다.
+
+---
+
+# 도메인 주도 설계 규칙
+
+## 애그리거트 경계
+
+애그리거트 경계를 비즈니스 일관성 경계로 취급한다.
+
+애그리거트는 다음 책임을 가진다.
+
+- 자신의 불변식을 보호한다.
+- 자신의 상태 전이를 소유한다.
+- 비즈니스 행위가 존재하면 행위 중심 메서드를 제공한다.
+
+애그리거트를 단순화한다는 이유로 도메인 행위를 애플리케이션 서비스로 옮기지 않는다.
+
+예:
 
 ```java
 subscription.pause();
 subscription.resume();
 ```
 
-## Project Documentation
+## 검증 표현
 
-Before making architectural or domain changes, consult the relevant documentation:
+- 단순 필수 인자 null 검증은 `Objects.requireNonNull()`을 우선 사용한다.
+- 도메인 불변식 검증은 명시적인 조건문과 의미 있는 도메인 예외로 표현한다.
+- 일반적인 null 조건 비교는 `value == null`을 기본으로 한다.
+- 검증 표현은 성능보다 검증의 의도와 책임을 기준으로 선택한다.
 
-- `docs/architecture.md` — architecture, dependency direction, ports, CQS
-- `docs/domain-model.md` — Aggregate boundaries and domain ownership
-- `docs/security.md` — authentication and authorization boundaries
-- `docs/testing.md` — testing strategy
-- `docs/coding-guidelines.md` — code-quality conventions
-- `docs/adr/` — historical architectural decisions
+## 프로젝트 문서
 
-Treat these documents as the project's source of truth.
+아키텍처 또는 도메인을 변경하기 전에 `docs/glossary.md`와 관련 문서를 확인한다.
+
+- `docs/glossary.md` — 프로젝트 공통 설계·비즈니스 용어
+- `docs/architecture.md` — 아키텍처, 의존 방향, 포트, CQS
+- `docs/domain-model.md` — 애그리거트 경계와 도메인 소유권
+- `docs/subscription.md` — 구독 확정 규칙, 결정 이유, 상품·청구·배송 후속 논의
+- `docs/adr/security.md` — 인증과 인가 경계
+- `docs/testing.md` — 테스트 전략
+- `docs/coding-guidelines.md` — 코드 품질 관례
+- `docs/review-guidelines.md` — 구현 후 자체 리뷰 기준과 반복 종료 조건
+- `docs/adr/` — 과거 아키텍처 결정
+
+이 문서들을 프로젝트의 기준 정보로 취급한다.
+
+프로젝트 문서와 AI 작업 컨텍스트의 자연어는 한글을 기본으로 작성한다. Java 식별자,
+API 경로, 프레임워크와 기술 고유명사는 원래 표기를 유지한다. 외부 영문 자료를 직접
+인용해야 하는 경우가 아니라면 설명 문장을 영문으로 새로 추가하지 않는다.
+
+## 도메인 컨텍스트 상태
+
+도메인 문서의 “확정된 규칙”은 현재 코드와 테스트가 따라야 하는 구현 제약이다. 새
+요구사항이 확정된 규칙과 충돌하면 기존 규칙을 임의로 변경하지 않고 충돌 내용과
+선택지를 보고한다.
+
+“후속 논의 대상”은 현재 구현 요구사항이 아니다. 명시적인 사용자 요청 없이 다음을
+선제적으로 추가하지 않는다.
+
+- 구현
+- 열거형 값이나 필드
+- 인터페이스
+- Policy 또는 Strategy
+- Event
+- 미래 Adapter
+- DB 스키마
+- 범용 추상화
+
+후속 논의 대상은 새 요구사항을 설계할 때 참고하는 컨텍스트다. 새 정책이 실제로
+확정될 때만 “확정된 규칙”으로 옮기고, 중요한 선택이면 “결정 이유”도 갱신한다.
+
+## 연관 도메인 작업 순서
+
+구독, 상품, 청구, 배송 관련 요청은 다음 순서로 처리한다.
+
+1. 루트 `AGENTS.md`를 확인한다.
+2. `docs/architecture.md`, `docs/domain-model.md`, 관련 보안 문서를 확인한다.
+3. `docs/subscription.md`의 확정된 규칙을 확인한다.
+4. 새 요구사항과 확정된 규칙의 충돌 여부를 확인한다.
+5. 관련 후속 논의 대상을 확인한다.
+6. 현재 요청 범위에 필요한 최소 설계를 수행한다.
+7. 새 정책이 확정되면 후속 논의 대상에서 확정된 규칙으로 이동한다.
+8. 중요한 결정 이유를 기록한다.
+9. 코드와 테스트를 함께 반영한다.
+
+구독 생명주기 상태를 추측하여 추가하거나, `PAUSED`와 실행 차단 사유를 합치거나,
+구독 회차·청구 일정·납품 주기를 같은 시간 개념으로 취급하지 않는다. 도메인 상태는
+의미 있는 도메인 행위로만 변경하고, 변경 가능한 컬렉션을 직접 노출하지 않는다.
+
+설계 문서와 작업 보고의 공통 용어는 `docs/glossary.md`를 기준으로 일관되게 사용한다.
+Java 코드 식별자는 변경하지 않는다.

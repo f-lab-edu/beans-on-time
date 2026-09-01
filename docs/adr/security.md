@@ -1,174 +1,190 @@
-# Security
+# 보안
 
-## Purpose
+## 목적
 
-Security in Beans on Time separates:
+Beans on Time의 보안은 다음 관심사를 분리한다.
 
-1. Authentication
-2. Request-level authorization
-3. Resource-level authorization
-4. Business rules
+1. 인증
+2. 요청 수준 인가
+3. 리소스 수준 인가
+4. 비즈니스 규칙
 
-These concerns must not be mixed unnecessarily.
+이 관심사들을 불필요하게 혼합하지 않는다.
 
 ---
 
-# Authentication
+# 인증
 
-Spring Security is responsible for authentication.
+Spring Security가 인증을 담당한다.
 
-The current development environment uses HTTP Basic authentication.
+현재 개발 환경은 HTTP Basic 인증을 사용한다.
 
-Authenticated principals currently represent business actors such as:
+인증된 주체는 현재 다음 비즈니스 역할을 표현한다.
 
-- Customer
-- Seller
+- 고객
+- 판매자
 
-Framework-specific authentication models belong to the Security adapter layer.
+프레임워크 고유 인증 모델은 보안 어댑터 계층에 둔다.
 
-Examples:
+예:
 
+~~~text
 AuthenticatedCustomer
 AuthenticatedSeller
+~~~
 
-Business identifiers such as CustomerId and SellerId remain Domain types.
+`CustomerId`와 `SellerId` 같은 비즈니스 식별자는 도메인 타입으로 유지한다.
 
 ---
 
-# Current Actor Providers
+# 현재 주체 제공자
 
-When authenticated identity is required as application input, the Application layer should
-depend on an abstraction rather than directly access SecurityContextHolder.
+인증된 식별자가 애플리케이션 입력으로 필요하면 애플리케이션 계층이
+SecurityContextHolder에 직접 접근하지 않고 추상화에 의존한다.
 
-Examples:
+예:
 
+~~~text
 CurrentCustomerProvider
 CurrentSellerProvider
+~~~
 
-Spring Security-specific implementations may read from SecurityContextHolder.
+Spring Security 고유 구현은 SecurityContextHolder에서 인증 정보를 읽을 수 있다.
 
-This keeps Application Services independent from Spring Security APIs.
+이 구조를 통해 애플리케이션 서비스가 Spring Security API에 의존하지 않게 한다.
 
 ---
 
-# Request-Level Authorization
+# 요청 수준 인가
 
-SecurityConfig provides coarse-grained HTTP request authorization.
+SecurityConfig는 HTTP 요청에 대한 큰 범위의 인가를 제공한다.
 
-Current intended rules include:
+현재 의도한 규칙은 다음과 같다.
 
+~~~text
 GET /products/**
-→ public
+→ 공개
 
 POST /products
 → SELLER
 
 /subscriptions/**
 → CUSTOMER
+~~~
 
-Request authorization answers:
+요청 수준 인가는 다음 질문에 답한다.
 
-"Can this kind of actor access this type of endpoint?"
+> 이 종류의 주체가 이 종류의 엔드포인트에 접근할 수 있는가?
 
-It does not answer:
+다음 질문에는 답하지 않는다.
 
-"Does this actor own this specific resource?"
+> 이 주체가 특정 리소스의 소유자인가?
 
 ---
 
-# Resource-Level Authorization
+# 리소스 수준 인가
 
-Resource ownership is evaluated separately from request-level role authorization.
+리소스 소유권은 요청 수준 역할 인가와 별도로 평가한다.
 
-Example:
+예:
 
+~~~text
 ROLE_SELLER
-→ Seller may enter Product management endpoints
+→ 판매자가 상품 관리 엔드포인트에 진입할 수 있음
 
-Product.sellerId == authenticated SellerId
-→ Seller may modify this Product
+Product.sellerId == 인증된 SellerId
+→ 판매자가 해당 상품을 수정할 수 있음
+~~~
 
-Current Subscription ownership authorization uses annotation/AOP-based authorization.
+현재 구독 소유권 인가는 어노테이션/AOP 기반 구조를 사용한다.
 
-Equivalent Product ownership authorization should be introduced only when an actual
-Seller-owned mutation use case requires it.
+동등한 상품 소유권 인가는 실제 판매자 소유 변경 유즈케이스가 생길 때 도입한다.
 
-Do not add Product ownership AOP merely for structural symmetry with Subscription.
+구독과 구조를 맞추기 위한 목적으로 상품 소유권 AOP를 미리 추가하지 않는다.
 
 ---
 
-# Ownership Data
+# 소유권 데이터
 
-Never trust ownership identity supplied by the client when the authoritative identity is
-already available from authentication.
+인증에서 신뢰할 수 있는 식별자를 얻을 수 있다면 클라이언트가 전달한 소유권 식별자를
+신뢰하지 않는다.
 
-Bad:
+나쁜 예:
 
+~~~text
 POST /products
 
 {
-"sellerId": 123,
-...
+  "sellerId": 123,
+  ...
 }
+~~~
 
-when Seller identity should come from authentication.
+판매자 식별자는 인증 정보에서 가져와야 한다.
 
-Preferred flow:
+권장 흐름:
 
-Authentication
+~~~text
+인증
 → CurrentSellerProvider
 → SellerId
 → RegisterProductService
 → Product
+~~~
 
-The same principle applies to Customer-owned operations when appropriate.
-
----
-
-# Authorization vs Business Rules
-
-Authorization and business validation are different concerns.
-
-Examples:
-
-"Is this Customer the owner of the Subscription?"
-→ authorization
-
-"Does this Customer already subscribe to this Product?"
-→ business rule
-
-"Can a PAUSED Subscription be resumed?"
-→ Domain rule
-
-Do not move business validation into AOP simply because authorization uses AOP.
+같은 원칙을 고객 소유 작업에도 필요에 따라 적용한다.
 
 ---
 
-# Security Exceptions
+# 인가와 비즈니스 규칙
 
-Authentication and authorization failures should use Security-layer semantics.
+인가와 비즈니스 검증은 서로 다른 관심사다.
 
-Examples:
+예:
 
+~~~text
+이 고객이 구독 소유자인가?
+→ 인가
+
+이 고객이 이미 이 상품을 구독 중인가?
+→ 비즈니스 규칙
+
+PAUSED 구독을 재개할 수 있는가?
+→ 도메인 규칙
+~~~
+
+인가에 AOP를 사용한다는 이유로 비즈니스 검증을 AOP로 옮기지 않는다.
+
+---
+
+# 보안 예외
+
+인증과 인가 실패에는 보안 계층의 의미를 사용한다.
+
+예:
+
+~~~text
 AuthenticationCredentialsNotFoundException
 AccessDeniedException
+~~~
 
-Domain-specific exception handlers should not take ownership of Security failures unless
-there is an explicit HTTP error-response requirement.
+명시적인 HTTP 오류 응답 요구사항이 없다면 도메인 예외 처리기가 보안 실패까지
+처리하지 않는다.
 
-Application and Domain exceptions must not be used as substitutes for authentication or
-authorization failures.
+애플리케이션 또는 도메인 예외를 인증·인가 실패의 대체 수단으로 사용하지 않는다.
 
 ---
 
-# Security Evolution
+# 보안의 발전
 
-Do not prematurely introduce a generic Actor model solely because Customer and Seller
-implementations appear structurally similar.
+고객과 판매자 구현의 구조가 비슷하다는 이유만으로 범용 행위 주체 모델을 미리
+도입하지 않는다.
 
-First observe actual common semantics.
+실제 공통 의미를 먼저 관찰한다.
 
-Generalize only when Customer and Seller authentication models have proven shared
-requirements.
+고객과 판매자 인증 모델에 공통 요구사항이 확인된 뒤에만 일반화한다.
 
-Structural duplication alone is not sufficient justification for a shared abstraction.
+구조적 중복만으로 공통 추상화를 만들지 않는다.
+
+관리자와 시스템 실행 주체에 관한 현재 컨텍스트와 미정 정책은
+`docs/subscription.md`의 “후속 논의 대상”에서 관리한다.

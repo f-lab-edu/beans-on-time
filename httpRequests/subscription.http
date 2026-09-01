@@ -7,7 +7,7 @@ Authorization: Basic customer1 password1
 
 {
   "productId": 1,
-  "cycle": {
+  "deliveryCycle": {
     "unit": "ONE_MONTH",
     "interval": 1
   }
@@ -40,12 +40,15 @@ Authorization: Basic customer1 password1
 > {%
     client.test("생성된 구독은 활성 상태", function() {
         client.assert(response.status === 200, "응답 상태는 200이어야 합니다.");
-        client.assert(response.body.status === "ACTIVE", "구독 상태는 ACTIVE여야 합니다.");
+        client.assert(
+            response.body.subscription.lifecycleStatus === "ACTIVE",
+            "구독 상태는 ACTIVE여야 합니다."
+        );
     });
 %}
 
 ### 구독 일시정지
-PATCH {{baseUrl}}/subscriptions/hold?subscriptionId={{subscriptionId}}
+PATCH {{baseUrl}}/subscriptions/{{subscriptionId}}/pause?pauseUntilDate=2026-09-20
 Authorization: Basic customer1 password1
 
 > {%
@@ -55,7 +58,7 @@ Authorization: Basic customer1 password1
 %}
 
 ### 구독 재개
-PATCH {{baseUrl}}/subscriptions/resume?subscriptionId={{subscriptionId}}
+PATCH {{baseUrl}}/subscriptions/{{subscriptionId}}/resume
 Authorization: Basic customer1 password1
 
 > {%

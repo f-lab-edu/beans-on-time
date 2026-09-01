@@ -1,58 +1,59 @@
-# Architecture
+# 아키텍처
 
-## Purpose
+## 목적
 
-Beans on Time uses Domain-Driven Design and Hexagonal Architecture to keep business
-rules independent from frameworks, persistence technologies, and delivery mechanisms.
+Beans on Time은 도메인 주도 설계와 헥사고날 아키텍처를 사용하여 비즈니스 규칙을
+프레임워크, 영속성 기술, 전달 메커니즘으로부터 분리한다.
 
-The architecture should optimize for:
+아키텍처는 다음 목표를 우선한다.
 
-- clear domain boundaries,
-- explicit dependency direction,
-- replaceable infrastructure,
-- testability,
-- maintainability,
-- incremental evolution.
+- 명확한 도메인 경계
+- 명시적인 의존 방향
+- 교체 가능한 인프라스트럭처
+- 테스트 가능성
+- 유지보수성
+- 점진적인 발전
 
-Architecture is not an end in itself.
+아키텍처 자체가 목적은 아니다.
 
-Prefer the simplest design that preserves these boundaries and correctly expresses the
-business requirement.
+경계를 보존하면서 비즈니스 요구사항을 올바르게 표현하는 가장 단순한 설계를 선택한다.
 
 ---
 
-# Architectural Style
+# 아키텍처 스타일
 
-The project follows Hexagonal Architecture.
+프로젝트는 헥사고날 아키텍처를 따른다.
 
-The conceptual dependency flow is:
+개념적인 의존 흐름은 다음과 같다.
 
-Adapter In
+~~~text
+인바운드 어댑터
 ↓
-Input Port
+입력 포트
 ↓
-Application Service
+애플리케이션 서비스
 ↓
-Domain
+도메인
 ↓
-Output Port
+출력 포트
 ↑
-Adapter Out
+아웃바운드 어댑터
+~~~
 
-Dependencies must point toward the application and domain core.
+의존성은 애플리케이션과 도메인 핵심을 향해야 한다.
 
-Outer layers may depend on inner layers.
-
-Inner layers must not depend on outer infrastructure.
+외부 계층은 내부 계층에 의존할 수 있지만, 내부 계층은 외부 인프라스트럭처에
+의존해서는 안 된다.
 
 ---
 
-# Package Structure
+# 패키지 구조
 
-The project is organized primarily by business capability.
+프로젝트는 주로 비즈니스 기능을 기준으로 구성한다.
 
-Example:
+예:
 
+~~~text
 com.bluetoya.beansontime
 ├─ subscription
 │  ├─ domain
@@ -79,220 +80,228 @@ com.bluetoya.beansontime
 │  └─ domain
 │
 └─ security
-├─ application
-├─ adapter
-├─ annotation
-├─ aspect
-└─ config
+   ├─ application
+   ├─ adapter
+   ├─ annotation
+   ├─ aspect
+   └─ config
+~~~
 
-Do not introduce packages based only on Java implementation types.
+Java 구현 타입만을 기준으로 패키지를 만들지 않는다.
 
-Avoid structures such as:
+다음과 같은 구조를 피한다.
 
+~~~text
 record/
 enum/
 interface/
 impl/
+~~~
 
-Prefer business ownership and architectural responsibility.
+비즈니스 소유권과 아키텍처 책임을 기준으로 구성한다.
 
 ---
 
-# Domain Layer
+# 도메인 계층
 
-The Domain layer contains business concepts, state, behavior, and invariants.
+도메인 계층은 비즈니스 개념, 상태, 행위와 불변식을 포함한다.
 
-The Domain layer must not depend on:
+도메인 계층은 다음에 의존하지 않아야 한다.
 
-- Spring Framework,
-- Spring Security,
-- persistence frameworks,
-- HTTP,
-- database-specific concepts.
+- Spring Framework
+- Spring Security
+- 영속성 프레임워크
+- HTTP
+- 데이터베이스 고유 개념
 
-Aggregates and Value Objects should remain plain Java domain models.
+애그리거트와 값 객체는 순수한 Java 도메인 모델로 유지한다.
 
-Business behavior belongs in the Domain when the rule can be expressed by the domain
-object itself.
+도메인 객체 자체로 표현할 수 있는 비즈니스 행위는 도메인에 둔다.
 
-Prefer:
+다음을 선호한다.
 
+~~~java
 subscription.pause();
+~~~
 
-over:
+다음과 같은 일반 상태 변경은 피한다.
 
+~~~java
 subscription.setStatus(PAUSED);
-
-when pause is an actual business operation.
-
----
-
-# Application Layer
-
-The Application layer coordinates use cases.
-
-Application Services may:
-
-- load Aggregates,
-- invoke Domain behavior,
-- save Aggregates,
-- coordinate multiple ports,
-- acquire authenticated actor information through application-facing abstractions,
-- compose read models.
-
-Application Services should not duplicate rules that naturally belong to Domain objects.
-
-The Application layer may define:
-
-- Input Ports,
-- Output Ports,
-- Commands,
-- Query Results,
-- Use Case Services.
+~~~
 
 ---
 
-# Adapter Layer
+# 애플리케이션 계층
 
-Adapters connect external mechanisms to application ports.
+애플리케이션 계층은 유즈케이스를 조율한다.
 
-Inbound adapter examples:
+애플리케이션 서비스는 다음을 수행할 수 있다.
+
+- 애그리거트 로드
+- 도메인 행위 호출
+- 애그리거트 저장
+- 여러 포트 조율
+- 애플리케이션 대상 추상화를 통한 인증 주체 정보 획득
+- 조회 모델 조합
+
+도메인 객체가 자연스럽게 소유해야 하는 규칙을 애플리케이션 서비스에서 중복하지 않는다.
+
+애플리케이션 계층은 다음을 정의할 수 있다.
+
+- 입력 포트
+- 출력 포트
+- 명령
+- 조회 결과
+- 유즈케이스 서비스
+
+---
+
+# 어댑터 계층
+
+어댑터는 외부 메커니즘을 애플리케이션 포트에 연결한다.
+
+인바운드 어댑터 예:
 
 - REST Controller
 
-Outbound adapter examples:
+아웃바운드 어댑터 예:
 
-- In-memory persistence
-- JDBC persistence
-- external API clients
+- InMemory 영속성
+- JDBC 영속성
+- 외부 API 클라이언트
 
-Adapters may depend on framework-specific APIs.
+어댑터는 프레임워크 고유 API에 의존할 수 있다.
 
-Framework-specific types must not leak into the Domain layer.
+프레임워크 고유 타입을 도메인 계층에 노출하지 않는다.
 
 ---
 
-# Ports
+# 포트
 
-## Input Ports
+## 입력 포트
 
-Input Ports represent application use cases.
+입력 포트는 애플리케이션 유즈케이스를 표현한다.
 
-Use business-oriented terminology whenever possible.
+가능하면 비즈니스 중심 용어를 사용한다.
 
-Examples:
+예:
 
+~~~text
 RegisterProductUseCase
 PauseSubscriptionUseCase
 ResumeSubscriptionUseCase
 FindProductQuery
+~~~
 
-Prefer:
+비즈니스 행위가 있다면 다음과 같은 용어를 선호한다.
 
+~~~text
 register()
 subscribe()
 pause()
 resume()
+~~~
 
-over generic CRUD terminology when a business operation exists.
+일반 CRUD 용어는 피한다.
 
----
+## 출력 포트
 
-## Output Ports
+출력 포트는 애플리케이션 계층이 필요로 하는 기능을 표현한다.
 
-Output Ports express capabilities required by the Application layer.
+예:
 
-Examples:
-
+~~~text
 SaveProductPort
 LoadSubscriptionPort
 FindProductQueryPort
 ExistsSubscriptionPort
+~~~
 
-Output Ports must not expose the implementation technology in their name.
+이름에 구현 기술을 노출하지 않는다.
 
-Avoid:
+다음과 같은 이름을 피한다.
 
+~~~text
 MysqlProductPort
 RedisSubscriptionPort
+~~~
 
 ---
 
-# Port Naming Convention
+# 포트 이름 규칙
 
-Beans on Time currently uses the following convention:
+Beans on Time은 현재 다음 규칙을 사용한다.
 
-save
-- persist an Aggregate
+- save: 애그리거트를 저장한다.
+- load: 명령 측 도메인 행위를 위해 애그리거트를 로드하거나 재구성한다.
+- find: 조회 데이터를 가져온다.
+- exists: 존재 여부를 확인한다.
 
-load
-- load or reconstruct an Aggregate for command-side domain behavior
+이는 보편적인 업계 표준이 아니라 프로젝트 관례다.
 
-find
-- retrieve query/read data
-
-exists
-- check existence
-
-This is a project convention, not a universal industry standard.
-
-Maintain consistency unless a use case requires a clearer name.
+유즈케이스가 더 명확한 이름을 요구하지 않는 한 일관성을 유지한다.
 
 ---
 
-# Command and Query Separation
+# 명령과 조회 분리
 
-The project follows Command Query Separation.
+프로젝트는 CQS를 따른다.
 
-## Command Side
+## 명령 측
 
-The Command side changes state.
+명령 측은 상태를 변경한다.
 
-Typical flow:
+일반적인 흐름은 다음과 같다.
 
-Input
-→ Application Service
-→ Load Aggregate
-→ Execute Domain behavior
-→ Save Aggregate
+~~~text
+입력
+→ 애플리케이션 서비스
+→ 애그리거트 로드
+→ 도메인 행위 실행
+→ 애그리거트 저장
+~~~
 
-Command operations should use real Aggregates when Domain behavior is required.
+도메인 행위가 필요하면 실제 애그리거트를 사용한다.
 
----
+## 조회 측
 
-## Query Side
+조회 측은 데이터를 읽는다.
 
-The Query side reads data.
+조회는 애그리거트 대신 전용 조회 모델을 반환할 수 있다.
 
-Queries may return dedicated projections instead of Aggregates.
+예:
 
-Examples:
-
+~~~text
 ProductQueryResult
 SubscriptionQueryResult
+~~~
 
-A query projection does not need to mirror the Aggregate structure.
+조회 모델은 애그리거트 구조를 그대로 복제할 필요가 없다.
 
-Cross-domain information may be composed on the Query side.
+서로 다른 도메인의 정보를 조회 측에서 조합할 수 있다.
 
-Example:
+예:
 
-Subscription data
+~~~text
+구독 데이터
 +
-Product data
+상품 데이터
 → SubscriptionQueryResult
+~~~
 
-Do not add Product as an object inside the Subscription Aggregate merely because a query
-needs Product information.
+조회에 상품 정보가 필요하다는 이유로 `Product` 객체를 `Subscription` 애그리거트 안에
+추가하지 않는다.
 
 ---
 
-# Cross-Aggregate References
+# 애그리거트 간 참조
 
-Aggregates reference other Aggregates by identity.
+애그리거트는 다른 애그리거트를 식별자로 참조한다.
 
-Example:
+예:
 
+~~~text
 Subscription
 - SubscriptionId
 - CustomerId
@@ -301,35 +310,40 @@ Subscription
 Product
 - ProductId
 - SellerId
+~~~
 
-Avoid Aggregate object graphs such as:
+의도적인 애그리거트 경계 재설계가 없는 한 다음과 같은 객체 그래프를 피한다.
 
+~~~text
 Subscription
 └─ Product
-└─ Seller
-
-unless a deliberate Aggregate boundary redesign justifies it.
+   └─ Seller
+~~~
 
 ---
 
-# Incremental Architecture
+# 점진적인 아키텍처
 
-Do not introduce abstractions for hypothetical future requirements.
+가상의 미래 요구사항을 위한 추상화를 도입하지 않는다.
 
-Prefer:
+다음 순서를 선호한다.
 
-real requirement
-→ concrete implementation
-→ observe duplication or change pressure
-→ introduce abstraction
+~~~text
+실제 요구사항
+→ 구체적인 구현
+→ 중복 또는 변경 압력 관찰
+→ 추상화 도입
+~~~
 
-over:
+다음 순서는 피한다.
 
-possible future requirement
-→ generic abstraction
-→ force current features into the abstraction
+~~~text
+가능성만 있는 미래 요구사항
+→ 범용 추상화
+→ 현재 기능을 추상화에 억지로 맞춤
+~~~
 
-Temporary duplication is acceptable when it helps discover the correct abstraction.
+올바른 추상화를 발견하는 데 도움이 된다면 일시적인 중복을 허용한다.
 
-Architectural consistency means applying the same principle to equivalent problems,
-not making every use case structurally identical.
+아키텍처 일관성은 동등한 문제에 같은 원칙을 적용한다는 뜻이지, 모든 유즈케이스의
+구조를 똑같이 만든다는 뜻이 아니다.

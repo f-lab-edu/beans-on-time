@@ -1,12 +1,15 @@
 package com.bluetoya.beansontime.subscription.adapter.in.web;
 
+import com.bluetoya.beansontime.product.application.port.in.ProductInfo;
 import com.bluetoya.beansontime.product.domain.ProductId;
 import com.bluetoya.beansontime.subscription.adapter.in.web.request.SubscribeRequest;
 import com.bluetoya.beansontime.subscription.adapter.in.web.response.SubscribeResponse;
 import com.bluetoya.beansontime.subscription.adapter.in.web.response.SubscriptionDetailResponse;
 import com.bluetoya.beansontime.subscription.application.port.in.*;
 import com.bluetoya.beansontime.subscription.domain.*;
+import java.time.LocalDate;
 import java.util.UUID;
+import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 
@@ -32,22 +35,23 @@ public class SubscriptionController {
     return new SubscribeResponse(subscriptionId.value());
   }
 
-  @PatchMapping("/hold")
-  void pause(@RequestParam UUID subscriptionId) {
+  @PatchMapping("/{id}/pause")
+  void pause(@PathVariable UUID id, @RequestParam LocalDate pauseUntilDate) {
     pauseSubscriptionUseCase.pause(
-        new PauseSubscriptionCommand(new SubscriptionId(subscriptionId)));
+        new PauseSubscriptionCommand(new SubscriptionId(id), pauseUntilDate));
   }
 
-  @PatchMapping("/resume")
-  void resume(@RequestParam UUID subscriptionId) {
-    resumeSubscriptionUseCase.resume(
-        new ResumeSubscriptionCommand(new SubscriptionId(subscriptionId)));
+  @PatchMapping("/{id}/resume")
+  void resume(@PathVariable UUID id) {
+    resumeSubscriptionUseCase.resume(new ResumeSubscriptionCommand(new SubscriptionId(id)));
   }
 
   private SubscribeCommand toCommand(SubscribeRequest request) {
     return new SubscribeCommand(
         new ProductId(request.productId()),
-        new Cycle(CycleUnit.valueOf(request.cycle().unit()), request.cycle().interval()));
+        new DeliveryCycle(
+            DeliveryCycleUnit.valueOf(request.deliveryCycle().unit()),
+            request.deliveryCycle().interval()));
   }
 
   private SubscriptionDetailResponse toResponse(SubscriptionDetail detail) {
@@ -60,9 +64,21 @@ public class SubscriptionController {
     return new SubscriptionDetailResponse.SubscriptionResponse(
         subscription.subscriptionId(),
         subscription.customerId(),
-        subscription.cycleUnit(),
-        subscription.cycleInterval(),
-        subscription.status());
+        subscription.deliveryCycleUnit(),
+        subscription.deliveryCycleInterval(),
+        subscription.lifecycleStatus(),
+        subscription.suspensionReasons().stream()
+            .map(Enum::name)
+            .collect(Collectors.toUnmodifiableSet()),
+        subscription.startedDate(),
+        subscription.currentPeriodStartDate(),
+        subscription.currentPeriodEndDate(),
+        subscription.remainingPaidDays(),
+        subscription.billingAnchorDay(),
+        subscription.nextBillingDate(),
+        subscription.pausedAt(),
+        subscription.scheduledResumeDate(),
+        subscription.executionBlocked());
   }
 
   private SubscriptionDetailResponse.ProductResponse toProductResponse(ProductInfo product) {

@@ -24,7 +24,7 @@ public class OwnershipAspect {
   public void authorize(Object resource) {
 
     if (resource == null) {
-      throw new IllegalStateException("Ownership authorization requires a returned resource");
+      throw new IllegalStateException("소유권 인가에는 반환된 리소스가 필요합니다.");
     }
 
     OwnershipResolver<?> resolver =
@@ -34,14 +34,14 @@ public class OwnershipAspect {
             .orElseThrow(
                 () ->
                     new IllegalStateException(
-                        "No OwnershipResolver registered for " + resource.getClass().getName()));
+                        "해당 리소스의 소유권 판별기가 등록되어 있지 않습니다: " + resource.getClass().getName()));
 
     ActorIdentity currentActor = currentActorProvider.getCurrentActor();
 
     ActorIdentity owner = resolver.resolve(resource);
 
     if (!owner.equals(currentActor)) {
-      throw new AccessDeniedException("Resource access denied");
+      throw new AccessDeniedException("리소스 접근 권한이 없습니다.");
     }
   }
 }

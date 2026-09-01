@@ -3,11 +3,11 @@ package com.bluetoya.beansontime.subscription.domain;
 import lombok.Getter;
 
 @Getter
-public class Cycle {
-  private final CycleUnit unit;
+public class DeliveryCycle {
+  private final DeliveryCycleUnit unit;
   private final int interval;
 
-  public Cycle(CycleUnit unit, int interval) {
+  public DeliveryCycle(DeliveryCycleUnit unit, int interval) {
     this.unit = unit;
     this.interval = interval;
   }
