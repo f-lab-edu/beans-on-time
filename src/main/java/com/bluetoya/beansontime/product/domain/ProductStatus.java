@@ -4,8 +4,9 @@ import lombok.RequiredArgsConstructor;
 
 @RequiredArgsConstructor
 public enum ProductStatus {
-  ACTIVE("판매중"),
-  INACTIVE("판매중지"),
+  AVAILABLE("공급 가능"),
+  TEMPORARILY_UNAVAILABLE("일시 공급 불가"),
+  DISCONTINUED("공급 종료"),
   ;
 
   private final String description;

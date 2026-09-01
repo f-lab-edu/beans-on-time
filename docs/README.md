@@ -5,6 +5,7 @@
 - `glossary.md` — 프로젝트 공통 설계·비즈니스 용어와 의미
 - `architecture.md` — 헥사고날 아키텍처, 의존 방향, 포트와 CQS
 - `domain-model.md` — 애그리거트 경계와 도메인 소유권 개요
+- `product.md` — 상품 공급 상태, 상태 전이와 구독 연동 규칙
 - `subscription.md` — 구독 확정 규칙, 결정 이유, 상품·청구·배송 후속 논의
 - `coding-guidelines.md` — 코드 작성 원칙
 - `testing.md` — 테스트 전략

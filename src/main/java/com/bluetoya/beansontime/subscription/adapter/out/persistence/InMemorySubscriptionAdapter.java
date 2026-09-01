@@ -4,9 +4,11 @@ import com.bluetoya.beansontime.customer.domain.CustomerId;
 import com.bluetoya.beansontime.product.domain.ProductId;
 import com.bluetoya.beansontime.subscription.application.port.out.ExistsSubscriptionPort;
 import com.bluetoya.beansontime.subscription.application.port.out.LoadSubscriptionPort;
+import com.bluetoya.beansontime.subscription.application.port.out.LoadSubscriptionsByProductPort;
 import com.bluetoya.beansontime.subscription.application.port.out.SaveSubscriptionPort;
 import com.bluetoya.beansontime.subscription.domain.Subscription;
 import com.bluetoya.beansontime.subscription.domain.SubscriptionId;
+import java.util.List;
 import java.util.Optional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
@@ -14,7 +16,10 @@ import org.springframework.stereotype.Component;
 @Component
 @RequiredArgsConstructor
 public class InMemorySubscriptionAdapter
-    implements SaveSubscriptionPort, ExistsSubscriptionPort, LoadSubscriptionPort {
+    implements SaveSubscriptionPort,
+        ExistsSubscriptionPort,
+        LoadSubscriptionPort,
+        LoadSubscriptionsByProductPort {
 
   private final InMemorySubscriptionRepository subscriptionRepository;
 
@@ -31,5 +36,10 @@ public class InMemorySubscriptionAdapter
   @Override
   public Optional<Subscription> load(SubscriptionId subscriptionId) {
     return subscriptionRepository.findById(subscriptionId);
+  }
+
+  @Override
+  public List<Subscription> loadNotCancelled(ProductId productId) {
+    return subscriptionRepository.findNotCancelledByProductId(productId);
   }
 }

@@ -1,12 +1,11 @@
 package com.bluetoya.beansontime.product.domain;
 
+import com.bluetoya.beansontime.product.domain.exception.InvalidProductStateChangeException;
 import java.util.List;
 import java.util.Set;
-import lombok.*;
+import lombok.Getter;
 
 @Getter
-@Builder
-@RequiredArgsConstructor
 public class Product {
   private final ProductId id;
   private final SellerId sellerId;
@@ -19,7 +18,7 @@ public class Product {
   private final List<ProductSizeOption> sizeOptions;
   private final Set<GrindType> grindTypes;
 
-  private final ProductStatus status;
+  private ProductStatus status;
 
   public Product(SellerId sellerId, String name, Money basePrice) {
     this.id = ProductId.generate();
@@ -30,7 +29,31 @@ public class Product {
     this.images = List.of();
     this.sizeOptions = List.of();
     this.grindTypes = Set.of();
-    this.status = ProductStatus.ACTIVE;
+    this.status = ProductStatus.AVAILABLE;
+  }
+
+  public void stopSupply() {
+    if (status == ProductStatus.DISCONTINUED) {
+      throw new InvalidProductStateChangeException("영구 종료된 상품의 공급을 일시 중지할 수 없습니다.");
+    }
+
+    status = ProductStatus.TEMPORARILY_UNAVAILABLE;
+  }
+
+  public void resumeSupply() {
+    if (status == ProductStatus.DISCONTINUED) {
+      throw new InvalidProductStateChangeException("영구 종료된 상품의 공급을 재개할 수 없습니다.");
+    }
+
+    status = ProductStatus.AVAILABLE;
+  }
+
+  public void discontinue() {
+    status = ProductStatus.DISCONTINUED;
+  }
+
+  public boolean isSubscribable() {
+    return status == ProductStatus.AVAILABLE;
   }
 
   public record ProductImage(String url, int order) {}

@@ -2,6 +2,7 @@ package com.bluetoya.beansontime.subscription.adapter.in.web;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.bluetoya.beansontime.subscription.application.exception.ProductNotSubscribableException;
 import com.bluetoya.beansontime.subscription.domain.exception.InvalidSubscriptionPausePeriodException;
 import com.bluetoya.beansontime.subscription.domain.exception.InvalidSubscriptionPeriodStateException;
 import com.bluetoya.beansontime.subscription.domain.exception.InvalidSubscriptionResumeDateException;
@@ -50,6 +51,18 @@ class SubscriptionExceptionHandlerTest {
 
     assertThat(problem.getStatus()).isEqualTo(HttpStatus.CONFLICT.value());
     assertThat(problem.getTitle()).isEqualTo("구독 재개에 결제 필요");
+    assertThat(problem.getDetail()).isEqualTo(exception.getMessage());
+  }
+
+  @Test
+  void mapsProductNotSubscribableToConflict() {
+    ProductNotSubscribableException exception =
+        new ProductNotSubscribableException("현재 상품은 구독할 수 없습니다.");
+
+    ProblemDetail problem = handler.handleProductNotSubscribable(exception);
+
+    assertThat(problem.getStatus()).isEqualTo(HttpStatus.CONFLICT.value());
+    assertThat(problem.getTitle()).isEqualTo("신규 구독 불가");
     assertThat(problem.getDetail()).isEqualTo(exception.getMessage());
   }
 

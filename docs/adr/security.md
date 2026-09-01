@@ -68,6 +68,9 @@ GET /products/**
 POST /products
 → SELLER
 
+PATCH /products/**
+→ SELLER
+
 /subscriptions/**
 → CUSTOMER
 ~~~
@@ -96,11 +99,9 @@ Product.sellerId == 인증된 SellerId
 → 판매자가 해당 상품을 수정할 수 있음
 ~~~
 
-현재 구독 소유권 인가는 어노테이션/AOP 기반 구조를 사용한다.
-
-동등한 상품 소유권 인가는 실제 판매자 소유 변경 유즈케이스가 생길 때 도입한다.
-
-구독과 구조를 맞추기 위한 목적으로 상품 소유권 AOP를 미리 추가하지 않는다.
+구독과 상품 소유권 인가는 어노테이션/AOP 기반 구조를 사용한다. 상품 공급
+상태 변경 유즈케이스는 `@RequireOwnership`이 붙은 로더가 반환한 Product와
+`ProductOwnershipResolver`를 기준으로 판매자 소유권을 확인한다.
 
 ---
 
