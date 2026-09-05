@@ -70,6 +70,9 @@ POST /products
 
 /subscriptions/**
 → CUSTOMER
+
+/billings/**
+→ CUSTOMER
 ~~~
 
 요청 수준 인가는 다음 질문에 답한다.
@@ -97,6 +100,10 @@ Product.sellerId == 인증된 SellerId
 ~~~
 
 현재 구독 소유권 인가는 어노테이션/AOP 기반 구조를 사용한다.
+
+재활성화 Billing 준비는 Subscription, Checkout 조회는 전용 조회 모델, Payment 명령은
+Billing 반환값으로 각각 소유권을 독립적으로 확인한다. 앞선 API의 인가 결과를 다음
+API의 보안 근거로 사용하지 않는다.
 
 동등한 상품 소유권 인가는 실제 판매자 소유 변경 유즈케이스가 생길 때 도입한다.
 

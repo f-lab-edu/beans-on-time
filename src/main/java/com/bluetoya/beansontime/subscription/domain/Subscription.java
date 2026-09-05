@@ -126,6 +126,45 @@ public class Subscription {
     this.lifecycleStatus = SubscriptionStatus.ACTIVE;
   }
 
+  public boolean isPaidReactivationTarget() {
+    return lifecycleStatus == SubscriptionStatus.PAUSED
+        && Integer.valueOf(0).equals(remainingPaidDays);
+  }
+
+  public void reactivateAfterPayment(LocalDate paymentDate) {
+    if (this.lifecycleStatus != SubscriptionStatus.PAUSED || this.remainingPaidDays == null) {
+      throw new InvalidSubscriptionStateChangeException("결제로 재활성화할 수 없는 구독입니다.");
+    }
+
+    if (this.remainingPaidDays != 0) {
+      throw new InvalidSubscriptionStateChangeException("남은 선결제 이용 기간이 있는 구독입니다.");
+    }
+
+    Objects.requireNonNull(paymentDate, "결제 성공일은 필수입니다.");
+
+    if (currentPeriod != null
+        || pausedAt == null
+        || scheduledResumeDate == null
+        || nextBillingDate == null) {
+      throw new InvalidSubscriptionPeriodStateException("PAUSED 구독의 선결제 이용 기간 문맥이 올바르지 않습니다.");
+    }
+
+    if (paymentDate.isBefore(pausedAt.toLocalDate())) {
+      throw new InvalidSubscriptionResumeDateException("결제 성공일은 일시정지 요청일보다 빠를 수 없습니다.");
+    }
+
+    BillingAnchorDay newBillingAnchorDay = BillingAnchorDay.from(paymentDate);
+    LocalDate newNextBillingDate = newBillingAnchorDay.nextBillingDateAfter(paymentDate);
+
+    this.billingAnchorDay = newBillingAnchorDay;
+    this.currentPeriod = new SubscriptionPeriod(paymentDate, newNextBillingDate.minusDays(1));
+    this.nextBillingDate = newNextBillingDate;
+    this.remainingPaidDays = null;
+    this.pausedAt = null;
+    this.scheduledResumeDate = null;
+    this.lifecycleStatus = SubscriptionStatus.ACTIVE;
+  }
+
   public void cancel() {
     this.lifecycleStatus = SubscriptionStatus.CANCELLED;
     this.currentPeriod = null;

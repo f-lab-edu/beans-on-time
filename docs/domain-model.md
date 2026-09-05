@@ -42,7 +42,7 @@ CANCELLED는 최종 생명주기 상태다. 생명주기 상태와 실행 차단
 상태 축이다. 구독 회차, 청구 일정, 납품 주기도 서로 다른 시간 개념이다.
 
 구독의 상세한 확정 규칙은 `docs/subscription.md`에 기록한다. 구독 또는 관련 상품,
-청구, 배송 동작을 변경하기 전에 해당 문서를 읽는다. 문서는 확정된 규칙, 결정 이유,
+청구, 결제, 배송 동작을 변경하기 전에 해당 문서를 읽는다. 문서는 확정된 규칙, 결정 이유,
 아직 결정되지 않은 후속 논의 대상을 구분한다.
 
 비즈니스 동작은 행위 중심 메서드로 표현한다.
@@ -131,6 +131,28 @@ Subscription
 
 ---
 
+# 청구
+
+`Billing`은 특정 고객의 특정 구독에 대해 거래 가격을 확정한 사실을 표현하는 애그리거트
+루트다. `CustomerId`, `SubscriptionId`, `ProductId`로 다른 애그리거트를 참조하고 생성
+시점의 Product 가격을 `amount`로 보존한다.
+
+청구의 상태는 `PENDING`, `PAID`이며 결제 거절은 청구 상태로 표현하지 않는다. 상세한
+확정 규칙은 `docs/billing-payment.md`에 기록한다.
+
+---
+
+# 결제
+
+`Payment`는 특정 Billing에 대해 수행한 실제 결제 시도 결과를 표현하는 애그리거트다.
+Billing을 `BillingId`로 참조하며 금액은 Billing에 확정된 금액과 같아야 한다. 상태는
+`SUCCESS`, `FAILED`이고 생성 이후 바꾸지 않는다.
+
+Billing과 Payment를 하나의 애그리거트나 객체 그래프로 합치지 않는다. 상세한 확정
+규칙은 `docs/billing-payment.md`에 기록한다.
+
+---
+
 # 고객
 
 `Customer`는 고객이라는 비즈니스 개념을 표현한다.
@@ -158,6 +180,8 @@ Subscription
 현재 예:
 
 - SubscriptionId
+- BillingId
+- PaymentId
 - ProductId
 - CustomerId
 - SellerId
@@ -190,6 +214,12 @@ ProductId
 
 SubscriptionId
 → subscription.domain
+
+BillingId
+→ billing.domain
+
+PaymentId
+→ payment.domain
 ~~~
 
 현재 소비하는 코드의 패키지가 식별자의 소유권을 결정하지 않는다.

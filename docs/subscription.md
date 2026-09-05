@@ -330,10 +330,24 @@ nextBillingDate = pauseDate.plusDays(1)
 billingAnchorDay = 기존 값 유지
 ```
 
-다음 날 이후에는 남은 선결제 이용권이 없으므로 Manual Resume만으로 ACTIVE가 될 수
-없다. 현재 Billing 기능이 없으므로 가짜 결제나 임시 이용 구간을 만들지 않고
-`SubscriptionResumeRequiresPaymentException`을 발생시킨다. 결제 성공 전까지 PAUSED
-상태를 유지한다.
+다음 날 이후에는 남은 선결제 이용권이 없으므로 일반 Manual Resume만으로 ACTIVE가 될 수
+없다. `SubscriptionResumeRequiresPaymentException`을 발생시키고 결제 성공 전까지 PAUSED
+상태를 유지한다. 수동 재활성화 Billing과 Payment 흐름은 `docs/billing-payment.md`를
+따른다.
+
+### 결제를 통한 수동 재활성화
+
+`PAUSED`이고 `remainingPaidDays == 0`인 Subscription만 수동 재활성화 Billing의 대상이다.
+Payment 승인 전에는 새 `currentPeriod`를 만들거나 ACTIVE로 전이하지 않는다.
+
+결제가 승인되면 Payment 성공 KST 업무 날짜를 시작으로 새 선결제 이용 구간을 열고,
+그 날짜의 일자를 새 `billingAnchorDay`로 확정한다. 기존 월말 보정 규칙으로 다음
+`nextBillingDate`를 구하고 `currentPeriod.endDate`를 그 전날로 정한다. PAUSED 전용 필드를
+비우고 ACTIVE로 전이하며 `PAYMENT_FAILED`만 제거한다. 다른 실행 차단 사유는 유지한다.
+
+결제가 거절되면 PAUSED 기간 문맥과 기존 청구 일정을 바꾸지 않고 `PAYMENT_FAILED`만
+추가한다. 상세한 Billing·Payment 책임, 가격과 실패 규칙은
+`docs/billing-payment.md`에서 관리한다.
 
 ### 취소
 
@@ -445,11 +459,12 @@ PAUSED에서 과거 기간을 남은 일수 계산용으로 보존하면 같은 
 만들어 도메인에 전달하면 도메인은 프레임워크와 시간 인프라스트럭처에 의존하지 않고
 테스트에서 날짜를 명확히 제어할 수 있다.
 
-### 결제가 필요한 Resume을 완료하지 않는 이유
+### 일반 Resume이 결제가 필요한 재활성화를 완료하지 않는 이유
 
 남은 이용권이 0이고 마지막 유료일이 지난 뒤에는 새 결제 결과 없이는 ACTIVE 이용
-구간과 다음 일정을 확정할 수 없다. Billing이 없는 현재 범위에서 성공한 것처럼 상태를
-만드는 것보다 명시적인 충돌로 남기는 것이 애그리거트 불변식을 보존한다.
+구간과 다음 일정을 확정할 수 없다. 일반 `resume()`은 성공한 것처럼 상태를 만들지 않고
+명시적인 충돌로 남긴다. Payment 승인 뒤의 별도 도메인 행위만 새 이용 구간을 만들 수
+있다.
 
 ---
 
@@ -460,10 +475,11 @@ Policy, Strategy, Event, Adapter, DB 스키마나 범용 추상화를 추가하�
 
 ### Billing과 결제
 
-- 실제 Billing 유즈케이스와 Payment Gateway
-- 결제 성공 후 새 `currentPeriod`, `nextBillingDate`, `billingAnchorDay` 확정
-- 결제 실패와 재시도
-- `PAYMENT_FAILED` 추가·제거 주체
+- 최초 구독 결제와 자동 정기결제
+- 결제 실패 재시도와 Billing 1 : N Payment
+- PENDING Billing 만료·취소와 Payment idempotency
+- 실제 PG와 Payment Method
+- PG 성공 후 저장 실패 복구와 최종적 일관성
 - Billing과 Pause가 같은 날 실행될 때의 순서와 동시성
 - 청구 Batch와 중복 결제 방지
 
@@ -514,7 +530,7 @@ Policy, Strategy, Event, Adapter, DB 스키마나 범용 추상화를 추가하�
 
 ## 작업 체크리스트
 
-구독, 상품, 청구 또는 배송을 변경할 때 다음을 확인한다.
+구독, 상품, 청구, 결제 또는 배송을 변경할 때 다음을 확인한다.
 
 1. 루트 `AGENTS.md`, `docs/glossary.md`, 관련 아키텍처·도메인·보안 문서를 읽는다.
 2. 이 문서의 확정된 규칙과 새 요구사항의 충돌 여부를 확인한다.
