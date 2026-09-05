@@ -6,6 +6,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.bluetoya.beansontime.product.application.port.in.ProductAvailability;
 import com.bluetoya.beansontime.product.application.port.in.ProductInfo;
@@ -31,6 +34,8 @@ import java.util.Set;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
+import org.springframework.http.MediaType;
+import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -187,6 +192,27 @@ class SubscriptionControllerTest {
                 .filter(annotation -> annotation != null)
                 .flatMap(annotation -> Arrays.stream(annotation.value())))
         .noneMatch(path -> path.contains("hold"));
+  }
+
+  @Test
+  void returnsCreatedWithSubscriptionId() throws Exception {
+    SubscribeUseCase useCase = mock(SubscribeUseCase.class);
+    UUID id = UUID.randomUUID();
+    when(useCase.subscribe(org.mockito.ArgumentMatchers.any())).thenReturn(new SubscriptionId(id));
+    var controller =
+        new SubscriptionController(
+            useCase,
+            mock(PauseSubscriptionUseCase.class),
+            mock(ResumeSubscriptionUseCase.class),
+            mock(GetSubscriptionDetailQuery.class));
+    var mvc = MockMvcBuilders.standaloneSetup(controller).build();
+    mvc.perform(
+            post("/subscriptions")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(
+                    "{\"productId\":10,\"deliveryCycle\":{\"unit\":\"ONE_MONTH\",\"interval\":1}}"))
+        .andExpect(status().isCreated())
+        .andExpect(jsonPath("$.subscriptionId").value(id.toString()));
   }
 
   private SubscriptionController controller(

@@ -11,6 +11,7 @@ import java.time.LocalDate;
 import java.util.UUID;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -30,6 +31,7 @@ public class SubscriptionController {
   }
 
   @PostMapping
+  @ResponseStatus(HttpStatus.CREATED)
   SubscribeResponse create(@RequestBody SubscribeRequest request) {
     SubscriptionId subscriptionId = subscribeUseCase.subscribe(toCommand(request));
     return new SubscribeResponse(subscriptionId.value());

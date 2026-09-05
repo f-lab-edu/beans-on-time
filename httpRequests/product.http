@@ -17,3 +17,13 @@ Authorization: Basic seller1 password1
 
     client.global.set("productId", response.body.productId);
 %}
+
+### 공개 상품 단건 조회
+GET {{baseUrl}}/products/{{productId}}
+
+> {%
+    client.test("인증 없이 상품 조회", function() {
+        client.assert(response.status === 200, "응답 상태는 200이어야 합니다.");
+        client.assert(response.body.basePrice === 5000, "등록한 가격이어야 합니다.");
+    });
+%}

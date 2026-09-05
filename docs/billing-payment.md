@@ -48,6 +48,10 @@
 이미 존재하는 PENDING Billing의 재요청은 `409 CONFLICT`로 거절하며 재시도 정책은 후속
 논의 대상으로 남긴다.
 
+따라서 정상 거절 뒤 준비 요청은 같은 PENDING Billing을 반환하고 결제 재요청은
+거절된다. 현재 범위에서는 해당 청구를 통한 결제 복구 경로가 없다. Gateway 장애는
+Payment를 남기지 않으므로 이후 요청에서 Gateway를 다시 호출할 수 있다.
+
 ### 가격 확정
 
 재활성화 Billing을 처음 준비할 때 Product의 현재 `basePrice`를 `Billing.amount`로
@@ -70,9 +74,14 @@ Subscription은 존재해야 하고 인증된 고객의 소유여야 한다. 새
 참조한 Product도 존재해야 한다. 현재 Product의 판매 상태나 공급 가능 여부는 검사하지
 않는다.
 
-한 Subscription에는 동시에 하나의 PENDING 재활성화 Billing만 둔다. 같은 Subscription에
-준비 요청이 반복되면 기존 PENDING Billing을 반환하며 Product 가격을 다시 읽지 않는다.
+순차 요청에서는 한 Subscription의 기존 PENDING 재활성화 Billing을 재사용한다. 같은
+Subscription에 준비 요청이 반복되면 기존 PENDING Billing을 반환하며 Product 가격을 다시
+읽지 않는다.
 따라서 최초 준비 때 확정한 가격을 Checkout까지 유지한다.
+
+현재 InMemory 구현의 조회와 저장은 하나의 원자적 작업이 아니다. PENDING Billing의
+유일성과 Payment 중복 시도 거절은 동시 요청까지 보장하지 않으며, 경쟁 조건 처리는
+후속 논의 대상이다.
 
 `billingDate`와 `createdAt`은 애플리케이션 서비스가 주입된 KST `Clock`으로 구한다.
 도메인은 현재 시간을 직접 조회하지 않는다.

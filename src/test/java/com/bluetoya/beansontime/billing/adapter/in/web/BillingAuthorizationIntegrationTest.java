@@ -12,7 +12,7 @@ import com.bluetoya.beansontime.customer.domain.CustomerId;
 import com.bluetoya.beansontime.product.adapter.out.persistence.InMemoryProductAdapter;
 import com.bluetoya.beansontime.product.domain.Money;
 import com.bluetoya.beansontime.product.domain.Product;
-import com.bluetoya.beansontime.product.domain.SellerId;
+import com.bluetoya.beansontime.seller.domain.SellerId;
 import com.bluetoya.beansontime.subscription.adapter.out.persistence.InMemorySubscriptionRepository;
 import com.bluetoya.beansontime.subscription.domain.DeliveryCycle;
 import com.bluetoya.beansontime.subscription.domain.DeliveryCycleUnit;

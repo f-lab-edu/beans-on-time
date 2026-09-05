@@ -382,6 +382,8 @@ CANCELLED -> CANCELLED
 
 ### HTTP API와 소유권 인가
 
+`POST /subscriptions`는 `201 CREATED`와 `{ "subscriptionId": ... }`를 반환한다.
+
 구독 리소스 식별자는 조회와 상태 변경에서 모두 Path Variable을 사용한다.
 
 ```text

@@ -1,5 +1,6 @@
 package com.bluetoya.beansontime.product.domain;
 
+import com.bluetoya.beansontime.seller.domain.SellerId;
 import java.util.List;
 import java.util.Set;
 import lombok.*;
