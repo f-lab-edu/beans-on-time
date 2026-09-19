@@ -58,6 +58,11 @@ public class Subscription {
     }
 
     Objects.requireNonNull(pauseUntilDate, "일시정지 종료일은 필수입니다.");
+
+    if (pauseUntilDate.isAfter(LocalDate.now().plusMonths(3))) {
+      throw new InvalidSubscriptionPausePeriodException("일시정지 종료일은 3개월 이내여야 합니다.");
+    }
+
     Objects.requireNonNull(pausedAt, "일시정지 요청 시각은 필수입니다.");
 
     LocalDate pauseDate = pausedAt.toLocalDate();

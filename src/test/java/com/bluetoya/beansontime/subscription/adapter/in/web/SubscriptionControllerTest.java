@@ -141,8 +141,8 @@ class SubscriptionControllerTest {
     ArgumentCaptor<SubscribeCommand> captor = ArgumentCaptor.forClass(SubscribeCommand.class);
     verify(subscribeUseCase).subscribe(captor.capture());
     assertThat(captor.getValue().productId().id()).isEqualTo(10);
-    assertThat(captor.getValue().deliveryCycle().getUnit()).isEqualTo(DeliveryCycleUnit.ONE_MONTH);
-    assertThat(captor.getValue().deliveryCycle().getInterval()).isEqualTo(1);
+    assertThat(captor.getValue().deliveryCycle().unit()).isEqualTo(DeliveryCycleUnit.ONE_MONTH);
+    assertThat(captor.getValue().deliveryCycle().interval()).isEqualTo(1);
   }
 
   @Test

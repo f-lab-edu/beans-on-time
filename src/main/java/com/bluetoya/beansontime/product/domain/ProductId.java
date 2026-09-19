@@ -1,13 +1,8 @@
 package com.bluetoya.beansontime.product.domain;
 
-public record ProductId(long id) {
+import jakarta.validation.constraints.Positive;
 
-  public ProductId {
-    if (id < 1) {
-      throw new IllegalArgumentException("상품 ID는 0보다 커야 합니다.");
-    }
-  }
-
+public record ProductId(@Positive(message = "상품 아이디는 0보다 커야 합니다.") long id) {
   static ProductId generate() {
     return new ProductId((long) (Math.random() * 1000000000));
   }

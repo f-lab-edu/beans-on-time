@@ -17,6 +17,6 @@ public class InMemoryProductRepository {
   }
 
   void save(Product product) {
-    products.put(product.getId(), product);
+    products.put(product.id(), product);
   }
 }

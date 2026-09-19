@@ -28,13 +28,13 @@ class InMemoryGetBillingCheckoutQueryAdapterTest {
     InMemoryProductRepository productRepository = new InMemoryProductRepository();
     Product product = new Product(new SellerId(1), "Ethiopia", new Money(35000));
     new InMemoryProductAdapter(productRepository).save(product);
-    Subscription subscription = subscription(product.getId());
+    Subscription subscription = subscription(product.id());
     subscriptionRepository.save(subscription);
     Billing billing =
         new Billing(
             subscription.getCustomerId(),
             subscription.getId(),
-            product.getId(),
+            product.id(),
             new Money(30000),
             LocalDate.of(2026, 9, 2),
             LocalDateTime.of(2026, 9, 2, 10, 0));
@@ -45,12 +45,12 @@ class InMemoryGetBillingCheckoutQueryAdapterTest {
 
     BillingCheckoutDetail detail = adapter.get(billing.getId());
 
-    assertThat(product.getBasePrice()).isEqualTo(new Money(35000));
+    assertThat(product.basePrice()).isEqualTo(new Money(35000));
     assertThat(detail.customerId()).isEqualTo(1);
     assertThat(detail.subscription().subscriptionId())
         .isEqualTo(subscription.getId().value().toString());
     assertThat(detail.subscription().lifecycleStatus()).isEqualTo("ACTIVE");
-    assertThat(detail.product().productId()).isEqualTo(product.getId().id());
+    assertThat(detail.product().productId()).isEqualTo(product.id().id());
     assertThat(detail.product().name()).isEqualTo("Ethiopia");
     assertThat(detail.billing().billingId()).isEqualTo(billing.getId().value());
     assertThat(detail.billing().amount()).isEqualTo(30000);

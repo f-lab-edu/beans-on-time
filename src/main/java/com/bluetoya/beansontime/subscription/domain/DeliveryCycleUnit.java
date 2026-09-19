@@ -9,4 +9,12 @@ public enum DeliveryCycleUnit {
   ;
 
   private final String description;
+
+  public static DeliveryCycleUnit of(String unit) {
+    return switch (unit) {
+      case "1주" -> ONE_WEEK;
+      case "1달" -> ONE_MONTH;
+      default -> throw new IllegalArgumentException("유효하지 않은 배송 주기 단위입니다.");
+    };
+  }
 }

@@ -1,40 +1,21 @@
 package com.bluetoya.beansontime.product.domain;
 
 import com.bluetoya.beansontime.seller.domain.SellerId;
+
 import java.util.List;
 import java.util.Set;
-import lombok.*;
 
-@Getter
-@Builder
-@RequiredArgsConstructor
-public class Product {
-  private final ProductId id;
-  private final SellerId sellerId;
-
-  private final String name;
-  private final String description;
-  private final Money basePrice;
-
-  private final List<ProductImage> images;
-  private final List<ProductSizeOption> sizeOptions;
-  private final Set<GrindType> grindTypes;
-
-  private final ProductStatus status;
+public record Product(ProductId id, SellerId sellerId, String name, String description, Money basePrice,
+                      List<ProductImage> images, List<ProductSizeOption> sizeOptions, Set<GrindType> grindTypes,
+                      ProductStatus status) {
 
   public Product(SellerId sellerId, String name, Money basePrice) {
-    this.id = ProductId.generate();
-    this.sellerId = sellerId;
-    this.name = name;
-    this.description = "";
-    this.basePrice = basePrice;
-    this.images = List.of();
-    this.sizeOptions = List.of();
-    this.grindTypes = Set.of();
-    this.status = ProductStatus.ACTIVE;
-  }
+        this(ProductId.generate(), sellerId, name, "", basePrice, List.of(), List.of(), Set.of(), ProductStatus.ACTIVE);
+    }
 
-  public record ProductImage(String url, int order) {}
+    public record ProductImage(String url, int order) {
+    }
 
-  public record ProductSizeOption(int gramSize, Money additionalPrice) {}
+    public record ProductSizeOption(int gramSize, Money additionalPrice) {
+    }
 }

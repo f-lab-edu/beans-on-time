@@ -40,7 +40,7 @@ public class InMemoryGetBillingCheckoutQueryAdapter implements GetBillingCheckou
         billing.getCustomerId().value(),
         new BillingCheckoutDetail.SubscriptionInfo(
             subscription.getId().value().toString(), subscription.getLifecycleStatus().name()),
-        new BillingCheckoutDetail.ProductInfo(product.getId().id(), product.getName()),
+        new BillingCheckoutDetail.ProductInfo(product.id().id(), product.name()),
         new BillingCheckoutDetail.BillingInfo(
             billing.getId().value(),
             billing.getAmount().price(),

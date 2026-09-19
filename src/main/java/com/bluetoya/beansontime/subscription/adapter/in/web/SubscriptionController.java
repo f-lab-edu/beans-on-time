@@ -10,6 +10,9 @@ import com.bluetoya.beansontime.subscription.domain.*;
 import java.time.LocalDate;
 import java.util.UUID;
 import java.util.stream.Collectors;
+
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotNull;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
@@ -17,6 +20,7 @@ import org.springframework.web.bind.annotation.*;
 @RestController
 @RequestMapping("/subscriptions")
 @RequiredArgsConstructor
+@Valid
 public class SubscriptionController {
 
   private final SubscribeUseCase subscribeUseCase;
@@ -38,7 +42,7 @@ public class SubscriptionController {
   }
 
   @PatchMapping("/{id}/pause")
-  void pause(@PathVariable UUID id, @RequestParam LocalDate pauseUntilDate) {
+  void pause(@PathVariable UUID id, @RequestParam @NotNull LocalDate pauseUntilDate) {
     pauseSubscriptionUseCase.pause(
         new PauseSubscriptionCommand(new SubscriptionId(id), pauseUntilDate));
   }
@@ -52,7 +56,7 @@ public class SubscriptionController {
     return new SubscribeCommand(
         new ProductId(request.productId()),
         new DeliveryCycle(
-            DeliveryCycleUnit.valueOf(request.deliveryCycle().unit()),
+            DeliveryCycleUnit.of(request.deliveryCycle().unit()),
             request.deliveryCycle().interval()));
   }
 
