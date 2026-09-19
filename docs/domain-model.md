@@ -86,6 +86,8 @@ Subscription
 
 - 상품 등록
 - 공개 단건 상품 조회
+- 공급 일시 중지와 재개
+- 상품 공급 영구 종료
 
 현재 주요 개념은 다음과 같다.
 
@@ -94,16 +96,15 @@ Subscription
 - Name
 - Description
 - Price
-- ProductStatus
+- SupplyStatus
 - ProductImage
 - 지원하는 분쇄 방식
 - 크기 선택지
 
-현재 `ProductStatus`는 판매 생명주기인 `ACTIVE`와 `INACTIVE`를 가진다.
-
-`ProductStatus`는 상품 납품 가능 상태가 아니다. 납품 가능 상태는
-`docs/subscription.md`에 후속 논의 대상으로 기록한다. 상품 모델은 최소한으로
-유지하고 실제 요구사항이 생길 때 확장한다.
+`SupplyStatus`는 `AVAILABLE`, `TEMPORARILY_UNAVAILABLE`, `DISCONTINUED`를
+가진다. 현재 Feature에서는 판매 가능 여부와 공급 가능 여부를 별도 상태 축으로
+분리하지 않는다. `DISCONTINUED`는 복구할 수 없는 종료 상태다. 세부 상태 전이와
+구독 연동 규칙은 `docs/product.md`에 기록한다.
 
 ---
 
@@ -126,8 +127,8 @@ Subscription
 
 공개 상품 조회에는 상품 소유권 인가가 필요하지 않다.
 
-상품 수정처럼 판매자가 소유한 변경 유즈케이스가 생길 때 판매자 소유권 인가를
-도입한다.
+공급 상태 변경은 판매자 소유 변경 유즈케이스다. 인증된 판매자와 Product의
+`sellerId`를 기존 `OwnershipAspect` 구조로 비교한다.
 
 ---
 

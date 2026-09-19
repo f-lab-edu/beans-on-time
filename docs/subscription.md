@@ -62,6 +62,24 @@ executionBlocked = lifecycleStatus != ACTIVE || !suspensionReasons.isEmpty()
 이는 구독 공통 상태에 의한 실행 차단만 의미한다. 청구나 배송의 최종 실행 조건을 모두
 판단하는 API로 확대하지 않는다.
 
+### Product 공급 상태와 실행 차단 연동
+
+Product 공급 상태는 Subscription의 `lifecycleStatus`와 독립적으로 관리한다.
+Product가 `TEMPORARILY_UNAVAILABLE` 또는 `DISCONTINUED`가 되어도 관련
+Subscription을 `PAUSED` 또는 `CANCELLED`로 전이하지 않는다.
+
+공급할 수 없는 Product는 기존 `PRODUCT_UNAVAILABLE` 실행 차단 사유로 표현한다.
+상태 변경 시 해당 `ProductId`를 참조하는 종료되지 않은 Subscription에 다음을
+반영한다.
+
+- Product 공급 일시 중지 또는 영구 종료: `PRODUCT_UNAVAILABLE` 추가 또는 유지
+- Product 공급 재개: `PRODUCT_UNAVAILABLE`만 제거
+- Subscription `ACTIVE`, `PAUSED`: 연동 대상
+- Subscription `CANCELLED`: 연동 제외
+
+다른 실행 차단 사유는 추가·제거하지 않는다. 공급 상태의 세부 의미와 전이는
+`docs/product.md`를 따른다.
+
 ### 상태별 필드 불변식
 
 `Subscription`은 생성과 모든 상태 전이가 끝난 뒤 다음 조합을 만족해야 한다.
@@ -410,6 +428,11 @@ ACTIVE 조회에서는 그 반대다. `SubscriptionInfo.customerId`를 사용하
 고객의 일시정지와 상품 공급 문제·결제 실패는 동시에 존재할 수 있다. 하나의 상태값으로
 압축하면 한 원인을 해제할 때 다른 원인이나 고객 생명주기까지 잘못 변경할 수 있다.
 
+Product 공급 문제는 고객이 선택한 `PAUSED`의 의미를 변경하지 않는다. 기존
+`SubscriptionSuspensionReason`을 사용하면 Subscription 모델을 추가로 변경하지
+않으면서 공급 문제와 결제 실패 등 여러 실행 차단 사유를 독립적으로 유지할 수
+있다.
+
 ### 일시정지가 선결제 이용 기간을 동결하는 이유
 
 일시정지는 실행만 막고 이미 결제한 기간을 계속 소진하는 기능이 아니다. 고객이 실제로
@@ -480,10 +503,11 @@ Policy, Strategy, Event, Adapter, DB 스키마나 범용 추상화를 추가하�
 
 ### 상품과 실행 차단
 
-- Product 납품 가능 상태
-- Product 상태와 `PRODUCT_UNAVAILABLE` 연동
 - Product 실행 차단 기간에도 유료 이용 기간을 동결할지 여부
-- 상품 상태 변경 뒤 구독 대량 처리
+- `DISCONTINUED` Product의 기존 Subscription 최종 처리
+- 환불, 잔여 이용 기간 소멸, 대체 상품 전환
+- 상품 공급 상태 변경 뒤 구독 대량 처리와 Event, Async, Batch 도입 여부
+- Product와 Subscription 갱신의 동시성 및 최종적 일관성
 
 ### 배송
 

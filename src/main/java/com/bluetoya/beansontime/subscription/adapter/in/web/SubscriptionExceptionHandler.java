@@ -1,6 +1,7 @@
 package com.bluetoya.beansontime.subscription.adapter.in.web;
 
 import com.bluetoya.beansontime.subscription.application.exception.DuplicateSubscriptionException;
+import com.bluetoya.beansontime.subscription.application.exception.ProductNotSubscribableException;
 import com.bluetoya.beansontime.subscription.application.exception.SubscriptionNotFoundException;
 import com.bluetoya.beansontime.subscription.domain.exception.InvalidSubscriptionPausePeriodException;
 import com.bluetoya.beansontime.subscription.domain.exception.InvalidSubscriptionStateChangeException;
@@ -27,6 +28,16 @@ public class SubscriptionExceptionHandler {
     ProblemDetail problem = ProblemDetail.forStatus(HttpStatus.CONFLICT);
 
     problem.setTitle("중복 구독");
+    problem.setDetail(exception.getMessage());
+
+    return problem;
+  }
+
+  @ExceptionHandler(ProductNotSubscribableException.class)
+  ProblemDetail handleProductNotSubscribable(ProductNotSubscribableException exception) {
+    ProblemDetail problem = ProblemDetail.forStatus(HttpStatus.CONFLICT);
+
+    problem.setTitle("신규 구독 불가");
     problem.setDetail(exception.getMessage());
 
     return problem;
