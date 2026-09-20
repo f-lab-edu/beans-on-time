@@ -18,10 +18,10 @@ public class InMemoryGetProductDetailQueryAdapter implements GetProductDetailQue
         .map(
             p ->
                 new ProductDetail(
-                    p.id().id(),
-                    p.name(),
-                    p.description(),
-                    p.basePrice().price(),
-                    p.status().name()));
+                    p.getId().id(),
+                    p.getName(),
+                    p.getDescription(),
+                    p.getBasePrice().price(),
+                    p.getSupplyStatus().name()));
   }
 }

@@ -48,7 +48,7 @@ class BillingAuthorizationIntegrationTest {
     Subscription subscription =
         new Subscription(
             new CustomerId(1),
-            product.id(),
+            product.getId(),
             new DeliveryCycle(DeliveryCycleUnit.ONE_MONTH, 1),
             today.minusMonths(2).withDayOfMonth(1));
     LocalDate lastPaidDate = subscription.getCurrentPeriod().endDate();
@@ -58,8 +58,8 @@ class BillingAuthorizationIntegrationTest {
         new Billing(
             subscription.getCustomerId(),
             subscription.getId(),
-            product.id(),
-            product.basePrice(),
+            product.getId(),
+            product.getBasePrice(),
             today,
             LocalDateTime.now(clock));
     billingRepository.save(billing);

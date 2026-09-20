@@ -44,7 +44,7 @@ class InMemoryGetSubscriptionDetailQueryAdapterTest {
     Subscription subscription =
         new Subscription(
             new CustomerId(1),
-            product.id(),
+            product.getId(),
             new DeliveryCycle(DeliveryCycleUnit.ONE_MONTH, 1),
             LocalDate.of(2026, 8, 31));
     subscription.addSuspensionReason(PRODUCT_UNAVAILABLE);
@@ -72,7 +72,7 @@ class InMemoryGetSubscriptionDetailQueryAdapterTest {
     assertThat(info.scheduledResumeDate()).isEqualTo(LocalDate.of(2026, 10, 16));
     assertThat(info.executionBlocked()).isTrue();
     assertThat(detail.productInfo().availability()).isEqualTo(ProductAvailability.AVAILABLE);
-    assertThat(detail.productInfo().productId()).isEqualTo(product.id().id());
+    assertThat(detail.productInfo().productId()).isEqualTo(product.getId().id());
     assertThat(detail.productInfo().name()).isEqualTo("Ethiopia");
     assertThat(detail.productInfo().basePrice()).isEqualTo(18000);
   }

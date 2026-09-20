@@ -42,6 +42,18 @@ class ProductApiTest {
   @org.springframework.security.config.annotation.web.configuration.EnableWebSecurity
   static class SecurityTestConfig {}
 
+  @org.springframework.test.context.bean.override.mockito.MockitoBean
+  com.bluetoya.beansontime.product.application.port.in.StopProductSupplyUseCase
+      stopProductSupplyUseCase;
+
+  @org.springframework.test.context.bean.override.mockito.MockitoBean
+  com.bluetoya.beansontime.product.application.port.in.ResumeProductSupplyUseCase
+      resumeProductSupplyUseCase;
+
+  @org.springframework.test.context.bean.override.mockito.MockitoBean
+  com.bluetoya.beansontime.product.application.port.in.DiscontinueProductUseCase
+      discontinueProductUseCase;
+
   @Autowired MockMvc mockMvc;
   @Autowired InMemoryProductRepository repository;
 
@@ -60,7 +72,7 @@ class ProductApiTest {
             .getResponse()
             .getContentAsString();
     long id = new ObjectMapper().readTree(body).get("productId").asLong();
-    assertThat(repository.findById(new ProductId(id)).orElseThrow().sellerId().id())
+    assertThat(repository.findById(new ProductId(id)).orElseThrow().getSellerId().id())
         .isEqualTo(1);
     mockMvc
         .perform(get("/products/{id}", id))
@@ -69,7 +81,7 @@ class ProductApiTest {
         .andExpect(jsonPath("$.name").value("원두"))
         .andExpect(jsonPath("$.description").value(""))
         .andExpect(jsonPath("$.basePrice").value(5000))
-        .andExpect(jsonPath("$.status").value("ACTIVE"));
+        .andExpect(jsonPath("$.status").value("AVAILABLE"));
   }
 
   @ParameterizedTest

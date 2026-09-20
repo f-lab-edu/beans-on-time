@@ -51,7 +51,7 @@ public class PrepareReactivationBillingService implements PrepareReactivationBil
             subscription.getCustomerId(),
             subscription.getId(),
             subscription.getProductId(),
-            product.basePrice(),
+            product.getBasePrice(),
             createdAt.toLocalDate(),
             createdAt);
 

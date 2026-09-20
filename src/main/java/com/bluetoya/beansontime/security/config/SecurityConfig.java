@@ -89,6 +89,8 @@ public class SecurityConfig {
     auth.requestMatchers(HttpMethod.GET, "/products", "/products/**")
         .permitAll()
         .requestMatchers(HttpMethod.POST, "/products")
+        .hasRole("SELLER")
+        .requestMatchers(HttpMethod.PATCH, "/products/**")
         .hasRole("SELLER");
   }
 

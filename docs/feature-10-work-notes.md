@@ -46,3 +46,40 @@
 머지 커밋의 첫 번째 부모는 보존한 feature/10 작업이고 두 번째 부모는 반영한 main이다.
 두 부모와 머지 결과를 비교하면 기존 작업과 main에서 들어온 변경을 구분할 수 있다.
 후속 수정은 이 메모와 최신 도메인·아키텍처 문서를 대조한 뒤 작은 범위로 진행한다.
+
+
+## main 통합 결과와 검증 (2026-09-20)
+
+- 작업 보존 커밋: `ff520b2` (머지 전 변경과 이 메모를 보존).
+- 반영한 main: `da0235f` (상품 공급 상태·구독 실행 차단 연동 및 유즈케이스 구조 원칙).
+- 충돌 파일: `AGENTS.md`, `docs/adr/security.md`, `ProductController`,
+  `ProductExceptionHandler`, `Product`.
+- 양쪽 작업 지침과 조회·등록·공급 변경 API, 404·409 처리 및 각 소유권 인가를 통합했다.
+- Product는 main의 공급 상태 전이 행위를 유지해야 하므로 record 대신 클래스와 getter를
+  사용했다. seller 패키지의 SellerId 분리는 유지하고 관련 호출부와 테스트를 맞췄다.
+- 상품 상세 응답의 `status` 필드명은 유지하며 값은 main의 `SupplyStatus`를 사용한다.
+  초기값은 `ACTIVE` 대신 `AVAILABLE`이다. `DeliveryCycle` record 전환은 유지했다.
+- 포맷 정리 후 `./gradlew spotlessCheck test`를 실행했다. 포맷 검사와 프로덕션·테스트
+  컴파일은 통과했고, 테스트는 총 136개 중 128개 통과, 8개 실패했다.
+
+실패 항목은 작업 재개 시 다음 순서로 확인한다. 이번 작업에서는 기존 미완성 기능의
+수정 범위를 확대하지 않았다.
+
+1. 납품 주기 입력 계약 불일치 2개:
+   `SubscriptionControllerTest.mapsDeliveryCycleRequestToSubscribeCommand`,
+   `returnsCreatedWithSubscriptionId`.
+   기존 테스트의 enum 이름 입력과 feature/10의 `1주`·`1달` 변환이 맞지 않는다.
+2. 일시정지 3개월 제한 관련 5개:
+   `PayBillingServiceTest.preservesTheThirtyFirstAnchorUsingLeapYearFebruary` 및
+   `SubscriptionTest`의 `longPauseAcrossTheYearBoundaryPreservesRemainingPaidDays`,
+   `pauseAndResumeAcrossLeapYearFebruaryUsesRemainingPaidDays`,
+   `paidReactivationUsesLeapYearFebruaryForTheThirtyFirstAnchor`,
+   `oneRemainingPaidDayCreatesAValidOneDayPeriod`.
+   테스트가 전달하는 날짜 대신 실제 시스템 날짜를 기준으로 제한을 검사한다.
+3. Docker 환경 문제 1개: `BeansOnTimeApplicationTests.initializationError`.
+   Testcontainers가 Docker 환경을 찾지 못했다.
+
+자체 리뷰 결과는 `NEEDS_FIX`다. 충돌 해결 및 컴파일은 완료했지만 위 기존 작업의 실패가
+남아 있으므로 기능 완료 또는 전체 검증 통과로 간주하지 않는다. Docker 검증은 환경
+문제로 차단되어 있다. 다음 작업은 입력 계약과 3개월 정책을 먼저 정리한 뒤 테스트를
+다시 실행하는 것이다.

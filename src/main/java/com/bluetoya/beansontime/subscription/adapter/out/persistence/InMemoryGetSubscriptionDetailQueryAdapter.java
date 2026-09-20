@@ -60,8 +60,8 @@ public class InMemoryGetSubscriptionDetailQueryAdapter implements GetSubscriptio
   private ProductInfo toProductInfo(Product product) {
     return new ProductInfo(
         ProductAvailability.AVAILABLE,
-        product.id().id(),
-        product.name(),
-        product.basePrice().price());
+        product.getId().id(),
+        product.getName(),
+        product.getBasePrice().price());
   }
 }

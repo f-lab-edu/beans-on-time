@@ -5,6 +5,7 @@ import com.bluetoya.beansontime.product.domain.ProductId;
 import com.bluetoya.beansontime.subscription.domain.Subscription;
 import com.bluetoya.beansontime.subscription.domain.SubscriptionId;
 import com.bluetoya.beansontime.subscription.domain.SubscriptionStatus;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
@@ -29,5 +30,12 @@ public class InMemorySubscriptionRepository {
                 subscription.getCustomerId().equals(customerId)
                     && subscription.getProductId().equals(productId)
                     && subscription.getLifecycleStatus() != SubscriptionStatus.CANCELLED);
+  }
+
+  public List<Subscription> findNotCancelledByProductId(ProductId productId) {
+    return subscriptions.values().stream()
+        .filter(subscription -> subscription.getProductId().equals(productId))
+        .filter(subscription -> subscription.getLifecycleStatus() != SubscriptionStatus.CANCELLED)
+        .toList();
   }
 }
