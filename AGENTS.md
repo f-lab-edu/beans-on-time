@@ -189,9 +189,9 @@ subscription.resume();
 
 - `docs/glossary.md` — 프로젝트 공통 설계·비즈니스 용어
 - `docs/architecture.md` — 아키텍처, 의존 방향, 포트, CQS
-- `docs/domain-model.md` — 애그리거트 경계와 도메인 소유권
-- `docs/subscription.md` — 구독 확정 규칙, 결정 이유, 상품·청구·배송 후속 논의
-- `docs/billing-payment.md` — 수동 재활성화 청구·결제의 확정 규칙과 후속 논의
+- `docs/domain/domain-model.md` — 애그리거트 경계와 도메인 소유권
+- `docs/domain/subscription.md` — 구독 확정 규칙, 결정 이유, 상품·청구·배송 후속 논의
+- `docs/domain/billing-payment.md` — 수동 재활성화 청구·결제의 확정 규칙과 후속 논의
 - `docs/adr/security.md` — 인증과 인가 경계
 - `docs/testing.md` — 테스트 전략
 - `docs/coding-guidelines.md` — 코드 품질 관례
@@ -230,9 +230,9 @@ API 경로, 프레임워크와 기술 고유명사는 원래 표기를 유지한
 구독, 상품, 청구, 결제, 배송 관련 요청은 다음 순서로 처리한다.
 
 1. 루트 `AGENTS.md`를 확인한다.
-2. `docs/architecture.md`, `docs/domain-model.md`, 관련 보안 문서를 확인한다.
-3. `docs/subscription.md`의 확정된 규칙을 확인한다. 청구·결제 작업은
-   `docs/billing-payment.md`도 확인한다.
+2. `docs/architecture.md`, `docs/domain/domain-model.md`, 관련 보안 문서를 확인한다.
+3. `docs/domain/subscription.md`의 확정된 규칙을 확인한다. 청구·결제 작업은
+   `docs/domain/billing-payment.md`도 확인한다.
 4. 새 요구사항과 확정된 규칙의 충돌 여부를 확인한다.
 5. 관련 후속 논의 대상을 확인한다.
 6. 현재 요청 범위에 필요한 최소 설계를 수행한다.

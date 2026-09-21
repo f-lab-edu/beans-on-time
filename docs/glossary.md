@@ -88,7 +88,7 @@ Java 식별자, API 경로, 프레임워크와 기술 고유명사는 원래 표
 표현한다.
 
 구독 회차는 청구 일정이나 납품 주기와 같은 시간 개념이 아니다. 구체적인 기간 확정
-규칙은 `docs/subscription.md`를 따른다.
+규칙은 `docs/domain/subscription.md`를 따른다.
 
 ## 청구 일정
 

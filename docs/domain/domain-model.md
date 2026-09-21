@@ -41,7 +41,7 @@
 CANCELLED는 최종 생명주기 상태다. 생명주기 상태와 실행 차단 사유 집합은 서로 독립적인
 상태 축이다. 구독 회차, 청구 일정, 납품 주기도 서로 다른 시간 개념이다.
 
-구독의 상세한 확정 규칙은 `docs/subscription.md`에 기록한다. 구독 또는 관련 상품,
+구독의 상세한 확정 규칙은 `docs/domain/subscription.md`에 기록한다. 구독 또는 관련 상품,
 청구, 결제, 배송 동작을 변경하기 전에 해당 문서를 읽는다. 문서는 확정된 규칙, 결정 이유,
 아직 결정되지 않은 후속 논의 대상을 구분한다.
 
@@ -91,9 +91,9 @@ Subscription
 
 상품 등록은 `POST /products`로 요청하며 `201 CREATED`와 `{ "productId": ... }`를 반환한다.
 가격은 필수이며 0 이상이어야 한다. 누락·null·음수 가격은 웹 경계에서 `400`으로 거절한다.
-공개 단건 조회는 `GET /products/{id}`이며 상품 ID, 이름, 설명, 기본 가격, 판매 상태를
-반환한다. 0 이하 ID는 `400`, 존재하지 않는 상품은 `404`다. 판매 상태를 납품 가능 여부로
-해석하거나 조회 필터로 사용하지 않는다.
+공개 단건 조회는 `GET /products/{id}`이며 상품 ID, 이름, 설명, 기본 가격, 공급 상태를
+반환한다. 응답의 `status`는 `SupplyStatus` 값이다. 0 이하 ID는 `400`, 존재하지 않는
+상품은 `404`다. 공급 상태를 이유로 공개 조회에서 상품을 제외하지 않는다.
 
 현재 주요 개념은 다음과 같다.
 
@@ -110,7 +110,7 @@ Subscription
 `SupplyStatus`는 `AVAILABLE`, `TEMPORARILY_UNAVAILABLE`, `DISCONTINUED`를
 가진다. 현재 Feature에서는 판매 가능 여부와 공급 가능 여부를 별도 상태 축으로
 분리하지 않는다. `DISCONTINUED`는 복구할 수 없는 종료 상태다. 세부 상태 전이와
-구독 연동 규칙은 `docs/product.md`에 기록한다.
+구독 연동 규칙은 `docs/domain/product.md`에 기록한다.
 
 ---
 
@@ -145,7 +145,7 @@ Subscription
 시점의 Product 가격을 `amount`로 보존한다.
 
 청구의 상태는 `PENDING`, `PAID`이며 결제 거절은 청구 상태로 표현하지 않는다. 상세한
-확정 규칙은 `docs/billing-payment.md`에 기록한다.
+확정 규칙은 `docs/domain/billing-payment.md`에 기록한다.
 
 ---
 
@@ -156,7 +156,7 @@ Billing을 `BillingId`로 참조하며 금액은 Billing에 확정된 금액과 
 `SUCCESS`, `FAILED`이고 생성 이후 바꾸지 않는다.
 
 Billing과 Payment를 하나의 애그리거트나 객체 그래프로 합치지 않는다. 상세한 확정
-규칙은 `docs/billing-payment.md`에 기록한다.
+규칙은 `docs/domain/billing-payment.md`에 기록한다.
 
 ---
 

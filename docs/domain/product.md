@@ -4,7 +4,7 @@
 
 이 문서는 `Product` 애그리거트의 공급 상태와 상태 전이, 구독과의 연동 규칙을
 기록한다. 공통 용어는 `docs/glossary.md`, 애그리거트 경계는
-`docs/domain-model.md`, 구독의 구체적인 불변식은 `docs/subscription.md`를 따른다.
+`docs/domain/domain-model.md`, 구독의 구체적인 불변식은 `docs/domain/subscription.md`를 따른다.
 
 ---
 

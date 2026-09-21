@@ -78,7 +78,7 @@ Subscription을 `PAUSED` 또는 `CANCELLED`로 전이하지 않는다.
 - Subscription `CANCELLED`: 연동 제외
 
 다른 실행 차단 사유는 추가·제거하지 않는다. 공급 상태의 세부 의미와 전이는
-`docs/product.md`를 따른다.
+`docs/domain/product.md`를 따른다.
 
 ### 상태별 필드 불변식
 
@@ -181,6 +181,10 @@ ACTIVE와 CANCELLED에서는 `remainingPaidDays`가 없다. 현재는 별도 값
 
 `DeliveryCycle`은 상품 납품 반복 주기다. 결제 회차나 청구 일정이 아니다. 이전의 모호한
 명칭은 사용하지 않는다.
+
+구독 생성 요청의 `deliveryCycle.unit`은 `ONE_WEEK` 또는 `ONE_MONTH`이며,
+`deliveryCycle.interval`은 양수다. 상품 ID와 납품 주기 및 단위는 필수이고, 잘못된
+입력은 웹 경계에서 `400 BAD_REQUEST`로 거절한다.
 
 현재 실제 배송 일정 계산은 구현하지 않는다. 구독 회차, 청구 일정, 납품 주기를 하나의
 시간축이나 동일한 정책으로 처리하지 않는다.
@@ -350,7 +354,7 @@ billingAnchorDay = 기존 값 유지
 
 다음 날 이후에는 남은 선결제 이용권이 없으므로 일반 Manual Resume만으로 ACTIVE가 될 수
 없다. `SubscriptionResumeRequiresPaymentException`을 발생시키고 결제 성공 전까지 PAUSED
-상태를 유지한다. 수동 재활성화 Billing과 Payment 흐름은 `docs/billing-payment.md`를
+상태를 유지한다. 수동 재활성화 Billing과 Payment 흐름은 `docs/domain/billing-payment.md`를
 따른다.
 
 ### 결제를 통한 수동 재활성화
@@ -365,7 +369,7 @@ Payment 승인 전에는 새 `currentPeriod`를 만들거나 ACTIVE로 전이하
 
 결제가 거절되면 PAUSED 기간 문맥과 기존 청구 일정을 바꾸지 않고 `PAYMENT_FAILED`만
 추가한다. 상세한 Billing·Payment 책임, 가격과 실패 규칙은
-`docs/billing-payment.md`에서 관리한다.
+`docs/domain/billing-payment.md`에서 관리한다.
 
 ### 취소
 

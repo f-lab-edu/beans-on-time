@@ -63,5 +63,5 @@ Beans on Time은 도메인 주도 설계와 헥사고날 아키텍처를 기반�
 결제 실패 후 복구, 동시 요청의 중복 결제 방지와 자동 처리 기능은 후속 논의 대상이다.
 
 확정된 규칙과 후속 범위는 [프로젝트 문서](docs/README.md),
-[구독 도메인 규칙](docs/subscription.md), [청구·결제 도메인 규칙](docs/billing-payment.md)을
+[구독 도메인 규칙](docs/domain/subscription.md), [청구·결제 도메인 규칙](docs/domain/billing-payment.md)을
 기준으로 한다.
