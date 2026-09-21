@@ -1,9 +1,15 @@
 package com.bluetoya.beansontime.product.domain;
 
-import jakarta.validation.constraints.Positive;
+import java.util.concurrent.ThreadLocalRandom;
 
-public record ProductId(@Positive(message = "상품 아이디는 0보다 커야 합니다.") long id) {
+public record ProductId(long id) {
+  public ProductId {
+    if (id < 1) {
+      throw new IllegalArgumentException("상품 ID는 0보다 커야 합니다.");
+    }
+  }
+
   static ProductId generate() {
-    return new ProductId((long) (Math.random() * 1000000000));
+    return new ProductId(ThreadLocalRandom.current().nextLong(1, 1000000000));
   }
 }

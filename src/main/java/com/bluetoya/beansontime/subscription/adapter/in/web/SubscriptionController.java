@@ -19,7 +19,6 @@ import org.springframework.web.bind.annotation.*;
 @RestController
 @RequestMapping("/subscriptions")
 @RequiredArgsConstructor
-@Valid
 public class SubscriptionController {
 
   private final SubscribeUseCase subscribeUseCase;
@@ -35,7 +34,7 @@ public class SubscriptionController {
 
   @PostMapping
   @ResponseStatus(HttpStatus.CREATED)
-  SubscribeResponse create(@RequestBody SubscribeRequest request) {
+  SubscribeResponse create(@Valid @RequestBody SubscribeRequest request) {
     SubscriptionId subscriptionId = subscribeUseCase.subscribe(toCommand(request));
     return new SubscribeResponse(subscriptionId.value());
   }
@@ -55,7 +54,7 @@ public class SubscriptionController {
     return new SubscribeCommand(
         new ProductId(request.productId()),
         new DeliveryCycle(
-            DeliveryCycleUnit.of(request.deliveryCycle().unit()),
+            DeliveryCycleUnit.valueOf(request.deliveryCycle().unit()),
             request.deliveryCycle().interval()));
   }
 
