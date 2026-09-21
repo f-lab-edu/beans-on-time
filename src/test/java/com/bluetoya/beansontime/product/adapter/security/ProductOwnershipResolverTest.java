@@ -8,11 +8,11 @@ import static org.mockito.Mockito.when;
 
 import com.bluetoya.beansontime.product.domain.Money;
 import com.bluetoya.beansontime.product.domain.Product;
-import com.bluetoya.beansontime.product.domain.SellerId;
 import com.bluetoya.beansontime.security.application.CurrentActorProvider;
 import com.bluetoya.beansontime.security.aspect.OwnershipAspect;
 import com.bluetoya.beansontime.security.model.ActorIdentity;
 import com.bluetoya.beansontime.security.model.ActorType;
+import com.bluetoya.beansontime.seller.domain.SellerId;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.springframework.security.access.AccessDeniedException;

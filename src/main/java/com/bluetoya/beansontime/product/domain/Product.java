@@ -1,6 +1,7 @@
 package com.bluetoya.beansontime.product.domain;
 
 import com.bluetoya.beansontime.product.domain.exception.InvalidSupplyStateChangeException;
+import com.bluetoya.beansontime.seller.domain.SellerId;
 import java.util.List;
 import java.util.Set;
 import lombok.Getter;

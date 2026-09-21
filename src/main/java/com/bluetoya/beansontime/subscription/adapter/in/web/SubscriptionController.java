@@ -7,10 +7,13 @@ import com.bluetoya.beansontime.subscription.adapter.in.web.response.SubscribeRe
 import com.bluetoya.beansontime.subscription.adapter.in.web.response.SubscriptionDetailResponse;
 import com.bluetoya.beansontime.subscription.application.port.in.*;
 import com.bluetoya.beansontime.subscription.domain.*;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotNull;
 import java.time.LocalDate;
 import java.util.UUID;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -30,13 +33,14 @@ public class SubscriptionController {
   }
 
   @PostMapping
-  SubscribeResponse create(@RequestBody SubscribeRequest request) {
+  @ResponseStatus(HttpStatus.CREATED)
+  SubscribeResponse create(@Valid @RequestBody SubscribeRequest request) {
     SubscriptionId subscriptionId = subscribeUseCase.subscribe(toCommand(request));
     return new SubscribeResponse(subscriptionId.value());
   }
 
   @PatchMapping("/{id}/pause")
-  void pause(@PathVariable UUID id, @RequestParam LocalDate pauseUntilDate) {
+  void pause(@PathVariable UUID id, @RequestParam @NotNull LocalDate pauseUntilDate) {
     pauseSubscriptionUseCase.pause(
         new PauseSubscriptionCommand(new SubscriptionId(id), pauseUntilDate));
   }

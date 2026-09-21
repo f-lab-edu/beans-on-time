@@ -4,16 +4,18 @@
 
 - `glossary.md` — 프로젝트 공통 설계·비즈니스 용어와 의미
 - `architecture.md` — 헥사고날 아키텍처, 의존 방향, 포트와 CQS
-- `domain-model.md` — 애그리거트 경계와 도메인 소유권 개요
-- `product.md` — 상품 공급 상태, 상태 전이와 구독 연동 규칙
-- `subscription.md` — 구독 확정 규칙, 결정 이유, 상품·청구·배송 후속 논의
+- `domain/domain-model.md` — 애그리거트 경계와 도메인 소유권 개요
+- `domain/product.md` — 상품 공급 상태, 상태 전이와 구독 연동 규칙
+- `domain/subscription.md` — 구독 확정 규칙, 결정 이유, 상품·청구·배송 후속 논의
+- `domain/billing-payment.md` — 수동 재활성화 청구·결제의 확정 규칙과 후속 논의
 - `coding-guidelines.md` — 코드 작성 원칙
 - `testing.md` — 테스트 전략
 - `review-guidelines.md` — 구현 후 자체 리뷰 기준과 반복 종료 조건
 - `adr/security.md` — 인증, 인가, 소유권 인가 결정
 
-모든 아키텍처와 도메인 작업 전에는 `glossary.md`를 확인한다. 구독, 상품, 청구, 배송
-관련 작업 전에는 `subscription.md`도 반드시 확인한다.
+모든 아키텍처와 도메인 작업 전에는 `glossary.md`를 확인한다. 구독, 상품, 청구, 결제,
+배송 관련 작업 전에는 `domain/subscription.md`도 반드시 확인한다. 청구·결제 작업은
+`domain/billing-payment.md`도 확인한다.
 
 ## 도메인 컨텍스트 상태
 

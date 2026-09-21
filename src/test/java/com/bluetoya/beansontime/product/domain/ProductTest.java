@@ -7,6 +7,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.bluetoya.beansontime.product.domain.exception.InvalidSupplyStateChangeException;
+import com.bluetoya.beansontime.seller.domain.SellerId;
 import org.junit.jupiter.api.Test;
 
 class ProductTest {

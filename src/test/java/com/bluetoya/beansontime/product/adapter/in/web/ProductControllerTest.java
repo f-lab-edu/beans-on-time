@@ -11,6 +11,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.bluetoya.beansontime.product.application.exception.ProductNotFoundException;
 import com.bluetoya.beansontime.product.application.port.in.DiscontinueProductUseCase;
+import com.bluetoya.beansontime.product.application.port.in.GetProductDetailQuery;
 import com.bluetoya.beansontime.product.application.port.in.RegisterProductUseCase;
 import com.bluetoya.beansontime.product.application.port.in.ResumeProductSupplyUseCase;
 import com.bluetoya.beansontime.product.application.port.in.StopProductSupplyUseCase;
@@ -90,7 +91,11 @@ class ProductControllerTest {
     DiscontinueProductUseCase discontinueUseCase = mock(DiscontinueProductUseCase.class);
     ProductController controller =
         new ProductController(
-            mock(RegisterProductUseCase.class), stopUseCase, resumeUseCase, discontinueUseCase);
+            mock(RegisterProductUseCase.class),
+            mock(GetProductDetailQuery.class),
+            stopUseCase,
+            resumeUseCase,
+            discontinueUseCase);
 
     controller.stopSupply(10);
     controller.resumeSupply(10);
@@ -124,7 +129,11 @@ class ProductControllerTest {
       DiscontinueProductUseCase discontinueUseCase) {
     ProductController controller =
         new ProductController(
-            mock(RegisterProductUseCase.class), stopUseCase, resumeUseCase, discontinueUseCase);
+            mock(RegisterProductUseCase.class),
+            mock(GetProductDetailQuery.class),
+            stopUseCase,
+            resumeUseCase,
+            discontinueUseCase);
     return MockMvcBuilders.standaloneSetup(controller)
         .setControllerAdvice(new ProductExceptionHandler())
         .build();

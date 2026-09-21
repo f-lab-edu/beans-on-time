@@ -216,6 +216,55 @@ class SubscriptionTest {
   }
 
   @Test
+  void reactivatesAfterPaymentWithANewPaidPeriod() {
+    Subscription subscription = subscriptionStartedOn(LocalDate.of(2026, 8, 2));
+    subscription.pause(LocalDate.of(2026, 9, 10), LocalDateTime.of(2026, 9, 1, 10, 0));
+
+    subscription.reactivateAfterPayment(LocalDate.of(2026, 9, 2));
+
+    assertActivePeriod(subscription, LocalDate.of(2026, 9, 2), LocalDate.of(2026, 10, 1));
+    assertThat(subscription.getBillingAnchorDay()).isEqualTo(new BillingAnchorDay(2));
+    assertThat(subscription.getNextBillingDate()).isEqualTo(LocalDate.of(2026, 10, 2));
+  }
+
+  @Test
+  void paidReactivationKeepsTheThirtyFirstAsTheAnchorAtAMonthEnd() {
+    Subscription subscription = subscriptionStartedOn(LocalDate.of(2025, 12, 31));
+    subscription.pause(LocalDate.of(2026, 2, 10), LocalDateTime.of(2026, 1, 30, 10, 0));
+
+    subscription.reactivateAfterPayment(LocalDate.of(2026, 1, 31));
+
+    assertActivePeriod(subscription, LocalDate.of(2026, 1, 31), LocalDate.of(2026, 2, 27));
+    assertThat(subscription.getBillingAnchorDay()).isEqualTo(new BillingAnchorDay(31));
+    assertThat(subscription.getNextBillingDate()).isEqualTo(LocalDate.of(2026, 2, 28));
+  }
+
+  @Test
+  void paidReactivationUsesLeapYearFebruaryForTheThirtyFirstAnchor() {
+    Subscription subscription = subscriptionStartedOn(LocalDate.of(2027, 12, 31));
+    subscription.pause(LocalDate.of(2028, 2, 10), LocalDateTime.of(2028, 1, 30, 10, 0));
+
+    subscription.reactivateAfterPayment(LocalDate.of(2028, 1, 31));
+
+    assertActivePeriod(subscription, LocalDate.of(2028, 1, 31), LocalDate.of(2028, 2, 28));
+    assertThat(subscription.getBillingAnchorDay()).isEqualTo(new BillingAnchorDay(31));
+    assertThat(subscription.getNextBillingDate()).isEqualTo(LocalDate.of(2028, 2, 29));
+  }
+
+  @Test
+  void rejectsPaidReactivationUnlessPausedWithNoRemainingPaidDays() {
+    Subscription active = subscriptionStartedOn(LocalDate.of(2026, 9, 2));
+    Subscription pausedWithRemainingDays = subscriptionStartedOn(LocalDate.of(2026, 9, 2));
+    pausedWithRemainingDays.pause(LocalDate.of(2026, 9, 20), LocalDateTime.of(2026, 9, 10, 10, 0));
+
+    assertThatThrownBy(() -> active.reactivateAfterPayment(LocalDate.of(2026, 9, 2)))
+        .isInstanceOf(InvalidSubscriptionStateChangeException.class);
+    assertThatThrownBy(
+            () -> pausedWithRemainingDays.reactivateAfterPayment(LocalDate.of(2026, 9, 11)))
+        .isInstanceOf(InvalidSubscriptionStateChangeException.class);
+  }
+
+  @Test
   void repeatedPauseAndResumePreservesTheOriginalThirtyPaidDays() {
     Subscription subscription = subscriptionStartedOn(LocalDate.of(2026, 9, 5));
 
