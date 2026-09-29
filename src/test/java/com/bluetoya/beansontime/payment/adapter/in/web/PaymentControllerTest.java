@@ -27,7 +27,7 @@ class PaymentControllerTest {
                 21, 11, 30000, "SUCCESS", "transaction-1", LocalDateTime.of(2026, 9, 2, 10, 0)));
     PaymentController controller = new PaymentController(useCase);
 
-    PaymentResponse response = controller.pay(11);
+    PaymentResponse response = controller.pay(11).getBody();
 
     assertThat(response.billingId()).isEqualTo(11);
     assertThat(response.amount()).isEqualTo(30000);

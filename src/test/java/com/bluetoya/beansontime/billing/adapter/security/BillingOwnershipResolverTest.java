@@ -72,6 +72,10 @@ class BillingOwnershipResolverTest {
         new BillingCheckoutDetail.SubscriptionInfo("subscription-id", "PAUSED"),
         new BillingCheckoutDetail.ProductInfo(10, "Ethiopia"),
         new BillingCheckoutDetail.BillingInfo(
-            billing.getId().value(), 30000, LocalDate.of(2026, 9, 2), "PENDING"));
+            billing.getId().value(),
+            30000,
+            LocalDate.of(2026, 9, 2),
+            "PENDING",
+            LocalDateTime.of(2026, 9, 2, 10, 10)));
   }
 }

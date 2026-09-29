@@ -1,6 +1,7 @@
 package com.bluetoya.beansontime.billing.adapter.in.web;
 
 import com.bluetoya.beansontime.billing.application.exception.BillingAlreadyPaidException;
+import com.bluetoya.beansontime.billing.application.exception.BillingExpiredException;
 import com.bluetoya.beansontime.billing.application.exception.BillingNotFoundException;
 import com.bluetoya.beansontime.billing.application.exception.ReactivationBillingNotAllowedException;
 import org.springframework.http.HttpStatus;
@@ -23,7 +24,15 @@ public class BillingExceptionHandler {
   ProblemDetail handleReactivationBillingNotAllowed(
       ReactivationBillingNotAllowedException exception) {
     ProblemDetail problem = ProblemDetail.forStatus(HttpStatus.CONFLICT);
-    problem.setTitle("재활성화 청구 준비 불가");
+    problem.setTitle("재활성화 불가");
+    problem.setDetail(exception.getMessage());
+    return problem;
+  }
+
+  @ExceptionHandler(BillingExpiredException.class)
+  ProblemDetail handleBillingExpired(BillingExpiredException exception) {
+    ProblemDetail problem = ProblemDetail.forStatus(HttpStatus.CONFLICT);
+    problem.setTitle("만료된 청구");
     problem.setDetail(exception.getMessage());
     return problem;
   }

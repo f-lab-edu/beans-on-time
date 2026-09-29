@@ -33,7 +33,8 @@ public class BillingController {
         detail.amount(),
         detail.billingDate(),
         detail.status(),
-        detail.createdAt());
+        detail.createdAt(),
+        detail.expiresAt());
   }
 
   @GetMapping("/billings/{billingId}/checkout")
@@ -52,6 +53,7 @@ public class BillingController {
             detail.billing().billingId(),
             detail.billing().amount(),
             detail.billing().billingDate(),
-            detail.billing().status()));
+            detail.billing().status(),
+            detail.billing().expiresAt()));
   }
 }

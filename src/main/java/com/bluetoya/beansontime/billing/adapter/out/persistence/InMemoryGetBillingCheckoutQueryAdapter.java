@@ -45,6 +45,7 @@ public class InMemoryGetBillingCheckoutQueryAdapter implements GetBillingCheckou
             billing.getId().value(),
             billing.getAmount().price(),
             billing.getBillingDate(),
-            billing.getStatus().name()));
+            billing.getStatus().name(),
+            billing.getExpiresAt()));
   }
 }

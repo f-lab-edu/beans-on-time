@@ -361,14 +361,24 @@ billingAnchorDay = 기존 값 유지
 
 `PAUSED`이고 `remainingPaidDays == 0`인 Subscription만 수동 재활성화 Billing의 대상이다.
 Payment 승인 전에는 새 `currentPeriod`를 만들거나 ACTIVE로 전이하지 않는다.
+청구 준비와 새 결제 시작에서 상품이 AVAILABLE인지 각각 확인한다. 상세 공급 상태 검사는 `docs/domain/billing-payment.md`를 따른다.
+
+결제 시작 전 validatePaidReactivation으로 상태·기간 문맥·날짜를 검증하며 구독은
+변경하지 않는다. reactivateAfterPayment도 같은 검증을 수행한 뒤 상태를 변경한다.
+사전 검증의 날짜는 시도 시작 KST 날짜, 실제 전이의 날짜는 PG 승인 KST 날짜다.
 
 결제가 승인되면 Payment 성공 KST 업무 날짜를 시작으로 새 선결제 이용 구간을 열고,
 그 날짜의 일자를 새 `billingAnchorDay`로 확정한다. 기존 월말 보정 규칙으로 다음
 `nextBillingDate`를 구하고 `currentPeriod.endDate`를 그 전날로 정한다. PAUSED 전용 필드를
-비우고 ACTIVE로 전이하며 `PAYMENT_FAILED`만 제거한다. 다른 실행 차단 사유는 유지한다.
+비우고 ACTIVE로 전이하며 `reactivateAfterPayment()` 안에서 `PAYMENT_FAILED`만 제거한다.
+다른 실행 차단 사유는 유지한다. 서비스가 이 사유를 별도로 제거하지 않는다.
 
-결제가 거절되면 PAUSED 기간 문맥과 기존 청구 일정을 바꾸지 않고 `PAYMENT_FAILED`만
-추가한다. 상세한 Billing·Payment 책임, 가격과 실패 규칙은
+결제가 거절되면 `recordReactivationPaymentDeclined()`가 현재 구독의 재활성화 대상 여부를
+판단한다. 대상이면 PAUSED 기간 문맥과 기존 청구 일정을 바꾸지 않고 `PAYMENT_FAILED`만
+추가한다. 이미 취소되었거나 다른 상태로 바뀌어 대상이 아니면 구독을 변경하지 않는다.
+PG에서 확인한 거절은 구독의 현재 상태와 무관하게 Payment에 FAILED로 기록한다.
+유효한 청구는 거절 후 새 Payment로 재시도할 수 있고 Timeout이면 결과 확인까지 새
+시도를 차단한다. 상세한 Billing·Payment 책임, 가격과 실패 규칙은
 `docs/domain/billing-payment.md`에서 관리한다.
 
 ### 취소
@@ -505,8 +515,7 @@ Policy, Strategy, Event, Adapter, DB 스키마나 범용 추상화를 추가하�
 ### Billing과 결제
 
 - 최초 구독 결제와 자동 정기결제
-- 결제 실패 재시도와 Billing 1 : N Payment
-- PENDING Billing 만료·취소와 Payment idempotency
+- 구독 취소 등에 따른 PENDING Billing 무효화와 PG별 멱등키 연동 세부사항
 - 실제 PG와 Payment Method
 - PG 성공 후 저장 실패 복구와 최종적 일관성
 - Billing과 Pause가 같은 날 실행될 때의 순서와 동시성

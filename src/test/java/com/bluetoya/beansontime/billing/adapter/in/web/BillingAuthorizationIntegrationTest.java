@@ -17,6 +17,7 @@ import com.bluetoya.beansontime.subscription.adapter.out.persistence.InMemorySub
 import com.bluetoya.beansontime.subscription.domain.DeliveryCycle;
 import com.bluetoya.beansontime.subscription.domain.DeliveryCycleUnit;
 import com.bluetoya.beansontime.subscription.domain.Subscription;
+import com.bluetoya.beansontime.subscription.domain.SubscriptionId;
 import java.time.Clock;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -39,6 +40,35 @@ class BillingAuthorizationIntegrationTest {
   @Autowired private InMemoryProductAdapter productAdapter;
   @Autowired private InMemorySubscriptionRepository subscriptionRepository;
   @Autowired private InMemoryBillingRepository billingRepository;
+
+  @Test
+  void returnsNotFoundForBothCheckoutAndPaymentWhenTheReferencedSubscriptionIsMissing()
+      throws Exception {
+    Product product = new Product(new SellerId(1), "Ethiopia", new Money(30000));
+    productAdapter.save(product);
+    Billing billing =
+        new Billing(
+            new CustomerId(1),
+            SubscriptionId.generate(),
+            product.getId(),
+            product.getBasePrice(),
+            LocalDate.now(clock),
+            LocalDateTime.now(clock));
+    billingRepository.save(billing);
+
+    mockMvc
+        .perform(
+            get("/billings/{id}/checkout", billing.getId().value())
+                .with(httpBasic("customer1", "password1")))
+        .andExpect(status().isNotFound())
+        .andExpect(jsonPath("$.title").value("구독을 찾을 수 없음"));
+    mockMvc
+        .perform(
+            post("/billings/{id}/payments", billing.getId().value())
+                .with(httpBasic("customer1", "password1")))
+        .andExpect(status().isNotFound())
+        .andExpect(jsonPath("$.title").value("구독을 찾을 수 없음"));
+  }
 
   @Test
   void independentlyAuthorizesPreparationCheckoutAndPaymentApis() throws Exception {

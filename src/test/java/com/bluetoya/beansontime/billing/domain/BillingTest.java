@@ -2,7 +2,9 @@ package com.bluetoya.beansontime.billing.domain;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatNullPointerException;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import com.bluetoya.beansontime.billing.domain.exception.InvalidBillingStateChangeException;
 import com.bluetoya.beansontime.customer.domain.CustomerId;
 import com.bluetoya.beansontime.product.domain.Money;
 import com.bluetoya.beansontime.product.domain.ProductId;
@@ -58,6 +60,27 @@ class BillingTest {
             () ->
                 new Billing(
                     new CustomerId(1), subscriptionId, productId, null, billingDate, createdAt));
+  }
+
+  @Test
+  void expiresAtTenMinutesAndCannotBecomePaidAfterExpiry() {
+    Billing billing = billing(new Money(30000));
+    assertThat(billing.getExpiresAt()).isEqualTo(billing.getCreatedAt().plusMinutes(10));
+    billing.expireIfDue(billing.getExpiresAt().minusNanos(1), false);
+    assertThat(billing.getStatus()).isEqualTo(BillingStatus.PENDING);
+    billing.expireIfDue(billing.getExpiresAt(), false);
+    assertThat(billing.getStatus()).isEqualTo(BillingStatus.EXPIRED);
+    assertThatThrownBy(billing::markPaid).isInstanceOf(InvalidBillingStateChangeException.class);
+  }
+
+  @Test
+  void keepsProcessingBillingPendingAndDoesNotExpirePaidBilling() {
+    Billing billing = billing(new Money(30000));
+    billing.expireIfDue(billing.getExpiresAt().plusHours(1), true);
+    assertThat(billing.getStatus()).isEqualTo(BillingStatus.PENDING);
+    billing.markPaid();
+    billing.expireIfDue(billing.getExpiresAt().plusHours(1), false);
+    assertThat(billing.getStatus()).isEqualTo(BillingStatus.PAID);
   }
 
   private Billing billing(Money amount) {

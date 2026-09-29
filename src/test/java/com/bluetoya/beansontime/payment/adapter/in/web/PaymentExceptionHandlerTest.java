@@ -2,34 +2,27 @@ package com.bluetoya.beansontime.payment.adapter.in.web;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import com.bluetoya.beansontime.payment.application.exception.PaymentAlreadyAttemptedException;
-import com.bluetoya.beansontime.payment.application.exception.PaymentGatewayUnavailableException;
+import com.bluetoya.beansontime.payment.application.exception.PaymentInProgressException;
+import com.bluetoya.beansontime.payment.application.exception.PaymentNotFoundException;
+import com.bluetoya.beansontime.payment.domain.PaymentId;
 import org.junit.jupiter.api.Test;
-import org.springframework.http.HttpStatus;
 
 class PaymentExceptionHandlerTest {
-
   @Test
-  void mapsARepeatedPaymentAttemptToConflict() {
-    PaymentExceptionHandler handler = new PaymentExceptionHandler();
-
-    assertThat(
-            handler
-                .handlePaymentAlreadyAttempted(
-                    new PaymentAlreadyAttemptedException("already attempted"))
-                .getStatus())
-        .isEqualTo(HttpStatus.CONFLICT.value());
+  void returnsTheExistingPaymentIdWithAConflict() {
+    var response =
+        new PaymentExceptionHandler()
+            .handlePaymentInProgress(new PaymentInProgressException(new PaymentId(3)));
+    assertThat(response.getStatus()).isEqualTo(409);
+    assertThat(response.getProperties()).containsEntry("paymentId", 3L);
   }
 
   @Test
-  void mapsGatewayUnavailabilityToServiceUnavailable() {
-    PaymentExceptionHandler handler = new PaymentExceptionHandler();
-
+  void mapsMissingPaymentsToNotFound() {
     assertThat(
-            handler
-                .handlePaymentGatewayUnavailable(
-                    new PaymentGatewayUnavailableException("gateway timeout"))
+            new PaymentExceptionHandler()
+                .handlePaymentNotFound(new PaymentNotFoundException("missing"))
                 .getStatus())
-        .isEqualTo(HttpStatus.SERVICE_UNAVAILABLE.value());
+        .isEqualTo(404);
   }
 }

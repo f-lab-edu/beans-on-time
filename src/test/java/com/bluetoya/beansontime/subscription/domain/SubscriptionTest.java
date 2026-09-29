@@ -216,12 +216,99 @@ class SubscriptionTest {
   }
 
   @Test
+  void validatesPaidReactivationWithoutChangingStateAndChecksAgainAtCompletion() {
+    Subscription subscription = subscriptionStartedOn(LocalDate.of(2026, 8, 2));
+    subscription.pause(LocalDate.of(2026, 9, 10), LocalDateTime.of(2026, 9, 1, 10, 0));
+    subscription.addSuspensionReason(PAYMENT_FAILED);
+    LocalDate nextBillingDate = subscription.getNextBillingDate();
+    BillingAnchorDay anchor = subscription.getBillingAnchorDay();
+
+    subscription.validatePaidReactivation(LocalDate.of(2026, 9, 2));
+
+    assertThat(subscription.getLifecycleStatus()).isEqualTo(PAUSED);
+    assertThat(subscription.getCurrentPeriod()).isNull();
+    assertThat(subscription.getRemainingPaidDays()).isZero();
+    assertThat(subscription.getPausedAt()).isEqualTo(LocalDateTime.of(2026, 9, 1, 10, 0));
+    assertThat(subscription.getScheduledResumeDate()).isEqualTo(LocalDate.of(2026, 9, 11));
+    assertThat(subscription.getNextBillingDate()).isEqualTo(nextBillingDate);
+    assertThat(subscription.getBillingAnchorDay()).isEqualTo(anchor);
+    assertThat(subscription.getSuspensionReasons()).containsExactly(PAYMENT_FAILED);
+
+    subscription.cancel();
+    assertThatThrownBy(() -> subscription.reactivateAfterPayment(LocalDate.of(2026, 9, 2)))
+        .isInstanceOf(InvalidSubscriptionStateChangeException.class);
+    assertThat(subscription.getLifecycleStatus()).isEqualTo(CANCELLED);
+  }
+
+  @Test
+  void paidReactivationRemovesOnlyThePaymentFailureReason() {
+    Subscription subscription = subscriptionStartedOn(LocalDate.of(2026, 8, 2));
+    subscription.pause(LocalDate.of(2026, 9, 10), LocalDateTime.of(2026, 9, 1, 10, 0));
+    subscription.recordReactivationPaymentDeclined();
+    subscription.addSuspensionReason(PRODUCT_UNAVAILABLE);
+
+    subscription.reactivateAfterPayment(LocalDate.of(2026, 9, 2));
+
+    assertThat(subscription.getLifecycleStatus()).isEqualTo(ACTIVE);
+    assertThat(subscription.getSuspensionReasons()).containsExactly(PRODUCT_UNAVAILABLE);
+    assertThat(subscription.isExecutionBlocked()).isTrue();
+  }
+
+  @Test
+  void recordsADeclineWithoutChangingThePausedPeriodOrOtherReasons() {
+    Subscription subscription = subscriptionStartedOn(LocalDate.of(2026, 8, 2));
+    subscription.pause(LocalDate.of(2026, 9, 10), LocalDateTime.of(2026, 9, 1, 10, 0));
+    subscription.addSuspensionReason(PRODUCT_UNAVAILABLE);
+    LocalDate nextBillingDate = subscription.getNextBillingDate();
+    BillingAnchorDay anchor = subscription.getBillingAnchorDay();
+
+    subscription.recordReactivationPaymentDeclined();
+    subscription.recordReactivationPaymentDeclined();
+
+    assertThat(subscription.getLifecycleStatus()).isEqualTo(PAUSED);
+    assertThat(subscription.getCurrentPeriod()).isNull();
+    assertThat(subscription.getRemainingPaidDays()).isZero();
+    assertThat(subscription.getPausedAt()).isEqualTo(LocalDateTime.of(2026, 9, 1, 10, 0));
+    assertThat(subscription.getScheduledResumeDate()).isEqualTo(LocalDate.of(2026, 9, 11));
+    assertThat(subscription.getNextBillingDate()).isEqualTo(nextBillingDate);
+    assertThat(subscription.getBillingAnchorDay()).isEqualTo(anchor);
+    assertThat(subscription.getSuspensionReasons())
+        .containsExactlyInAnyOrder(PAYMENT_FAILED, PRODUCT_UNAVAILABLE);
+  }
+
+  @Test
+  void ignoresADeclineForSubscriptionsThatAreNoLongerReactivationTargets() {
+    Subscription active = subscriptionStartedOn(LocalDate.of(2026, 9, 2));
+    Subscription cancelled = subscriptionStartedOn(LocalDate.of(2026, 9, 2));
+    cancelled.cancel();
+    Subscription pausedWithPaidDays = subscriptionStartedOn(LocalDate.of(2026, 9, 2));
+    pausedWithPaidDays.pause(LocalDate.of(2026, 9, 20), LocalDateTime.of(2026, 9, 10, 10, 0));
+    for (Subscription subscription : java.util.List.of(active, cancelled, pausedWithPaidDays)) {
+      subscription.addSuspensionReason(PRODUCT_UNAVAILABLE);
+      SubscriptionStatus status = subscription.getLifecycleStatus();
+      SubscriptionPeriod period = subscription.getCurrentPeriod();
+      Integer remainingDays = subscription.getRemainingPaidDays();
+
+      subscription.recordReactivationPaymentDeclined();
+
+      assertThat(subscription.getLifecycleStatus()).isEqualTo(status);
+      assertThat(subscription.getCurrentPeriod()).isEqualTo(period);
+      assertThat(subscription.getRemainingPaidDays()).isEqualTo(remainingDays);
+      assertThat(subscription.getSuspensionReasons()).containsExactly(PRODUCT_UNAVAILABLE);
+    }
+  }
+
+  @Test
   void reactivatesAfterPaymentWithANewPaidPeriod() {
     Subscription subscription = subscriptionStartedOn(LocalDate.of(2026, 8, 2));
     subscription.pause(LocalDate.of(2026, 9, 10), LocalDateTime.of(2026, 9, 1, 10, 0));
 
+    subscription.recordReactivationPaymentDeclined();
+
     subscription.reactivateAfterPayment(LocalDate.of(2026, 9, 2));
 
+    assertThat(subscription.getSuspensionReasons()).doesNotContain(PAYMENT_FAILED);
+    assertThat(subscription.isExecutionBlocked()).isFalse();
     assertActivePeriod(subscription, LocalDate.of(2026, 9, 2), LocalDate.of(2026, 10, 1));
     assertThat(subscription.getBillingAnchorDay()).isEqualTo(new BillingAnchorDay(2));
     assertThat(subscription.getNextBillingDate()).isEqualTo(LocalDate.of(2026, 10, 2));

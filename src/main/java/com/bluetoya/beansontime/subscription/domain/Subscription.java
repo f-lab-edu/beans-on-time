@@ -132,7 +132,7 @@ public class Subscription {
         && Integer.valueOf(0).equals(remainingPaidDays);
   }
 
-  public void reactivateAfterPayment(LocalDate paymentDate) {
+  public void validatePaidReactivation(LocalDate paymentDate) {
     if (this.lifecycleStatus != SubscriptionStatus.PAUSED || this.remainingPaidDays == null) {
       throw new InvalidSubscriptionStateChangeException("결제로 재활성화할 수 없는 구독입니다.");
     }
@@ -153,6 +153,10 @@ public class Subscription {
     if (paymentDate.isBefore(pausedAt.toLocalDate())) {
       throw new InvalidSubscriptionResumeDateException("결제 성공일은 일시정지 요청일보다 빠를 수 없습니다.");
     }
+  }
+
+  public void reactivateAfterPayment(LocalDate paymentDate) {
+    validatePaidReactivation(paymentDate);
 
     BillingAnchorDay newBillingAnchorDay = BillingAnchorDay.from(paymentDate);
     LocalDate newNextBillingDate = newBillingAnchorDay.nextBillingDateAfter(paymentDate);
@@ -163,7 +167,15 @@ public class Subscription {
     this.remainingPaidDays = null;
     this.pausedAt = null;
     this.scheduledResumeDate = null;
+    this.suspensionReasons.remove(SubscriptionSuspensionReason.PAYMENT_FAILED);
     this.lifecycleStatus = SubscriptionStatus.ACTIVE;
+  }
+
+  public void recordReactivationPaymentDeclined() {
+    if (!isPaidReactivationTarget()) {
+      return;
+    }
+    suspensionReasons.add(SubscriptionSuspensionReason.PAYMENT_FAILED);
   }
 
   public void cancel() {

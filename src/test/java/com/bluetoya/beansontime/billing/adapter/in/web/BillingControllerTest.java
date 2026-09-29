@@ -39,7 +39,8 @@ class BillingControllerTest {
                 30000,
                 LocalDate.of(2026, 9, 2),
                 "PENDING",
-                LocalDateTime.of(2026, 9, 2, 10, 0)));
+                LocalDateTime.of(2026, 9, 2, 10, 0),
+                LocalDateTime.of(2026, 9, 2, 10, 10)));
     BillingController controller =
         new BillingController(prepareUseCase, mock(GetBillingCheckoutQuery.class));
 
@@ -61,7 +62,11 @@ class BillingControllerTest {
                 new BillingCheckoutDetail.SubscriptionInfo("subscription-id", "PAUSED"),
                 new BillingCheckoutDetail.ProductInfo(10, "Ethiopia"),
                 new BillingCheckoutDetail.BillingInfo(
-                    11, 30000, LocalDate.of(2026, 9, 2), "PENDING")));
+                    11,
+                    30000,
+                    LocalDate.of(2026, 9, 2),
+                    "PENDING",
+                    LocalDateTime.of(2026, 9, 2, 10, 10))));
     BillingController controller =
         new BillingController(mock(PrepareReactivationBillingUseCase.class), query);
 

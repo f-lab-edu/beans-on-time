@@ -7,6 +7,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.bluetoya.beansontime.billing.adapter.out.persistence.InMemoryBillingExecutionAdapter;
 import com.bluetoya.beansontime.billing.application.exception.ReactivationBillingNotAllowedException;
 import com.bluetoya.beansontime.billing.application.port.in.PrepareReactivationBillingCommand;
 import com.bluetoya.beansontime.billing.application.port.in.PreparedBillingDetail;
@@ -15,6 +16,7 @@ import com.bluetoya.beansontime.billing.application.port.out.SaveBillingPort;
 import com.bluetoya.beansontime.billing.domain.Billing;
 import com.bluetoya.beansontime.billing.domain.BillingStatus;
 import com.bluetoya.beansontime.customer.domain.CustomerId;
+import com.bluetoya.beansontime.payment.application.port.out.FindProcessingPaymentPort;
 import com.bluetoya.beansontime.product.application.exception.ProductNotFoundException;
 import com.bluetoya.beansontime.product.application.port.out.LoadProductPort;
 import com.bluetoya.beansontime.product.domain.Money;
@@ -58,7 +60,9 @@ class PrepareReactivationBillingServiceTest {
             findPendingBillingPort,
             loadProductPort,
             saveBillingPort,
-            CLOCK);
+            CLOCK,
+            new InMemoryBillingExecutionAdapter(),
+            mock(FindProcessingPaymentPort.class));
   }
 
   @Test
@@ -87,7 +91,7 @@ class PrepareReactivationBillingServiceTest {
   }
 
   @Test
-  void returnsTheExistingPendingBillingWithoutReadingTheChangedProductPrice() {
+  void reusesTheSnapshotAfterCheckingCurrentProductSupply() {
     Subscription subscription = pausedWithoutRemainingPaidDays();
     Billing existing =
         new Billing(
@@ -96,18 +100,20 @@ class PrepareReactivationBillingServiceTest {
             subscription.getProductId(),
             new Money(30000),
             LocalDate.of(2026, 9, 1),
-            LocalDateTime.of(2026, 9, 1, 10, 0));
+            LocalDateTime.of(2026, 9, 2, 9, 59));
     when(ownedSubscriptionLoader.load(subscription.getId())).thenReturn(subscription);
     when(findPendingBillingPort.findPending(subscription.getId()))
         .thenReturn(Optional.of(existing));
 
+    when(loadProductPort.load(subscription.getProductId()))
+        .thenReturn(Optional.of(new Product(new SellerId(1), "Ethiopia", new Money(35000))));
     PreparedBillingDetail detail =
         service.prepare(new PrepareReactivationBillingCommand(subscription.getId()));
 
     assertThat(detail.billingId()).isEqualTo(existing.getId().value());
     assertThat(detail.amount()).isEqualTo(30000);
-    verify(loadProductPort, never()).load(subscription.getProductId());
-    verify(saveBillingPort, never()).save(existing);
+    verify(loadProductPort).load(subscription.getProductId());
+    verify(saveBillingPort).save(existing);
   }
 
   @Test

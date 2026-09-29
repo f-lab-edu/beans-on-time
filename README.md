@@ -59,8 +59,15 @@ Beans on Time은 도메인 주도 설계와 헥사고날 아키텍처를 기반�
 - 수동 재활성화 청구 준비·Checkout 조회·결제 결과에 따른 구독 상태 변경
 - 고객·판매자 인증과 역할 및 리소스 소유권 인가
 
-결제는 `FakePaymentGatewayAdapter`로 승인·거절·장애를 다룬다. 실제 PG 연동,
-결제 실패 후 복구, 동시 요청의 중복 결제 방지와 자동 처리 기능은 후속 논의 대상이다.
+결제는 `FakePaymentGatewayAdapter`로 승인·거절·응답 미확정을 다룬다. 거절 후 새
+Payment로 재시도하고, 미확정 시에는 새 시도를 막고 결과를 재확인한다. 공급 불가
+상품의 청구 준비·결제 시작을 차단하며 Billing은 생성 후 10분 동안 결제를 시작할 수 있다.
+진행 중 Payment가 있으면 기한이 지나도 결과를 기다린다.
+
+현재 동시 실행 제어는 단일 프로세스 InMemory 잠금이다. MySQL 영속화와 DB 미반영 확인 후
+보상 취소는 다음 피처에서 구현하며, 합의한 요구사항은 청구·결제 도메인 문서에 기록했다.
+실제 PG·웹훅 연동, 자동 정기결제와 고객 요청 환불·취소는 후속 범위다. 결과 조회는 기본 30초
+간격이며 `payment.reconciliation.delay-ms`와 `payment.reconciliation.enabled`로 설정한다.
 
 확정된 규칙과 후속 범위는 [프로젝트 문서](docs/README.md),
 [구독 도메인 규칙](docs/domain/subscription.md), [청구·결제 도메인 규칙](docs/domain/billing-payment.md)을
