@@ -73,6 +73,9 @@ PATCH /products/**
 
 /subscriptions/**
 → CUSTOMER
+
+/billings/**
+→ CUSTOMER
 ~~~
 
 요청 수준 인가는 다음 질문에 답한다.
@@ -102,6 +105,10 @@ Product.sellerId == 인증된 SellerId
 구독과 상품 소유권 인가는 어노테이션/AOP 기반 구조를 사용한다. 상품 공급
 상태 변경 유즈케이스는 `@RequireOwnership`이 붙은 로더가 반환한 Product와
 `ProductOwnershipResolver`를 기준으로 판매자 소유권을 확인한다.
+
+재활성화 Billing 준비는 Subscription, Checkout 조회는 전용 조회 모델, Payment 명령은
+Billing 반환값으로 각각 소유권을 독립적으로 확인한다. 앞선 API의 인가 결과를 다음
+API의 보안 근거로 사용하지 않는다.
 
 ---
 
@@ -187,5 +194,5 @@ AccessDeniedException
 
 구조적 중복만으로 공통 추상화를 만들지 않는다.
 
-관리자와 시스템 실행 주체에 관한 현재 컨텍스트와 미정 정책은
-`docs/subscription.md`의 “후속 논의 대상”에서 관리한다.
+관리자와 시스템 실행 주체의 인증·인가 정책은 현재 미정이다. 관련 유즈케이스가 실제로
+필요해질 때 논의하며, 역할이나 범용 실행 주체 모델을 선제적으로 추가하지 않는다.

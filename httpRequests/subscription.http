@@ -1,12 +1,12 @@
 @baseUrl = http://localhost:8080
 
-### 구독 생성
+### 구독 생성 (product.http의 상품 생성 요청을 먼저 실행)
 POST {{baseUrl}}/subscriptions
 Content-Type: application/json
 Authorization: Basic customer1 password1
 
 {
-  "productId": 1,
+  "productId": {{productId}},
   "deliveryCycle": {
     "unit": "ONE_MONTH",
     "interval": 1

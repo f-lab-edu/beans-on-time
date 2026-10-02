@@ -6,7 +6,7 @@ import com.bluetoya.beansontime.product.application.port.out.CurrentSellerProvid
 import com.bluetoya.beansontime.product.application.port.out.SaveProductPort;
 import com.bluetoya.beansontime.product.domain.Product;
 import com.bluetoya.beansontime.product.domain.ProductId;
-import com.bluetoya.beansontime.product.domain.SellerId;
+import com.bluetoya.beansontime.seller.domain.SellerId;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 

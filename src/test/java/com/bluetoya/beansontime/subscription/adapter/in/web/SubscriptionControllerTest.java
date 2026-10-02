@@ -5,7 +5,11 @@ import static com.bluetoya.beansontime.subscription.domain.SubscriptionSuspensio
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.bluetoya.beansontime.product.application.port.in.ProductAvailability;
 import com.bluetoya.beansontime.product.application.port.in.ProductInfo;
@@ -30,7 +34,11 @@ import java.util.Arrays;
 import java.util.Set;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
+import org.springframework.http.MediaType;
+import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -136,8 +144,8 @@ class SubscriptionControllerTest {
     ArgumentCaptor<SubscribeCommand> captor = ArgumentCaptor.forClass(SubscribeCommand.class);
     verify(subscribeUseCase).subscribe(captor.capture());
     assertThat(captor.getValue().productId().id()).isEqualTo(10);
-    assertThat(captor.getValue().deliveryCycle().getUnit()).isEqualTo(DeliveryCycleUnit.ONE_MONTH);
-    assertThat(captor.getValue().deliveryCycle().getInterval()).isEqualTo(1);
+    assertThat(captor.getValue().deliveryCycle().unit()).isEqualTo(DeliveryCycleUnit.ONE_MONTH);
+    assertThat(captor.getValue().deliveryCycle().interval()).isEqualTo(1);
   }
 
   @Test
@@ -187,6 +195,61 @@ class SubscriptionControllerTest {
                 .filter(annotation -> annotation != null)
                 .flatMap(annotation -> Arrays.stream(annotation.value())))
         .noneMatch(path -> path.contains("hold"));
+  }
+
+  @ParameterizedTest
+  @ValueSource(strings = {"ONE_WEEK", "ONE_MONTH"})
+  void returnsCreatedWithSubscriptionId(String unit) throws Exception {
+    SubscribeUseCase useCase = mock(SubscribeUseCase.class);
+    UUID id = UUID.randomUUID();
+    when(useCase.subscribe(org.mockito.ArgumentMatchers.any())).thenReturn(new SubscriptionId(id));
+    var controller =
+        new SubscriptionController(
+            useCase,
+            mock(PauseSubscriptionUseCase.class),
+            mock(ResumeSubscriptionUseCase.class),
+            mock(GetSubscriptionDetailQuery.class));
+    var mvc = MockMvcBuilders.standaloneSetup(controller).build();
+    mvc.perform(
+            post("/subscriptions")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(
+                    "{\"productId\":10,\"deliveryCycle\":{\"unit\":\"%s\",\"interval\":1}}"
+                        .formatted(unit)))
+        .andExpect(status().isCreated())
+        .andExpect(jsonPath("$.subscriptionId").value(id.toString()));
+  }
+
+  @ParameterizedTest
+  @ValueSource(
+      strings = {
+        "{}",
+        "{\"productId\":10}",
+        "{\"productId\":10,\"deliveryCycle\":null}",
+        "{\"deliveryCycle\":{\"unit\":\"ONE_MONTH\",\"interval\":1}}",
+        "{\"productId\":0,\"deliveryCycle\":{\"unit\":\"ONE_MONTH\",\"interval\":1}}",
+        "{\"productId\":-1,\"deliveryCycle\":{\"unit\":\"ONE_MONTH\",\"interval\":1}}",
+        "{\"productId\":10,\"deliveryCycle\":{\"interval\":1}}",
+        "{\"productId\":10,\"deliveryCycle\":{\"unit\":null,\"interval\":1}}",
+        "{\"productId\":10,\"deliveryCycle\":{\"unit\":\"UNKNOWN\",\"interval\":1}}",
+        "{\"productId\":10,\"deliveryCycle\":{\"unit\":\"1달\",\"interval\":1}}",
+        "{\"productId\":10,\"deliveryCycle\":{\"unit\":\"\",\"interval\":1}}",
+        "{\"productId\":10,\"deliveryCycle\":{\"unit\":\"ONE_MONTH\"}}",
+        "{\"productId\":10,\"deliveryCycle\":{\"unit\":\"ONE_MONTH\",\"interval\":0}}",
+        "{\"productId\":10,\"deliveryCycle\":{\"unit\":\"ONE_MONTH\",\"interval\":-1}}"
+      })
+  void rejectsInvalidRequestsBeforeCallingUseCase(String body) throws Exception {
+    SubscribeUseCase useCase = mock(SubscribeUseCase.class);
+    var controller =
+        new SubscriptionController(
+            useCase,
+            mock(PauseSubscriptionUseCase.class),
+            mock(ResumeSubscriptionUseCase.class),
+            mock(GetSubscriptionDetailQuery.class));
+    var mvc = MockMvcBuilders.standaloneSetup(controller).build();
+    mvc.perform(post("/subscriptions").contentType(MediaType.APPLICATION_JSON).content(body))
+        .andExpect(status().isBadRequest());
+    verifyNoInteractions(useCase);
   }
 
   private SubscriptionController controller(

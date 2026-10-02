@@ -11,7 +11,7 @@ import com.bluetoya.beansontime.product.application.port.in.ProductAvailability;
 import com.bluetoya.beansontime.product.domain.Money;
 import com.bluetoya.beansontime.product.domain.Product;
 import com.bluetoya.beansontime.product.domain.ProductId;
-import com.bluetoya.beansontime.product.domain.SellerId;
+import com.bluetoya.beansontime.seller.domain.SellerId;
 import com.bluetoya.beansontime.subscription.application.port.in.SubscriptionDetail;
 import com.bluetoya.beansontime.subscription.application.port.in.SubscriptionInfo;
 import com.bluetoya.beansontime.subscription.domain.DeliveryCycle;

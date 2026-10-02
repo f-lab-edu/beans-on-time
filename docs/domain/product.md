@@ -4,7 +4,7 @@
 
 이 문서는 `Product` 애그리거트의 공급 상태와 상태 전이, 구독과의 연동 규칙을
 기록한다. 공통 용어는 `docs/glossary.md`, 애그리거트 경계는
-`docs/domain-model.md`, 구독의 구체적인 불변식은 `docs/subscription.md`를 따른다.
+`docs/domain/domain-model.md`, 구독의 구체적인 불변식은 `docs/domain/subscription.md`를 따른다.
 
 ---
 
@@ -23,6 +23,17 @@
 
 `AVAILABLE`인 상품만 신규 구독할 수 있다. 이 질의는
 `Product.isSubscribable()`로 표현한다.
+
+### 재활성화 청구·결제와의 연동
+
+AVAILABLE인 상품만 재활성화 청구 준비와 새 결제 시도를 허용한다. 공급 일시 중지와
+영구 종료 상태에서는 둘 다 차단한다. 기존 PENDING 청구를 재사용하는 준비 요청에도
+검사를 적용하고, 청구 준비 이후의 공급 상태 변경을 반영하기 위해 결제 시작 시 다시
+확인한다. 가격 스냅샷은 변경하지 않는다.
+
+검사 이후나 외부 결제 진행 중 공급 변경에
+대한 처리는 별도 논의 대상으로 남긴다. 상세 경계는 `docs/domain/billing-payment.md`의
+“확정된 규칙: 공급 상태에 따른 청구·결제 차단”을 따른다.
 
 ### 공급 상태 전이
 

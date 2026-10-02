@@ -74,6 +74,7 @@ public class SecurityConfig {
             auth -> {
               configureProductAuthorization(auth);
               configureSubscriptionAuthorization(auth);
+              configureBillingAuthorization(auth);
 
               auth.anyRequest().permitAll();
             })
@@ -97,5 +98,11 @@ public class SecurityConfig {
       AuthorizeHttpRequestsConfigurer<HttpSecurity>.AuthorizationManagerRequestMatcherRegistry
           auth) {
     auth.requestMatchers("/subscriptions", "/subscriptions/**").hasRole("CUSTOMER");
+  }
+
+  private void configureBillingAuthorization(
+      AuthorizeHttpRequestsConfigurer<HttpSecurity>.AuthorizationManagerRequestMatcherRegistry
+          auth) {
+    auth.requestMatchers("/billings", "/billings/**").hasRole("CUSTOMER");
   }
 }
