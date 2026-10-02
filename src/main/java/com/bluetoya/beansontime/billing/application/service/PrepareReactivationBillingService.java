@@ -34,7 +34,8 @@ public class PrepareReactivationBillingService implements PrepareReactivationBil
   @Override
   public PreparedBillingDetail prepare(PrepareReactivationBillingCommand command) {
     Subscription subscription = ownedSubscriptionLoader.load(command.subscriptionId());
-    return billingExecutionPort.execute(subscription.getId(), () -> prepare(subscription));
+    return billingExecutionPort.execute(
+        subscription.getId(), () -> prepare(ownedSubscriptionLoader.load(subscription.getId())));
   }
 
   private PreparedBillingDetail prepare(Subscription subscription) {

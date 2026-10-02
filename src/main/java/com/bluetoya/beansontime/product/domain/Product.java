@@ -3,6 +3,7 @@ package com.bluetoya.beansontime.product.domain;
 import com.bluetoya.beansontime.product.domain.exception.InvalidSupplyStateChangeException;
 import com.bluetoya.beansontime.seller.domain.SellerId;
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 import lombok.Getter;
 
@@ -22,15 +23,35 @@ public class Product {
   private SupplyStatus supplyStatus;
 
   public Product(SellerId sellerId, String name, Money basePrice) {
-    this.id = ProductId.generate();
-    this.sellerId = sellerId;
-    this.name = name;
-    this.description = "";
-    this.basePrice = basePrice;
+    this(ProductId.generate(), sellerId, name, "", basePrice, SupplyStatus.AVAILABLE);
+  }
+
+  private Product(
+      ProductId id,
+      SellerId sellerId,
+      String name,
+      String description,
+      Money basePrice,
+      SupplyStatus supplyStatus) {
+    this.id = Objects.requireNonNull(id, "상품 ID는 필수입니다.");
+    this.sellerId = Objects.requireNonNull(sellerId, "판매자 ID는 필수입니다.");
+    this.name = Objects.requireNonNull(name, "상품명은 필수입니다.");
+    this.description = Objects.requireNonNull(description, "상품 설명은 필수입니다.");
+    this.basePrice = Objects.requireNonNull(basePrice, "상품 가격은 필수입니다.");
     this.images = List.of();
     this.sizeOptions = List.of();
     this.grindTypes = Set.of();
-    this.supplyStatus = SupplyStatus.AVAILABLE;
+    this.supplyStatus = Objects.requireNonNull(supplyStatus, "공급 상태는 필수입니다.");
+  }
+
+  public static Product restore(
+      ProductId id,
+      SellerId sellerId,
+      String name,
+      String description,
+      Money basePrice,
+      SupplyStatus supplyStatus) {
+    return new Product(id, sellerId, name, description, basePrice, supplyStatus);
   }
 
   public void stopSupply() {
