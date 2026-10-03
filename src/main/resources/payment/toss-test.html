@@ -16,7 +16,9 @@ let pendingPayment;
 function id() { if (!/^[1-9][0-9]*$/.test(input.value)) throw Error('올바른 청구 ID를 입력하세요.'); return input.value; }
 async function post(path, body) {
   const response = await fetch(path, {method:'POST', headers:{'Content-Type':'application/json'}, body:body ? JSON.stringify(body) : undefined});
-  const data = await response.json();
+  // 서버의 정수 ID 필드만 문자열로 읽어 JavaScript Number의 반올림을 막는다.
+  const text = await response.text();
+  const data = JSON.parse(text.replace(/("(?:paymentId|billingId)"\s*:\s*)(\d+)(?=\s*[,}])/g, '$1"$2"'));
   output.textContent = JSON.stringify(data, null, 2);
   if (data.paymentId) { pendingPayment = data.paymentId; document.getElementById('check').hidden = false; }
   if (!response.ok) throw Error(data.message || '요청을 처리하지 못했습니다. 결과 확인이 필요합니다.');

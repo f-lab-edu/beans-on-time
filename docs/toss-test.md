@@ -82,6 +82,16 @@ DB 반영 시도가 중단된 APPLYING은 2분 동안 진행 중 요청과의 �
 외부 토스 테스트 상점에서의 카드 인증·승인·취소는 로컬 테스트 키로 별도 확인해야 한다.
 실제 금액 거래를 실행하는 라이브 구성은 제공하지 않는다.
 
+### 2026-10-03 검증 결과
+
+- `./gradlew spotlessCheck test`를 포함한 검증에서 244개 테스트가 통과했다
+  (실패·오류·건너뜀 0개). PostgreSQL 영속화와 결제 복구·보상 취소는 모의 토스 응답으로 검증했다.
+- 외부 테스트 상점의 결제창 표시까지 확인했다. 카드 인증을 진행하지 않기로 하여
+  외부 승인·조회·보상 취소의 전체 흐름은 미검증으로 남긴다. 격리된 검증 DB의 Payment는 0건이다.
+- 테스트 화면에서 큰 정수 ID가 JavaScript 숫자로 반올림되는 문제를 수정했다.
+  실제 화면 스크립트를 모의 HTTP 응답으로 실행해 64비트 ID 보존과 재조회 URL을 확인했다.
+- 카드 인증 없는 자동 검증을 현재 완료 범위로 삼는다. 외부 상점 검증 결과로 대체해 해석하지 않는다.
+
 공식 계약: [결제창 연동](https://docs.tosspayments.com/guides/v2/payment-window/integration),
 [결제·조회·취소 API](https://docs.tosspayments.com/reference),
 [멱등키](https://docs.tosspayments.com/reference/using-api/authorization).
