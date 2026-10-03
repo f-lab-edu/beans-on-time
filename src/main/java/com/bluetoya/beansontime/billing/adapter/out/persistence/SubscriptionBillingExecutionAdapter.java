@@ -8,7 +8,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Component;
 
-/** 구독 갱신은 DB 실행 경계에 참여한다. InMemory 청구·결제의 롤백은 보장하지 않는다. */
+/** 청구·결제·구독 갱신을 동일한 상품 잠금과 DB 트랜잭션에 참여시킨다. */
 @Component
 @Profile("!in-memory")
 @RequiredArgsConstructor

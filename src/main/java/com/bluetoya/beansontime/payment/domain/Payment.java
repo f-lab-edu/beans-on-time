@@ -22,12 +22,40 @@ public class Payment {
       PaymentStatus status,
       String transactionId,
       LocalDateTime attemptedAt) {
-    this.id = PaymentId.generate();
+    this(PaymentId.generate(), billingId, amount, status, transactionId, attemptedAt);
+  }
+
+  private Payment(
+      PaymentId id,
+      BillingId billingId,
+      Money amount,
+      PaymentStatus status,
+      String transactionId,
+      LocalDateTime attemptedAt) {
+    this.id = Objects.requireNonNull(id);
     this.billingId = Objects.requireNonNull(billingId, "결제 청구 ID는 필수입니다.");
     this.amount = Objects.requireNonNull(amount, "결제 금액은 필수입니다.");
     this.status = Objects.requireNonNull(status, "결제 상태는 필수입니다.");
+    if (((status == PaymentStatus.SUCCESS
+                || status == PaymentStatus.CANCEL_PENDING
+                || status == PaymentStatus.CANCELLED)
+            && (transactionId == null || transactionId.isBlank()))
+        || ((status == PaymentStatus.PROCESSING || status == PaymentStatus.FAILED)
+            && transactionId != null)) {
+      throw new IllegalArgumentException("결제 상태와 승인 거래 식별자가 일치하지 않습니다.");
+    }
     this.transactionId = transactionId;
     this.attemptedAt = Objects.requireNonNull(attemptedAt, "결제 시도 시각은 필수입니다.");
+  }
+
+  public static Payment restore(
+      PaymentId id,
+      BillingId billingId,
+      Money amount,
+      PaymentStatus status,
+      String transactionId,
+      LocalDateTime attemptedAt) {
+    return new Payment(id, billingId, amount, status, transactionId, attemptedAt);
   }
 
   public static Payment start(BillingId billingId, Money amount, LocalDateTime attemptedAt) {
@@ -44,6 +72,23 @@ public class Payment {
     requireProcessing();
     this.transactionId = transactionId;
     this.status = PaymentStatus.SUCCESS;
+  }
+
+  public void requestCompensation(String approvalTransactionId) {
+    if (status == PaymentStatus.CANCEL_PENDING
+        && Objects.equals(transactionId, approvalTransactionId)) return;
+    requireProcessing();
+    if (approvalTransactionId == null || approvalTransactionId.isBlank())
+      throw new IllegalArgumentException("승인 증거가 필요합니다.");
+    transactionId = approvalTransactionId;
+    status = PaymentStatus.CANCEL_PENDING;
+  }
+
+  public void completeCompensation() {
+    if (status == PaymentStatus.CANCELLED) return;
+    if (status != PaymentStatus.CANCEL_PENDING)
+      throw new InvalidPaymentStateChangeException("취소 결정이 없는 결제입니다.");
+    status = PaymentStatus.CANCELLED;
   }
 
   public void fail() {

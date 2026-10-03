@@ -198,8 +198,9 @@ Java 코드나 테스트 변경 시 완료 전 필수 검증은 `./gradlew spotl
 
 # PostgreSQL 통합 테스트
 
-상품·구독 JDBC 구성과 Flyway 마이그레이션은 Testcontainers의 PostgreSQL 17로 검증한다.
+상품·구독·청구·결제 JDBC 구성과 Flyway 마이그레이션은 Testcontainers의 PostgreSQL 17로 검증한다.
 H2로 PostgreSQL 잠금·부분 UNIQUE 인덱스·배열 매핑을 대체하지 않는다.
 실행 시 Docker가 필요하며 컨테이너가 준비되지 않으면 필수 DB 검증을 통과한 것으로 보지 않는다.
 `in-memory` 프로필은 DB가 필요 없는 기존 웹·보안 통합 테스트에 사용한다.
-PG 호출은 Fake Gateway이며 실제 금액 거래를 발생시키지 않는다.
+기본 PG 검증은 Fake Gateway를 사용한다. 토스 프로필 테스트는 모의 HTTP 응답과
+PostgreSQL을 연결해 승인·취소 복구를 검증하며 외부 PG나 실제 금액 거래를 호출하지 않는다.

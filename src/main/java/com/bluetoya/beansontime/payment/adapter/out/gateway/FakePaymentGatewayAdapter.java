@@ -15,6 +15,7 @@ import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
+@org.springframework.context.annotation.Profile("!toss-test")
 @Component
 @RequiredArgsConstructor
 public class FakePaymentGatewayAdapter implements PaymentGateway, FindGatewayPaymentPort {

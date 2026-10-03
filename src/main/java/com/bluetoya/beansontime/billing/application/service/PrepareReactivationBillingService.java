@@ -76,7 +76,7 @@ public class PrepareReactivationBillingService implements PrepareReactivationBil
             createdAt.toLocalDate(),
             createdAt);
 
-    saveBillingPort.save(billing);
+    saveBillingPort.saveNew(billing);
     return toDetail(billing);
   }
 

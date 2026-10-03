@@ -6,8 +6,17 @@ import static org.springframework.security.test.web.servlet.request.SecurityMock
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
+import com.bluetoya.beansontime.billing.adapter.out.persistence.JdbcBillingAdapter;
+import com.bluetoya.beansontime.billing.application.port.out.BillingExecutionPort;
 import com.bluetoya.beansontime.billing.application.port.out.FindPendingBillingPort;
+import com.bluetoya.beansontime.billing.domain.*;
 import com.bluetoya.beansontime.customer.domain.CustomerId;
+import com.bluetoya.beansontime.payment.adapter.out.gateway.FakePaymentGatewayAdapter;
+import com.bluetoya.beansontime.payment.adapter.out.persistence.JdbcPaymentAdapter;
+import com.bluetoya.beansontime.payment.application.port.out.PaymentGatewayResult;
+import com.bluetoya.beansontime.payment.application.service.PaymentCompletionService;
+import com.bluetoya.beansontime.payment.application.service.PaymentResultResolver;
+import com.bluetoya.beansontime.payment.domain.*;
 import com.bluetoya.beansontime.product.adapter.out.persistence.JdbcProductAdapter;
 import com.bluetoya.beansontime.product.application.port.out.ProductExecutionPort;
 import com.bluetoya.beansontime.product.domain.*;
@@ -16,6 +25,7 @@ import com.bluetoya.beansontime.subscription.adapter.out.persistence.JdbcSubscri
 import com.bluetoya.beansontime.subscription.application.port.out.GetSubscriptionDetailQueryPort;
 import com.bluetoya.beansontime.subscription.domain.*;
 import java.time.*;
+import java.util.Optional;
 import java.util.concurrent.*;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -48,6 +58,11 @@ class PostgreSqlPersistenceIntegrationTest {
   @Autowired FindPendingBillingPort billings;
   @Autowired JdbcClient jdbc;
   @Autowired MockMvc mvc;
+  @Autowired JdbcBillingAdapter billingStore;
+  @Autowired JdbcPaymentAdapter payments;
+  @Autowired BillingExecutionPort billingExecution;
+  @Autowired PaymentCompletionService completion;
+  @Autowired FakePaymentGatewayAdapter gateway;
 
   @TestConfiguration
   static class TimeConfig {
@@ -315,6 +330,183 @@ class PostgreSqlPersistenceIntegrationTest {
     assertThat(restored.getLifecycleStatus()).isEqualTo(SubscriptionStatus.ACTIVE);
     assertThat(restored.getCurrentPeriod().startDate()).isEqualTo(LocalDate.of(2026, 10, 3));
     assertThat(restored.getNextBillingDate()).isEqualTo(LocalDate.of(2026, 11, 3));
+  }
+
+  @Test
+  void persistsPendingAttemptsAndRecoversWithFreshAdaptersUsingApprovalDate() {
+    Billing billing = pendingBilling(LocalDateTime.of(2026, 10, 2, 23, 55));
+    Payment payment = Payment.start(billing.getId(), billing.getAmount(), billing.getCreatedAt());
+    payments.saveNew(payment);
+    var restoredPayments = new JdbcPaymentAdapter(jdbc);
+    var restoredBillings = new JdbcBillingAdapter(jdbc);
+    assertThat(restoredPayments.findProcessingIds()).contains(payment.getId());
+    assertThat(restoredPayments.load(payment.getId()).orElseThrow())
+        .isNotSameAs(payment)
+        .usingRecursiveComparison()
+        .isEqualTo(payment);
+    var approval =
+        PaymentGatewayResult.approved(
+            "recovered-" + payment.getId().value(), LocalDateTime.of(2026, 10, 2, 23, 59));
+    var restoredCompletion =
+        new PaymentCompletionService(
+            restoredPayments,
+            restoredBillings,
+            subscriptions,
+            restoredPayments,
+            restoredBillings,
+            subscriptions,
+            billingExecution,
+            Clock.fixed(Instant.parse("2026-10-03T01:00:00Z"), ZoneId.of("Asia/Seoul")));
+    var resolver =
+        new PaymentResultResolver(
+            restoredPayments, id -> Optional.of(approval), restoredCompletion);
+    assertThat(resolver.resolve(payment.getId()).status()).isEqualTo("SUCCESS");
+    assertThat(restoredBillings.load(billing.getId()).orElseThrow().getStatus())
+        .isEqualTo(BillingStatus.PAID);
+    var subscription = subscriptions.load(billing.getSubscriptionId()).orElseThrow();
+    assertThat(subscription.getCurrentPeriod().startDate()).isEqualTo(LocalDate.of(2026, 10, 2));
+    assertThat(restoredPayments.load(payment.getId()).orElseThrow().getAttemptedAt())
+        .isEqualTo(payment.getAttemptedAt());
+    assertThat(resolver.resolve(payment.getId()).status()).isEqualTo("SUCCESS");
+    assertThat(subscriptions.load(billing.getSubscriptionId()).orElseThrow())
+        .usingRecursiveComparison()
+        .isEqualTo(subscription);
+  }
+
+  @Test
+  void rollsBackAllThreeAggregatesWhenSubscriptionWriteFails() {
+    Billing billing = pendingBilling(LocalDateTime.of(2026, 10, 3, 10, 0));
+    Payment payment = Payment.start(billing.getId(), billing.getAmount(), billing.getCreatedAt());
+    payments.saveNew(payment);
+    String constraint = "injected_payment_failure";
+    jdbc.sql(
+            "alter table subscriptions add constraint "
+                + constraint
+                + " check (id <> '"
+                + billing.getSubscriptionId().value()
+                + "'::uuid) not valid")
+        .update();
+    try {
+      assertThatThrownBy(
+              () ->
+                  completion.complete(
+                      payment.getId(),
+                      PaymentGatewayResult.approved(
+                          "rollback-" + payment.getId().value(), billing.getCreatedAt())))
+          .isInstanceOf(DataIntegrityViolationException.class);
+    } finally {
+      jdbc.sql("alter table subscriptions drop constraint " + constraint).update();
+    }
+    assertThat(payments.load(payment.getId()).orElseThrow().getStatus())
+        .isEqualTo(PaymentStatus.PROCESSING);
+    assertThat(billingStore.load(billing.getId()).orElseThrow().getStatus())
+        .isEqualTo(BillingStatus.PENDING);
+    assertThat(subscriptions.load(billing.getSubscriptionId()).orElseThrow().getLifecycleStatus())
+        .isEqualTo(SubscriptionStatus.PAUSED);
+  }
+
+  @Test
+  void concurrentCompletionAppliesOnlyOnceAfterReloadingUnderLock() throws Exception {
+    Billing billing = pendingBilling(LocalDateTime.of(2026, 10, 3, 10, 0));
+    Payment payment = Payment.start(billing.getId(), billing.getAmount(), billing.getCreatedAt());
+    payments.saveNew(payment);
+    var result =
+        PaymentGatewayResult.approved(
+            "concurrent-" + payment.getId().value(), billing.getCreatedAt());
+    CountDownLatch start = new CountDownLatch(1);
+    try (var pool = Executors.newFixedThreadPool(2)) {
+      Callable<Payment> task =
+          () -> {
+            start.await(5, TimeUnit.SECONDS);
+            return completion.complete(payment.getId(), result);
+          };
+      var first = pool.submit(task);
+      var second = pool.submit(task);
+      start.countDown();
+      assertThat(first.get(10, TimeUnit.SECONDS).getStatus()).isEqualTo(PaymentStatus.SUCCESS);
+      assertThat(second.get(10, TimeUnit.SECONDS).getStatus()).isEqualTo(PaymentStatus.SUCCESS);
+    }
+    assertThat(subscriptions.load(billing.getSubscriptionId()).orElseThrow().getNextBillingDate())
+        .isEqualTo(LocalDate.of(2026, 11, 3));
+  }
+
+  @Test
+  void expiredPaymentRequestCommitsExpirationEvenThoughHttpReturnsConflict() throws Exception {
+    Billing billing = pendingBilling(LocalDateTime.of(2026, 10, 3, 9, 50));
+    mvc.perform(
+            post("/billings/{id}/payments", billing.getId().value())
+                .with(httpBasic("customer1", "password1")))
+        .andExpect(status().isConflict());
+    assertThat(billingStore.load(billing.getId()).orElseThrow().getStatus())
+        .isEqualTo(BillingStatus.EXPIRED);
+    assertThat(payments.findProcessing(billing.getId())).isEmpty();
+  }
+
+  @Test
+  void unknownGatewayResponseLeavesDurableAttemptAndBlocksAnotherPayment() throws Exception {
+    Billing billing = pendingBilling(LocalDateTime.of(2026, 10, 3, 10, 0));
+    gateway.failNext();
+    mvc.perform(
+            post("/billings/{id}/payments", billing.getId().value())
+                .with(httpBasic("customer1", "password1")))
+        .andExpect(status().isAccepted());
+    var payment = payments.findProcessing(billing.getId()).orElseThrow();
+    mvc.perform(
+            post("/billings/{id}/payments", billing.getId().value())
+                .with(httpBasic("customer1", "password1")))
+        .andExpect(status().isConflict());
+    gateway.approvePending(payment.getId(), "unknown-" + payment.getId().value());
+    mvc.perform(
+            post(
+                    "/billings/{id}/payments/{paymentId}/reconcile",
+                    billing.getId().value(),
+                    payment.getId().value())
+                .with(httpBasic("customer1", "password1")))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.status").value("SUCCESS"));
+    assertThat(payments.load(payment.getId()).orElseThrow().getStatus())
+        .isEqualTo(PaymentStatus.SUCCESS);
+  }
+
+  @Test
+  void constraintsRejectDuplicatePendingBillingsAndProcessingAttempts() {
+    Billing billing = pendingBilling(LocalDateTime.of(2026, 10, 3, 10, 0));
+    var duplicate =
+        new Billing(
+            billing.getCustomerId(),
+            billing.getSubscriptionId(),
+            billing.getProductId(),
+            billing.getAmount(),
+            billing.getBillingDate(),
+            billing.getCreatedAt());
+    assertThatThrownBy(() -> billingStore.saveNew(duplicate))
+        .isInstanceOf(DataIntegrityViolationException.class);
+    Payment payment = Payment.start(billing.getId(), billing.getAmount(), billing.getCreatedAt());
+    payments.saveNew(payment);
+    assertThatThrownBy(
+            () ->
+                payments.saveNew(
+                    Payment.start(billing.getId(), billing.getAmount(), billing.getCreatedAt())))
+        .isInstanceOf(DataIntegrityViolationException.class);
+    assertThatThrownBy(() -> payments.saveNew(payment))
+        .isInstanceOf(DataIntegrityViolationException.class);
+  }
+
+  private Billing pendingBilling(LocalDateTime createdAt) {
+    Product product = product();
+    Subscription subscription = subscription(product, 1, LocalDate.of(2026, 9, 1));
+    subscription.pause(LocalDate.of(2026, 10, 10), LocalDateTime.of(2026, 9, 30, 10, 0));
+    subscriptions.save(subscription);
+    Billing billing =
+        new Billing(
+            subscription.getCustomerId(),
+            subscription.getId(),
+            product.getId(),
+            product.getBasePrice(),
+            createdAt.toLocalDate(),
+            createdAt);
+    billingStore.saveNew(billing);
+    return billing;
   }
 
   private int subscribe(Product product) throws Exception {

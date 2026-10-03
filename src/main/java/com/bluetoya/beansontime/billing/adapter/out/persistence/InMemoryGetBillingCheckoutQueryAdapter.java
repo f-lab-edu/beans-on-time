@@ -14,6 +14,7 @@ import com.bluetoya.beansontime.subscription.domain.Subscription;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
+@org.springframework.context.annotation.Profile("in-memory")
 @Component
 @RequiredArgsConstructor
 public class InMemoryGetBillingCheckoutQueryAdapter implements GetBillingCheckoutQueryPort {

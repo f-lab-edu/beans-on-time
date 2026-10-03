@@ -14,11 +14,13 @@ import com.bluetoya.beansontime.payment.application.port.in.PayBillingCommand;
 import com.bluetoya.beansontime.payment.application.port.in.PayBillingUseCase;
 import com.bluetoya.beansontime.payment.application.port.in.PaymentResult;
 import com.bluetoya.beansontime.payment.application.port.out.FindProcessingPaymentPort;
+import com.bluetoya.beansontime.payment.application.port.out.LoadPaymentPort;
 import com.bluetoya.beansontime.payment.application.port.out.PaymentGateway;
 import com.bluetoya.beansontime.payment.application.port.out.PaymentGatewayRequest;
 import com.bluetoya.beansontime.payment.application.port.out.PaymentGatewayResult;
 import com.bluetoya.beansontime.payment.application.port.out.SavePaymentPort;
 import com.bluetoya.beansontime.payment.domain.Payment;
+import com.bluetoya.beansontime.payment.domain.PaymentAuthorization;
 import com.bluetoya.beansontime.product.application.exception.ProductNotFoundException;
 import com.bluetoya.beansontime.product.application.port.out.LoadProductPort;
 import com.bluetoya.beansontime.subscription.application.exception.SubscriptionNotFoundException;
@@ -40,28 +42,38 @@ public class PayBillingService implements PayBillingUseCase {
   private final SaveBillingPort saveBillingPort;
   private final LoadProductPort loadProductPort;
   private final BillingExecutionPort billingExecutionPort;
-  private final PaymentCompletionService paymentCompletionService;
+  private final PaymentCompletion paymentCompletionService;
   private final Clock clock;
+  private final LoadPaymentPort loadPaymentPort;
 
   @Override
   public PaymentResult pay(PayBillingCommand command) {
     Billing billing = ownedBillingLoader.load(command.billingId());
     Payment payment =
-        billingExecutionPort.execute(billing.getSubscriptionId(), () -> start(billing));
+        billingExecutionPort.execute(
+            billing.getSubscriptionId(),
+            () -> start(ownedBillingLoader.load(command.billingId()), command.authorization()));
+    if (payment == null) {
+      // 만료 상태를 커밋한 다음 충돌을 반환한다.
+      throw new BillingExpiredException("만료된 청구입니다. 새 청구를 준비해 주세요.");
+    }
     try {
       PaymentGatewayResult result =
           paymentGateway.pay(
               new PaymentGatewayRequest(payment.getId(), billing.getId(), billing.getAmount()));
-      paymentCompletionService.complete(payment.getId(), result);
+      payment = paymentCompletionService.complete(payment.getId(), result);
     } catch (PaymentGatewayUnavailableException exception) {
       // 응답이 없다는 이유로 외부 결제를 실패로 확정하지 않는다.
     }
-    return toResult(payment);
+    return toResult(loadPaymentPort.load(payment.getId()).orElseThrow());
   }
 
-  private Payment start(Billing billing) {
+  private Payment start(Billing billing, PaymentAuthorization authorization) {
     if (billing.getStatus() == BillingStatus.PAID) {
       throw new BillingAlreadyPaidException("이미 결제가 완료된 청구입니다.");
+    }
+    if (billing.getStatus() == BillingStatus.CANCELLED) {
+      throw new ReactivationBillingNotAllowedException("보상 취소가 완료된 청구입니다. 새 청구를 준비해 주세요.");
     }
     var processing = findProcessingPaymentPort.findProcessing(billing.getId());
     LocalDateTime now = LocalDateTime.now(clock);
@@ -71,7 +83,7 @@ public class PayBillingService implements PayBillingUseCase {
       throw new PaymentInProgressException(processing.get().getId());
     }
     if (billing.getStatus() == BillingStatus.EXPIRED) {
-      throw new BillingExpiredException("만료된 청구입니다. 새 청구를 준비해 주세요.");
+      return null;
     }
     Subscription subscription =
         loadSubscriptionPort
@@ -92,11 +104,12 @@ public class PayBillingService implements PayBillingUseCase {
     if (billing.isPaymentWindowClosed(now)) {
       billing.expireIfDue(now, false);
       saveBillingPort.save(billing);
-      throw new BillingExpiredException("만료된 청구입니다. 새 청구를 준비해 주세요.");
+      return null;
     }
     subscription.validatePaidReactivation(now.toLocalDate());
     Payment payment = Payment.start(billing.getId(), billing.getAmount(), now);
-    savePaymentPort.save(payment);
+    if (authorization == null) savePaymentPort.saveNew(payment);
+    else savePaymentPort.saveAuthorized(payment, authorization);
     return payment;
   }
 
