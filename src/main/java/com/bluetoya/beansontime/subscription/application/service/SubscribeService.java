@@ -3,6 +3,7 @@ package com.bluetoya.beansontime.subscription.application.service;
 import com.bluetoya.beansontime.customer.domain.CustomerId;
 import com.bluetoya.beansontime.product.application.exception.ProductNotFoundException;
 import com.bluetoya.beansontime.product.application.port.out.LoadProductPort;
+import com.bluetoya.beansontime.product.application.port.out.ProductExecutionPort;
 import com.bluetoya.beansontime.product.domain.Product;
 import com.bluetoya.beansontime.subscription.application.exception.DuplicateSubscriptionException;
 import com.bluetoya.beansontime.subscription.application.exception.ProductNotSubscribableException;
@@ -27,8 +28,15 @@ public class SubscribeService implements SubscribeUseCase {
   private final CurrentCustomerProvider currentCustomerProvider;
   private final Clock clock;
 
+  private final ProductExecutionPort productExecutionPort;
+
   @Override
   public SubscriptionId subscribe(SubscribeCommand command) {
+    return productExecutionPort.execute(
+        command.productId(), () -> subscribeWithinExecution(command));
+  }
+
+  private SubscriptionId subscribeWithinExecution(SubscribeCommand command) {
     CustomerId customerId = currentCustomerProvider.getCurrentCustomerId();
     Product product =
         loadProductPort
@@ -46,7 +54,7 @@ public class SubscribeService implements SubscribeUseCase {
     Subscription subscription =
         new Subscription(
             customerId, command.productId(), command.deliveryCycle(), LocalDate.now(clock));
-    saveSubscriptionPort.save(subscription);
+    saveSubscriptionPort.saveNew(subscription);
     return subscription.getId();
   }
 }

@@ -144,8 +144,9 @@ Subscription
 루트다. `CustomerId`, `SubscriptionId`, `ProductId`로 다른 애그리거트를 참조하고 생성
 시점의 Product 가격을 `amount`로 보존한다.
 
-상태는 `PENDING`, `PAID`, `EXPIRED`를 사용하며 생성 후 10분의 결제 시작 기한을 가진다. 기한 도달 시 진행 중 결제가 없으면
+상태는 `PENDING`, `PAID`, `EXPIRED`, `CANCELLED`를 사용하며 생성 후 10분의 결제 시작 기한을 가진다. 기한 도달 시 진행 중 결제가 없으면
 만료하고, 있으면 결과를 기다려 승인 시 PAID, 기한 후 거절 시 EXPIRED로 전이한다.
+DB 미반영에 대한 전액 보상 취소가 완료되면 CANCELLED로 종료하고 새 청구에서 재결제한다.
 상세한 확정 규칙은 `docs/domain/billing-payment.md`에 기록한다.
 
 ---
@@ -158,6 +159,9 @@ Billing을 `BillingId`로 참조하며 금액은 Billing에 확정된 금액과 
 `PROCESSING`에서 `SUCCESS` 또는 `FAILED`로 결과를 확정하고,
 실패 이력을 보존하면서 같은 Billing에 새 시도를 허용한다. 결과 미확정 시에는
 PROCESSING을 유지하며 새 시도를 차단한다. Billing과 Payment의 관계는 1:N이다.
+토스 테스트 연동에서 승인 후 DB 미반영이 확인되면 CANCEL_PENDING으로 취소 결정을
+보존하고, PG 전액 취소와 로컬 반영을 확인한 뒤 CANCELLED로 확정한다. CANCEL_PENDING도
+새 결제를 차단하며 승인 증거와 취소 증거는 별도로 보존한다.
 
 Billing과 Payment를 하나의 애그리거트나 객체 그래프로 합치지 않는다. 상세한 확정
 규칙은 `docs/domain/billing-payment.md`에 기록한다.

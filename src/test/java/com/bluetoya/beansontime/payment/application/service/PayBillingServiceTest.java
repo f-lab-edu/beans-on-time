@@ -150,7 +150,8 @@ class PayBillingServiceTest {
         loadProduct,
         execution,
         completion,
-        clock);
+        clock,
+        payments);
   }
 
   private PaymentResult pay() {

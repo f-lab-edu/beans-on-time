@@ -36,3 +36,7 @@ out/
 
 ### VS Code ###
 .vscode/
+# 로컬 테스트 키
+.env
+.env.*
+!.env.example

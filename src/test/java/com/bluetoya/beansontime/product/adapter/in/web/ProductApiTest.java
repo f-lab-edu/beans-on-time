@@ -21,6 +21,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
+import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 import tools.jackson.databind.ObjectMapper;
 
@@ -30,6 +31,7 @@ import tools.jackson.databind.ObjectMapper;
   SecurityConfig.class,
   RegisterProductService.class,
   GetProductDetailService.class,
+  InMemoryProductExecutionAdapter.class,
   InMemoryProductRepository.class,
   InMemoryProductAdapter.class,
   InMemoryGetProductDetailQueryAdapter.class,
@@ -37,6 +39,7 @@ import tools.jackson.databind.ObjectMapper;
   SecurityCurrentActorProvider.class,
   ProductExceptionHandler.class
 })
+@ActiveProfiles("in-memory")
 class ProductApiTest {
   @org.springframework.boot.test.context.TestConfiguration(proxyBeanMethods = false)
   @org.springframework.security.config.annotation.web.configuration.EnableWebSecurity

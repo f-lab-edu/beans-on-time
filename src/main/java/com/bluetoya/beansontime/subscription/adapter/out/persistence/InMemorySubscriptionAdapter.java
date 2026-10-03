@@ -11,8 +11,10 @@ import com.bluetoya.beansontime.subscription.domain.SubscriptionId;
 import java.util.List;
 import java.util.Optional;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Component;
 
+@Profile("in-memory")
 @Component
 @RequiredArgsConstructor
 public class InMemorySubscriptionAdapter
@@ -22,6 +24,11 @@ public class InMemorySubscriptionAdapter
         LoadSubscriptionsByProductPort {
 
   private final InMemorySubscriptionRepository subscriptionRepository;
+
+  @Override
+  public void saveNew(Subscription subscription) {
+    save(subscription);
+  }
 
   @Override
   public void save(Subscription subscription) {

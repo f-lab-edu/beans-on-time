@@ -12,6 +12,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.bluetoya.beansontime.customer.domain.CustomerId;
+import com.bluetoya.beansontime.product.adapter.out.persistence.InMemoryProductExecutionAdapter;
 import com.bluetoya.beansontime.product.application.port.in.OwnedProductLoader;
 import com.bluetoya.beansontime.product.application.port.out.LoadProductPort;
 import com.bluetoya.beansontime.product.application.port.out.SaveProductPort;
@@ -54,7 +55,8 @@ class DiscontinueProductServiceTest {
             new OwnedProductLoader(loadProductPort),
             saveProductPort,
             subscriptionAdapter,
-            subscriptionAdapter);
+            subscriptionAdapter,
+            new InMemoryProductExecutionAdapter());
 
     service.discontinue(product.getId());
 
