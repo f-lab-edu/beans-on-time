@@ -43,9 +43,10 @@ Payment 성공·Billing 완료·Subscription 활성화를 한 트랜잭션으로
 DB 잠금을 유지하지 않는다. 잠금 획득 후 최신 Billing·Payment를 다시 읽고, 결과 응답도
 저장된 상태를 다시 읽어 반환한다. 같은 객체 인스턴스를 공유하는 InMemory 동작에 기대지 않는다.
 
-부분 UNIQUE 인덱스로 구독별 PENDING 청구, 청구별 PROCESSING 시도와 SUCCESS 결과의
+부분 UNIQUE 인덱스로 구독별 PENDING 청구, 청구별 미완료 시도(PROCESSING·CANCEL_PENDING)와 SUCCESS 결과의
 중복을 막는다. 만료 충돌은 EXPIRED 저장 트랜잭션을 커밋한 뒤 API에 반환한다.
-백그라운드와 명시적인 결과 재확인은 DB의 PROCESSING 목록에서 시작한다.
+백그라운드 결과 재확인은 DB의 PROCESSING·CANCEL_PENDING 목록에서 시작하고,
+고객의 명시적인 결과 재확인도 같은 미완료 상태를 복구한다.
 Fake Gateway 결과는 메모리에 있으므로 DB만으로 외부 승인 결과를 복구할 수는 없다.
 
 토스 테스트 프로필에서는 PaymentApproval에 승인 증거, 내부 반영 시작과 취소 결정을

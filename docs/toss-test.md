@@ -79,6 +79,9 @@ DB 반영 시도가 중단된 APPLYING은 2분 동안 진행 중 요청과의 �
 자동 테스트는 실제 PostgreSQL 컨테이너와 모의 토스 HTTP/클라이언트 응답을 사용한다.
 승인·취소 응답 유실, 내부 결과 롤백, 커밋 응답 유실, 취소 결정·취소 완료 저장 실패,
 동시 처리, 소유권, 금액·식별자 검증과 멱등키 만료를 검증한다.
+카드 인증 없는 전체 연결 검증은 `TossHttpPaymentIntegrationTest`에서 MockMvc → 실제
+토스 HTTP 클라이언트 → 로컬 모의 HTTP 서버 → PostgreSQL 결과 반영까지 수행한다.
+실행 방법과 제외 범위는 [테스트 전략](testing.md#postgresql-통합-테스트)을 따른다.
 외부 토스 테스트 상점에서의 카드 인증·승인·취소는 로컬 테스트 키로 별도 확인해야 한다.
 실제 금액 거래를 실행하는 라이브 구성은 제공하지 않는다.
 
@@ -91,6 +94,9 @@ DB 반영 시도가 중단된 APPLYING은 2분 동안 진행 중 요청과의 �
 - 테스트 화면에서 큰 정수 ID가 JavaScript 숫자로 반올림되는 문제를 수정했다.
   실제 화면 스크립트를 모의 HTTP 응답으로 실행해 64비트 ID 보존과 재조회 URL을 확인했다.
 - 카드 인증 없는 자동 검증을 현재 완료 범위로 삼는다. 외부 상점 검증 결과로 대체해 해석하지 않는다.
+- 후속으로 로컬 HTTP 서버와 PostgreSQL을 연결한 테스트 4건을 추가했다. 정상 승인,
+  승인 결과 미확정 후 조회 복구, DB 롤백 후 보상 취소, 취소 결과 미확정 후 조회 복구가
+  통과했고 `./gradlew spotlessCheck test` 전체 248개가 통과했다(실패·오류·건너뜀 0개).
 
 공식 계약: [결제창 연동](https://docs.tosspayments.com/guides/v2/payment-window/integration),
 [결제·조회·취소 API](https://docs.tosspayments.com/reference),
