@@ -1,6 +1,7 @@
 package com.bluetoya.beansontime.payment.application.service;
 
 import com.bluetoya.beansontime.billing.application.port.out.*;
+import com.bluetoya.beansontime.payment.application.exception.PaymentCommitRetryableException;
 import com.bluetoya.beansontime.payment.application.exception.PaymentCommitUncertainException;
 import com.bluetoya.beansontime.payment.application.port.out.*;
 import com.bluetoya.beansontime.payment.domain.*;
@@ -74,30 +75,17 @@ public class RecoverablePaymentCompletionService implements PaymentCompletion {
             });
     if (apply) {
       try {
-        commits.commit(
-            () ->
-                locked(
-                    id,
-                    () -> {
-                      var approval = approvals.load(id).orElseThrow();
-                      if (payment(id).getStatus() == PaymentStatus.PROCESSING
-                          && approval.phase() == PaymentApproval.Phase.APPLYING
-                          && validForApplication(approval))
-                        completion.complete(
-                            id,
-                            PaymentGatewayResult.approved(
-                                approval.transactionId(), approval.approvedAt()));
-                      return null;
-                    }));
+        apply(id);
+      } catch (PaymentCommitRetryableException exception) {
+        if (stillApplying(id)) {
+          try {
+            apply(id);
+          } catch (PaymentCommitUncertainException retryFailure) {
+            decideCancellationAfterFailure(id);
+          }
+        }
       } catch (PaymentCommitUncertainException exception) {
-        // 이 조회도 실패하면 APPLYING 기록을 남긴 채 다음 복구에 맡긴다.
-        locked(
-            id,
-            () -> {
-              if (payment(id).getStatus() == PaymentStatus.PROCESSING)
-                decideCancellation(approvals.load(id).orElseThrow());
-              return null;
-            });
+        decideCancellationAfterFailure(id);
       }
     }
     var payment = payment(id);
@@ -124,6 +112,43 @@ public class RecoverablePaymentCompletionService implements PaymentCompletion {
                       }));
     }
     return true;
+  }
+
+  private void apply(PaymentId id) {
+    commits.commit(
+        () ->
+            locked(
+                id,
+                () -> {
+                  var approval = approvals.load(id).orElseThrow();
+                  if (payment(id).getStatus() == PaymentStatus.PROCESSING
+                      && approval.phase() == PaymentApproval.Phase.APPLYING
+                      && validForApplication(approval))
+                    completion.complete(
+                        id,
+                        PaymentGatewayResult.approved(
+                            approval.transactionId(), approval.approvedAt()));
+                  return null;
+                }));
+  }
+
+  private boolean stillApplying(PaymentId id) {
+    return locked(
+        id,
+        () ->
+            payment(id).getStatus() == PaymentStatus.PROCESSING
+                && approvals.load(id).orElseThrow().phase() == PaymentApproval.Phase.APPLYING);
+  }
+
+  private void decideCancellationAfterFailure(PaymentId id) {
+    // 이 조회도 실패하면 APPLYING 기록을 남긴 채 다음 복구에 맡긴다.
+    locked(
+        id,
+        () -> {
+          if (payment(id).getStatus() == PaymentStatus.PROCESSING)
+            decideCancellation(approvals.load(id).orElseThrow());
+          return null;
+        });
   }
 
   private void decideCancellation(PaymentApproval approval) {

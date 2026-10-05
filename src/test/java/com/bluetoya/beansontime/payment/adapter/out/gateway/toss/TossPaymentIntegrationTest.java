@@ -12,6 +12,7 @@ import com.bluetoya.beansontime.billing.application.port.out.BillingExecutionPor
 import com.bluetoya.beansontime.billing.domain.*;
 import com.bluetoya.beansontime.customer.domain.CustomerId;
 import com.bluetoya.beansontime.payment.adapter.out.persistence.*;
+import com.bluetoya.beansontime.payment.application.exception.PaymentCommitRetryableException;
 import com.bluetoya.beansontime.payment.application.port.out.*;
 import com.bluetoya.beansontime.payment.application.service.*;
 import com.bluetoya.beansontime.payment.domain.*;
@@ -23,6 +24,7 @@ import com.bluetoya.beansontime.subscription.domain.*;
 import java.time.*;
 import java.util.*;
 import java.util.concurrent.*;
+import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.*;
@@ -360,6 +362,100 @@ class TossPaymentIntegrationTest {
     assertThat(billings.load(billing.getId()).orElseThrow().getStatus())
         .isEqualTo(BillingStatus.PAID);
     verifyNoInteractions(client);
+  }
+
+  @Test
+  void retryableDatabaseFailureRetriesOnlyInternalApplication() {
+    var payment = pending();
+    var attempts = new AtomicInteger();
+    var recoverable =
+        completionWith(
+            action -> {
+              if (attempts.incrementAndGet() == 1)
+                throw new PaymentCommitRetryableException(
+                    new org.springframework.dao.CannotAcquireLockException("잠금 실패"));
+              action.run();
+            });
+
+    assertThat(
+            recoverable
+                .complete(
+                    payment.getId(),
+                    PaymentGatewayResult.approved(done().lastTransactionKey(), NOW))
+                .getStatus())
+        .isEqualTo(PaymentStatus.SUCCESS);
+    assertThat(attempts).hasValue(2);
+    assertThat(billings.load(billing.getId()).orElseThrow().getStatus())
+        .isEqualTo(BillingStatus.PAID);
+    assertThat(subscriptions.load(billing.getSubscriptionId()).orElseThrow().getLifecycleStatus())
+        .isEqualTo(SubscriptionStatus.ACTIVE);
+    verifyNoInteractions(client);
+  }
+
+  @Test
+  void retryableExceptionAfterCommittedSuccessDoesNotRetryOrCancel() {
+    var payment = pending();
+    var attempts = new AtomicInteger();
+    var recoverable =
+        completionWith(
+            action -> {
+              attempts.incrementAndGet();
+              action.run();
+              throw new PaymentCommitRetryableException(
+                  new org.springframework.dao.CannotAcquireLockException("결과 조회 실패"));
+            });
+
+    assertThat(
+            recoverable
+                .complete(
+                    payment.getId(),
+                    PaymentGatewayResult.approved(done().lastTransactionKey(), NOW))
+                .getStatus())
+        .isEqualTo(PaymentStatus.SUCCESS);
+    assertThat(attempts).hasValue(1);
+    verifyNoInteractions(client);
+  }
+
+  @Test
+  void repeatedRetryableDatabaseFailureCancelsOnlyAfterSecondFailure() {
+    var payment = pending();
+    var attempts = new AtomicInteger();
+    when(client.find(key)).thenReturn(done());
+    when(client.cancel(eq(key), anyString(), anyString())).thenReturn(cancelled());
+    var recoverable =
+        completionWith(
+            action -> {
+              attempts.incrementAndGet();
+              throw new PaymentCommitRetryableException(
+                  new org.springframework.dao.CannotAcquireLockException("잠금 실패"));
+            });
+
+    assertThat(
+            recoverable
+                .complete(
+                    payment.getId(),
+                    PaymentGatewayResult.approved(done().lastTransactionKey(), NOW))
+                .getStatus())
+        .isEqualTo(PaymentStatus.CANCELLED);
+    assertThat(attempts).hasValue(2);
+    assertThat(billings.load(billing.getId()).orElseThrow().getStatus())
+        .isEqualTo(BillingStatus.CANCELLED);
+    verify(client, times(1)).cancel(anyString(), anyString(), anyString());
+  }
+
+  private RecoverablePaymentCompletionService completionWith(PaymentCommitPort commits) {
+    return new RecoverablePaymentCompletionService(
+        payments,
+        payments,
+        billings,
+        billings,
+        subscriptions,
+        execution,
+        approvals,
+        commits,
+        cancellations,
+        normalCompletion,
+        clock);
   }
 
   @Test

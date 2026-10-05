@@ -50,9 +50,11 @@ DB 잠금을 유지하지 않는다. 잠금 획득 후 최신 Billing·Payment�
 Fake Gateway 결과는 메모리에 있으므로 DB만으로 외부 승인 결과를 복구할 수는 없다.
 
 토스 테스트 프로필에서는 PaymentApproval에 승인 증거, 내부 반영 시작과 취소 결정을
-별도 커밋한다. 정상 내부 반영의 트랜잭션 예외는 어댑터가 `PaymentCommitUncertainException`으로
-변환한다. 애플리케이션은 DB 예외 타입에 의존하지 않고, 새 실행 경계에서 최신 성공 여부를
-확인한다. 취소 결정은 정상 완료와 같은 상품 잠금으로 조율하고 외부 취소는 경계 밖에서 호출한다.
+별도 커밋한다. 정상 내부 반영의 잠금·데드락·직렬화 충돌은 어댑터가
+`PaymentCommitRetryableException`으로, 그 밖의 DB·트랜잭션 예외는
+`PaymentCommitUncertainException`으로 변환한다. 애플리케이션은 DB 예외 타입에 의존하지 않고,
+새 실행 경계에서 최신 성공 여부를 확인한 뒤 재시도 가능한 미반영 건만 한 번 더 반영한다.
+취소 결정은 정상 완료와 같은 상품 잠금으로 조율하고 외부 취소는 경계 밖에서 호출한다.
 
 승인 증거의 READY/APPLYING/REVIEW/CANCEL_PENDING/CANCELLED는 복구 단계다.
 Payment SUCCESS는 Billing PAID·Subscription ACTIVE와 원자적으로 확정되므로,
