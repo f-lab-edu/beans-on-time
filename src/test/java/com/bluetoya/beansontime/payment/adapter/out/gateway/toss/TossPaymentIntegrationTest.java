@@ -130,6 +130,49 @@ class TossPaymentIntegrationTest {
     order = new JsonMapper().readTree(response).get("orderId").asText();
   }
 
+  @Test
+  void checkoutReportsAlreadyPaidBilling() throws Exception {
+    when(client.confirm(any(), anyString())).thenReturn(done());
+    confirm().andExpect(status().isOk());
+    mvc.perform(
+            post("/billings/{id}/payment-checkout", billing.getId().value())
+                .with(httpBasic("customer1", "password1")))
+        .andExpect(status().isConflict())
+        .andExpect(jsonPath("$.title").value("이미 결제된 청구"));
+  }
+
+  @Test
+  void checkoutReportsExpiryAtPaymentWindowBoundary() throws Exception {
+    clock.now = NOW.plusMinutes(10);
+    mvc.perform(
+            post("/billings/{id}/payment-checkout", billing.getId().value())
+                .with(httpBasic("customer1", "password1")))
+        .andExpect(status().isConflict())
+        .andExpect(jsonPath("$.title").value("만료된 청구"));
+    confirm().andExpect(status().isConflict()).andExpect(jsonPath("$.title").value("만료된 청구"));
+    mvc.perform(
+            post("/billings/{id}/payment-checkout", billing.getId().value())
+                .with(httpBasic("customer1", "password1")))
+        .andExpect(status().isConflict())
+        .andExpect(jsonPath("$.title").value("만료된 청구"));
+  }
+
+  @Test
+  void checkoutPrioritizesProcessingOverElapsedWindowAndReturnsPaymentId() throws Exception {
+    var payment = pending();
+    clock.now = NOW.plusMinutes(10);
+    mvc.perform(
+            post("/billings/{id}/payment-checkout", billing.getId().value())
+                .with(httpBasic("customer1", "password1")))
+        .andExpect(status().isConflict())
+        .andExpect(jsonPath("$.title").value("결제 결과 확인 중"))
+        .andExpect(jsonPath("$.paymentId").value(payment.getId().value()));
+    confirm()
+        .andExpect(status().isConflict())
+        .andExpect(jsonPath("$.title").value("결제 결과 확인 중"))
+        .andExpect(jsonPath("$.paymentId").value(payment.getId().value()));
+  }
+
   private TossTestPaymentClient.PaymentResponse done() {
     return new TossTestPaymentClient.PaymentResponse(
         key,
@@ -323,6 +366,25 @@ class TossPaymentIntegrationTest {
         payment.getId(), PaymentGatewayResult.approved(done().lastTransactionKey(), NOW));
     clock.now = NOW.plusHours(1);
     assertThat(resolver.resolve(payment.getId()).status()).isEqualTo("SUCCESS");
+    verifyNoInteractions(client);
+  }
+
+  @Test
+  void invalidApprovalDatePreservesApprovalForReviewWithoutCompensating() {
+    var payment = pending();
+    assertThat(
+            completion
+                .complete(
+                    payment.getId(),
+                    PaymentGatewayResult.approved(done().lastTransactionKey(), NOW.minusMonths(1)))
+                .getStatus())
+        .isEqualTo(PaymentStatus.PROCESSING);
+    assertThat(approvals.load(payment.getId()).orElseThrow().phase())
+        .isEqualTo(PaymentApproval.Phase.REVIEW);
+    assertThat(billings.load(billing.getId()).orElseThrow().getStatus())
+        .isEqualTo(BillingStatus.PENDING);
+    clock.now = NOW.plusDays(2);
+    resolver.resolve(payment.getId());
     verifyNoInteractions(client);
   }
 

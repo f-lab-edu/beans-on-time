@@ -38,7 +38,7 @@ class RecurringSubscriptionTest {
     var subscription = subscription(LocalDate.of(2026, 9, 4));
     var due = subscription.getNextBillingDate();
     assertThatThrownBy(() -> subscription.renewAfterPayment(due, due.minusDays(1)))
-        .isInstanceOf(InvalidSubscriptionPeriodStateException.class);
+        .isInstanceOf(InvalidSubscriptionPaymentDateException.class);
     subscription.renewAfterPayment(due, due);
     assertThatThrownBy(() -> subscription.renewAfterPayment(due, due))
         .isInstanceOf(InvalidSubscriptionStateChangeException.class);

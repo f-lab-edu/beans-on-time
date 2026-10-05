@@ -143,7 +143,7 @@ public class RecoverablePaymentCompletionService implements PaymentCompletion {
       return true;
     } catch (InvalidSubscriptionStateChangeException
         | InvalidSubscriptionPeriodStateException
-        | InvalidSubscriptionResumeDateException exception) {
+        | InvalidSubscriptionPaymentDateException exception) {
       approvals.save(approval.requireReview());
       return false;
     }

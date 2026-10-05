@@ -36,11 +36,26 @@ public class ProcessRecurringBillingService {
         execution.execute(
             id,
             () -> {
-              var subscription = subscriptions.load(id).orElseThrow();
+              var subscription =
+                  subscriptions
+                      .load(id)
+                      .orElseThrow(
+                          () ->
+                              new IllegalStateException(
+                                  "정기결제 대상으로 조회한 구독이 존재하지 않습니다: subscriptionId=" + id.value()));
               // 조회 이후 갱신·일시정지·공급 변경이 있었으면 잠금 안에서 다시 판단한다.
               if (!subscription.isRecurringBillingDue(businessDate)
                   || !dueDate.equals(subscription.getNextBillingDate())) return null;
-              var product = products.load(subscription.getProductId()).orElseThrow();
+              var product =
+                  products
+                      .load(subscription.getProductId())
+                      .orElseThrow(
+                          () ->
+                              new IllegalStateException(
+                                  "정기결제 구독이 참조하는 상품이 존재하지 않습니다: subscriptionId="
+                                      + id.value()
+                                      + ", productId="
+                                      + subscription.getProductId().id()));
               if (!product.isSubscribable()) return null;
               var existing = recurring.findRecurring(id, dueDate);
               Billing billing;

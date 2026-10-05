@@ -50,8 +50,8 @@ import com.bluetoya.beansontime.subscription.domain.DeliveryCycleUnit;
 import com.bluetoya.beansontime.subscription.domain.Subscription;
 import com.bluetoya.beansontime.subscription.domain.SubscriptionPeriod;
 import com.bluetoya.beansontime.subscription.domain.SubscriptionStatus;
+import com.bluetoya.beansontime.subscription.domain.exception.InvalidSubscriptionPaymentDateException;
 import com.bluetoya.beansontime.subscription.domain.exception.InvalidSubscriptionPeriodStateException;
-import com.bluetoya.beansontime.subscription.domain.exception.InvalidSubscriptionResumeDateException;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -426,7 +426,7 @@ class PayBillingServiceTest {
     service = serviceWith(external);
 
     assertThat(subscription.isPaidReactivationTarget()).isTrue();
-    assertThatThrownBy(this::pay).isInstanceOf(InvalidSubscriptionResumeDateException.class);
+    assertThatThrownBy(this::pay).isInstanceOf(InvalidSubscriptionPaymentDateException.class);
     assertThat(payments.findProcessingIds()).isEmpty();
     assertThat(billing.getStatus()).isEqualTo(BillingStatus.PENDING);
     assertThat(subscription.getLifecycleStatus()).isEqualTo(SubscriptionStatus.PAUSED);

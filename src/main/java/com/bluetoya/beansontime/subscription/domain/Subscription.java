@@ -3,6 +3,7 @@ package com.bluetoya.beansontime.subscription.domain;
 import com.bluetoya.beansontime.customer.domain.CustomerId;
 import com.bluetoya.beansontime.product.domain.ProductId;
 import com.bluetoya.beansontime.subscription.domain.exception.InvalidSubscriptionPausePeriodException;
+import com.bluetoya.beansontime.subscription.domain.exception.InvalidSubscriptionPaymentDateException;
 import com.bluetoya.beansontime.subscription.domain.exception.InvalidSubscriptionPeriodStateException;
 import com.bluetoya.beansontime.subscription.domain.exception.InvalidSubscriptionResumeDateException;
 import com.bluetoya.beansontime.subscription.domain.exception.InvalidSubscriptionStateChangeException;
@@ -250,7 +251,7 @@ public class Subscription {
     }
 
     if (paymentDate.isBefore(pausedAt.toLocalDate())) {
-      throw new InvalidSubscriptionResumeDateException("결제 성공일은 일시정지 요청일보다 빠를 수 없습니다.");
+      throw new InvalidSubscriptionPaymentDateException("결제 승인일은 일시정지 요청일보다 빠를 수 없습니다.");
     }
   }
 
@@ -288,10 +289,11 @@ public class Subscription {
     if (lifecycleStatus != SubscriptionStatus.ACTIVE || !dueDate.equals(nextBillingDate)) {
       throw new InvalidSubscriptionStateChangeException("현재 구독 회차의 정기결제가 아닙니다.");
     }
-    if (currentPeriod == null
-        || !currentPeriod.endDate().plusDays(1).equals(dueDate)
-        || paymentDate.isBefore(dueDate)) {
-      throw new InvalidSubscriptionPeriodStateException("정기결제의 이용 구간 또는 승인일이 올바르지 않습니다.");
+    if (currentPeriod == null || !currentPeriod.endDate().plusDays(1).equals(dueDate)) {
+      throw new InvalidSubscriptionPeriodStateException("정기결제의 이용 구간과 청구 예정일이 일치하지 않습니다.");
+    }
+    if (paymentDate.isBefore(dueDate)) {
+      throw new InvalidSubscriptionPaymentDateException("결제 승인일은 청구 예정일보다 빠를 수 없습니다.");
     }
   }
 

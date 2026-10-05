@@ -522,3 +522,20 @@ PROCESSING은 영속 기록만으로 승인 여부를 알 수 없어 계속 확�
 - Outbox·Event 도입 필요 여부
 - 고객 요청 환불·결제 취소와 이용권 회수 정책(위 DB 실패 보상 취소와 별도)
 - 공급 상태 확인 직후 또는 외부 결제 진행 중 공급 변경과 승인 결과의 처리 정책
+
+## 실패 의미와 예외 표현
+
+결제창 준비와 결제 실행은 재활성화 청구에 대해 같은 실패 의미를 반환한다. 이미 결제된
+청구는 `BillingAlreadyPaidException`, 진행 중 시도는 `PaymentInProgressException`과
+`paymentId`, 진행 중 시도가 없는 만료 청구는 `BillingExpiredException`으로 구분한다.
+모두 HTTP 409이며, 기한이 지났더라도 진행 중 시도의 결과 확인을 우선한다. 결제창 준비는
+기한을 검사하고, 기존 만료 상태 저장은 결제 실행·청구 준비 흐름에서 수행한다.
+
+정기결제로 조회한 구독이나 그 구독이 참조하는 상품의 부재는 고객 요청의 404로 취급하지
+않는다. 내부 일관성 오류인 `IllegalStateException`에 관련 식별자를 남기고, 실행 서비스가
+기록한 뒤 다음 대상을 처리한다.
+
+재활성화·정기결제의 승인일 충돌은 `InvalidSubscriptionPaymentDateException`으로 표현한다.
+이용 구간 자체의 불일치는 `InvalidSubscriptionPeriodStateException`, 결제 없는 재개의
+날짜 오류는 기존 `InvalidSubscriptionResumeDateException`으로 구분한다. 승인일은 외부
+결제 결과이므로 고객 입력 오류로 매핑하지 않으며, 승인일 충돌 시 결과를 임의 확정하지 않는다.
