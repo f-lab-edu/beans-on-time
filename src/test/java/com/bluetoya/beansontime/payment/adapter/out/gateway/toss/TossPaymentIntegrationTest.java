@@ -177,6 +177,22 @@ class TossPaymentIntegrationTest {
     return payment;
   }
 
+  @Autowired org.springframework.context.ApplicationContext context;
+
+  @Test
+  void tossProfileDoesNotRegisterAutomaticRecurringBilling() {
+    assertThat(
+            context.getBeansOfType(
+                com.bluetoya.beansontime.billing.application.port.in.RunRecurringBillingUseCase
+                    .class))
+        .isEmpty();
+    assertThat(
+            context.getBeansOfType(
+                com.bluetoya.beansontime.billing.application.service.ProcessRecurringBillingService
+                    .class))
+        .isEmpty();
+  }
+
   @Test
   void confirmsAfterCommittingAttemptAndAuthorizationOutsideTransaction() throws Exception {
     when(client.confirm(any(), anyString()))

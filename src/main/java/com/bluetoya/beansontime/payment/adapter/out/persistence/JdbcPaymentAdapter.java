@@ -21,7 +21,10 @@ import org.springframework.stereotype.Component;
 @Profile("!in-memory")
 @RequiredArgsConstructor
 public class JdbcPaymentAdapter
-    implements SavePaymentPort, LoadPaymentPort, FindProcessingPaymentPort {
+    implements SavePaymentPort,
+        LoadPaymentPort,
+        FindProcessingPaymentPort,
+        ExistsPaymentAttemptPort {
   private final JdbcClient jdbc;
 
   @Override
@@ -104,5 +107,13 @@ public class JdbcPaymentAdapter
         PaymentStatus.valueOf(rs.getString("status")),
         rs.getString("transaction_id"),
         rs.getObject("attempted_at", LocalDateTime.class));
+  }
+
+  @Override
+  public boolean hasAttempt(BillingId id) {
+    return jdbc.sql("select exists(select 1 from payments where billing_id = :id)")
+        .param("id", id.value())
+        .query(Boolean.class)
+        .single();
   }
 }

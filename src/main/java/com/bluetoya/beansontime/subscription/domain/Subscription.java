@@ -277,6 +277,38 @@ public class Subscription {
     suspensionReasons.add(SubscriptionSuspensionReason.PAYMENT_FAILED);
   }
 
+  public boolean isRecurringBillingDue(LocalDate date) {
+    Objects.requireNonNull(date, "처리 기준일은 필수입니다.");
+    return !isExecutionBlocked() && nextBillingDate != null && !nextBillingDate.isAfter(date);
+  }
+
+  public void validateRecurringPayment(LocalDate dueDate, LocalDate paymentDate) {
+    Objects.requireNonNull(dueDate, "청구 예정일은 필수입니다.");
+    Objects.requireNonNull(paymentDate, "승인일은 필수입니다.");
+    if (lifecycleStatus != SubscriptionStatus.ACTIVE || !dueDate.equals(nextBillingDate)) {
+      throw new InvalidSubscriptionStateChangeException("현재 구독 회차의 정기결제가 아닙니다.");
+    }
+    if (currentPeriod == null
+        || !currentPeriod.endDate().plusDays(1).equals(dueDate)
+        || paymentDate.isBefore(dueDate)) {
+      throw new InvalidSubscriptionPeriodStateException("정기결제의 이용 구간 또는 승인일이 올바르지 않습니다.");
+    }
+  }
+
+  public void renewAfterPayment(LocalDate dueDate, LocalDate paymentDate) {
+    validateRecurringPayment(dueDate, paymentDate);
+    LocalDate following = billingAnchorDay.nextBillingDateAfter(dueDate);
+    currentPeriod = new SubscriptionPeriod(dueDate, following.minusDays(1));
+    nextBillingDate = following;
+    suspensionReasons.remove(SubscriptionSuspensionReason.PAYMENT_FAILED);
+  }
+
+  public void recordRecurringPaymentDeclined(LocalDate dueDate) {
+    if (lifecycleStatus == SubscriptionStatus.ACTIVE && dueDate.equals(nextBillingDate)) {
+      suspensionReasons.add(SubscriptionSuspensionReason.PAYMENT_FAILED);
+    }
+  }
+
   public void cancel() {
     this.lifecycleStatus = SubscriptionStatus.CANCELLED;
     this.currentPeriod = null;

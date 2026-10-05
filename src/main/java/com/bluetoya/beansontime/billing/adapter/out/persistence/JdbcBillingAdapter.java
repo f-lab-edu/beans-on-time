@@ -22,7 +22,10 @@ import org.springframework.stereotype.Component;
 @Profile("!in-memory")
 @RequiredArgsConstructor
 public class JdbcBillingAdapter
-    implements SaveBillingPort, LoadBillingPort, FindPendingBillingPort {
+    implements SaveBillingPort,
+        LoadBillingPort,
+        FindPendingBillingPort,
+        com.bluetoya.beansontime.billing.application.port.out.FindRecurringBillingPort {
   private final JdbcClient jdbc;
 
   @Override
@@ -30,8 +33,8 @@ public class JdbcBillingAdapter
     jdbc.sql(
             """
         insert into billings (id, customer_id, subscription_id, product_id, amount,
-                              billing_date, created_at, expires_at, status)
-        values (:id, :customer, :subscription, :product, :amount, :date, :created, :expires, :status)
+                              billing_date, created_at, expires_at, status, purpose)
+        values (:id, :customer, :subscription, :product, :amount, :date, :created, :expires, :status, :purpose)
         """)
         .param("id", billing.getId().value())
         .param("customer", billing.getCustomerId().value())
@@ -40,7 +43,12 @@ public class JdbcBillingAdapter
         .param("amount", billing.getAmount().price())
         .param("date", billing.getBillingDate())
         .param("created", billing.getCreatedAt().truncatedTo(ChronoUnit.MICROS))
-        .param("expires", billing.getExpiresAt().truncatedTo(ChronoUnit.MICROS))
+        .param(
+            "expires",
+            billing.getExpiresAt() == null
+                ? null
+                : billing.getExpiresAt().truncatedTo(ChronoUnit.MICROS))
+        .param("purpose", billing.getPurpose().name())
         .param("status", billing.getStatus().name())
         .update();
   }
@@ -71,6 +79,16 @@ public class JdbcBillingAdapter
         .optional();
   }
 
+  @Override
+  public Optional<Billing> findRecurring(SubscriptionId id, LocalDate dueDate) {
+    return jdbc.sql(
+            "select * from billings where subscription_id = :id and billing_date = :date and purpose = 'RECURRING'")
+        .param("id", id.value())
+        .param("date", dueDate)
+        .query(this::map)
+        .optional();
+  }
+
   private Billing map(ResultSet rs, int row) throws SQLException {
     return Billing.restore(
         new BillingId(rs.getLong("id")),
@@ -81,6 +99,7 @@ public class JdbcBillingAdapter
         rs.getObject("billing_date", LocalDate.class),
         rs.getObject("created_at", LocalDateTime.class),
         rs.getObject("expires_at", LocalDateTime.class),
-        BillingStatus.valueOf(rs.getString("status")));
+        BillingStatus.valueOf(rs.getString("status")),
+        BillingPurpose.valueOf(rs.getString("purpose")));
   }
 }

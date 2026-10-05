@@ -144,14 +144,12 @@ class PayBillingServiceTest {
         ownedBilling,
         loadSubscription,
         payments,
-        paymentGateway,
+        new PaymentAttemptSubmission(paymentGateway, completion, payments),
         payments,
         billings,
         loadProduct,
         execution,
-        completion,
-        clock,
-        payments);
+        clock);
   }
 
   private PaymentResult pay() {

@@ -382,6 +382,18 @@ PG에서 확인한 거절은 구독의 현재 상태와 무관하게 Payment에 
 시도를 차단한다. 상세한 Billing·Payment 책임, 가격과 실패 규칙은
 `docs/domain/billing-payment.md`에서 관리한다.
 
+### 정기 갱신
+
+ACTIVE이며 실행 차단 사유가 없고 `nextBillingDate`가 도래한 구독은 정기 청구 대상이다.
+결제 시작 전에 상품 공급 상태도 별도로 확인한다. 정기 승인 반영은 `renewAfterPayment`가
+소유한다. Billing의 예정일과 현재 nextBillingDate가 일치하고 승인일이 예정일 이상이어야 한다.
+예정일부터 기존 billingAnchorDay로 계산한 다음 청구일 전날까지 새 이용 구간을 연다.
+지연 승인에도 기준일은 변경하지 않는다. PAYMENT_FAILED만 제거하며 공급 차단은 보존한다.
+
+정기 거절은 해당 예정일의 ACTIVE 구독에 PAYMENT_FAILED를 추가한다. 자동 PAUSED 전이,
+일정 이동이나 이용 기간 연장은 하지 않는다. 재시도와 고객 알림은 후속 범위다.
+구체적인 청구 식별·실행·복구 규칙은 `docs/domain/billing-payment.md`를 따른다.
+
 ### 취소
 
 `cancel()`은 다음 전이를 허용하는 멱등 도메인 행위다.
@@ -515,12 +527,12 @@ Policy, Strategy, Event, Adapter, DB 스키마나 범용 추상화를 추가하�
 
 ### Billing과 결제
 
-- 최초 구독 결제와 자동 정기결제
+- 최초 구독 결제와 실제 PG의 자동결제 수단 등록
 - 구독 취소 등에 따른 PENDING Billing 무효화와 PG별 멱등키 연동 세부사항
 - 실제 PG와 Payment Method
 - PG 성공 후 저장 실패 복구와 최종적 일관성
 - Billing과 Pause가 같은 날 실행될 때의 순서와 동시성
-- 청구 Batch와 중복 결제 방지
+- 정기결제의 Spring Batch 도입·대량 처리와 실패 후 자동 재시도 정책
 
 ### Auto Resume
 

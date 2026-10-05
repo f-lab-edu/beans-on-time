@@ -217,3 +217,11 @@ localhost를 지정하며 애플리케이션의 고정 토스 호스트는 변�
 ```sh
 ./gradlew test --tests '*TossHttpPaymentIntegrationTest'
 ```
+
+# 정기결제 검증
+
+`RecurringBillingIntegrationTest`는 PostgreSQL과 Fake Gateway를 연결한다. PG 호출 전에
+청구·시도가 커밋되는지, 동일 예정일의 중복 실행·청구 제약, 기존 가격 보존, 100건을 넘는
+페이지 처리, 단일 실패 격리, 거절 후 자동 재시도 차단과 결과 조회 복구를 검증한다.
+도메인 테스트는 지연 승인·월말·윤년·종료된 구독과 중복 회차 반영을 검증한다.
+토스 프로필 테스트는 시스템 정기결제 입력 포트가 등록되지 않음을 확인한다.

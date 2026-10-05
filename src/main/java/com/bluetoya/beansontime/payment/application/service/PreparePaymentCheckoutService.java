@@ -23,7 +23,8 @@ public class PreparePaymentCheckoutService implements PreparePaymentCheckoutUseC
         initial.getSubscriptionId(),
         () -> {
           var billing = billings.load(id);
-          if (billing.getStatus() != BillingStatus.PENDING
+          if (billing.getPurpose() != BillingPurpose.REACTIVATION
+              || billing.getStatus() != BillingStatus.PENDING
               || billing.isPaymentWindowClosed(LocalDateTime.now(clock))
               || payments.findProcessing(id).isPresent())
             throw new ReactivationBillingNotAllowedException("현재 청구로 결제창을 열 수 없습니다.");
