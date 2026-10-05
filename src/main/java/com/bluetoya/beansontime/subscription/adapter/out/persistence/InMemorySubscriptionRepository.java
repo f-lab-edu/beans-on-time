@@ -9,8 +9,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
+import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Repository;
 
+@Profile("in-memory")
 @Repository
 public class InMemorySubscriptionRepository {
   private final Map<SubscriptionId, Subscription> subscriptions = new ConcurrentHashMap<>();
@@ -36,6 +38,18 @@ public class InMemorySubscriptionRepository {
     return subscriptions.values().stream()
         .filter(subscription -> subscription.getProductId().equals(productId))
         .filter(subscription -> subscription.getLifecycleStatus() != SubscriptionStatus.CANCELLED)
+        .toList();
+  }
+
+  public List<Subscription> findDue(java.time.LocalDate date, SubscriptionId after, int limit) {
+    return subscriptions.values().stream()
+        .filter(s -> s.isRecurringBillingDue(date))
+        .filter(
+            s ->
+                after == null
+                    || s.getId().value().toString().compareTo(after.value().toString()) > 0)
+        .sorted(java.util.Comparator.comparing(s -> s.getId().value().toString()))
+        .limit(limit)
         .toList();
   }
 }

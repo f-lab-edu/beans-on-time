@@ -12,6 +12,7 @@
 - `testing.md` — 테스트 전략
 - `review-guidelines.md` — 구현 후 자체 리뷰 기준과 반복 종료 조건
 - `adr/security.md` — 인증, 인가, 소유권 인가 결정
+- `adr/persistence.md` — PostgreSQL 저장 범위, 실행 경계와 청구·결제 전환 단계
 
 모든 아키텍처와 도메인 작업 전에는 `glossary.md`를 확인한다. 구독, 상품, 청구, 결제,
 배송 관련 작업 전에는 `domain/subscription.md`도 반드시 확인한다. 청구·결제 작업은

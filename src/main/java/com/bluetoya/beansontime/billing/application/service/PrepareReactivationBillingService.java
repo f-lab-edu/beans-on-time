@@ -8,6 +8,7 @@ import com.bluetoya.beansontime.billing.application.port.out.BillingExecutionPor
 import com.bluetoya.beansontime.billing.application.port.out.FindPendingBillingPort;
 import com.bluetoya.beansontime.billing.application.port.out.SaveBillingPort;
 import com.bluetoya.beansontime.billing.domain.Billing;
+import com.bluetoya.beansontime.billing.domain.BillingPurpose;
 import com.bluetoya.beansontime.billing.domain.BillingStatus;
 import com.bluetoya.beansontime.payment.application.port.out.FindProcessingPaymentPort;
 import com.bluetoya.beansontime.product.application.exception.ProductNotFoundException;
@@ -34,7 +35,8 @@ public class PrepareReactivationBillingService implements PrepareReactivationBil
   @Override
   public PreparedBillingDetail prepare(PrepareReactivationBillingCommand command) {
     Subscription subscription = ownedSubscriptionLoader.load(command.subscriptionId());
-    return billingExecutionPort.execute(subscription.getId(), () -> prepare(subscription));
+    return billingExecutionPort.execute(
+        subscription.getId(), () -> prepare(ownedSubscriptionLoader.load(subscription.getId())));
   }
 
   private PreparedBillingDetail prepare(Subscription subscription) {
@@ -53,6 +55,8 @@ public class PrepareReactivationBillingService implements PrepareReactivationBil
     var pending = findPendingBillingPort.findPending(subscription.getId());
     if (pending.isPresent()) {
       Billing billing = pending.get();
+      if (billing.getPurpose() != BillingPurpose.REACTIVATION)
+        throw new ReactivationBillingNotAllowedException("미완료 정기 청구를 먼저 확인해야 합니다.");
       billing.expireIfDue(
           LocalDateTime.now(clock),
           findProcessingPaymentPort.findProcessing(billing.getId()).isPresent());
@@ -75,7 +79,7 @@ public class PrepareReactivationBillingService implements PrepareReactivationBil
             createdAt.toLocalDate(),
             createdAt);
 
-    saveBillingPort.save(billing);
+    saveBillingPort.saveNew(billing);
     return toDetail(billing);
   }
 

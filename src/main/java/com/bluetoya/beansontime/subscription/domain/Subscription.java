@@ -3,6 +3,7 @@ package com.bluetoya.beansontime.subscription.domain;
 import com.bluetoya.beansontime.customer.domain.CustomerId;
 import com.bluetoya.beansontime.product.domain.ProductId;
 import com.bluetoya.beansontime.subscription.domain.exception.InvalidSubscriptionPausePeriodException;
+import com.bluetoya.beansontime.subscription.domain.exception.InvalidSubscriptionPaymentDateException;
 import com.bluetoya.beansontime.subscription.domain.exception.InvalidSubscriptionPeriodStateException;
 import com.bluetoya.beansontime.subscription.domain.exception.InvalidSubscriptionResumeDateException;
 import com.bluetoya.beansontime.subscription.domain.exception.InvalidSubscriptionStateChangeException;
@@ -50,6 +51,105 @@ public class Subscription {
     this.currentPeriod = new SubscriptionPeriod(startedDate, this.nextBillingDate.minusDays(1));
     this.suspensionReasons = EnumSet.noneOf(SubscriptionSuspensionReason.class);
     this.lifecycleStatus = SubscriptionStatus.ACTIVE;
+  }
+
+  private Subscription(
+      SubscriptionId id,
+      CustomerId customerId,
+      ProductId productId,
+      DeliveryCycle deliveryCycle,
+      LocalDate startedDate,
+      BillingAnchorDay billingAnchorDay,
+      SubscriptionPeriod currentPeriod,
+      Integer remainingPaidDays,
+      LocalDate nextBillingDate,
+      LocalDateTime pausedAt,
+      LocalDate scheduledResumeDate,
+      SubscriptionStatus lifecycleStatus,
+      Set<SubscriptionSuspensionReason> suspensionReasons) {
+    this.id = Objects.requireNonNull(id, "구독 ID는 필수입니다.");
+    Objects.requireNonNull(id.value(), "구독 ID 값은 필수입니다.");
+    this.customerId = Objects.requireNonNull(customerId, "고객 ID는 필수입니다.");
+    this.productId = Objects.requireNonNull(productId, "상품 ID는 필수입니다.");
+    this.deliveryCycle = Objects.requireNonNull(deliveryCycle, "납품 주기는 필수입니다.");
+    Objects.requireNonNull(deliveryCycle.unit(), "납품 단위는 필수입니다.");
+    if (deliveryCycle.interval() < 1) {
+      throw new IllegalArgumentException("납품 주기는 양수여야 합니다.");
+    }
+    this.startedDate = Objects.requireNonNull(startedDate, "구독 시작일은 필수입니다.");
+    this.billingAnchorDay = Objects.requireNonNull(billingAnchorDay, "결제 기준일은 필수입니다.");
+    this.lifecycleStatus = Objects.requireNonNull(lifecycleStatus, "구독 상태는 필수입니다.");
+    this.currentPeriod = currentPeriod;
+    this.remainingPaidDays = remainingPaidDays;
+    this.nextBillingDate = nextBillingDate;
+    this.pausedAt = pausedAt;
+    this.scheduledResumeDate = scheduledResumeDate;
+    this.suspensionReasons = EnumSet.noneOf(SubscriptionSuspensionReason.class);
+    this.suspensionReasons.addAll(Objects.requireNonNull(suspensionReasons, "실행 차단 사유는 필수입니다."));
+    validateRestoredState();
+  }
+
+  public static Subscription restore(
+      SubscriptionId id,
+      CustomerId customerId,
+      ProductId productId,
+      DeliveryCycle deliveryCycle,
+      LocalDate startedDate,
+      BillingAnchorDay billingAnchorDay,
+      SubscriptionPeriod currentPeriod,
+      Integer remainingPaidDays,
+      LocalDate nextBillingDate,
+      LocalDateTime pausedAt,
+      LocalDate scheduledResumeDate,
+      SubscriptionStatus lifecycleStatus,
+      Set<SubscriptionSuspensionReason> suspensionReasons) {
+    return new Subscription(
+        id,
+        customerId,
+        productId,
+        deliveryCycle,
+        startedDate,
+        billingAnchorDay,
+        currentPeriod,
+        remainingPaidDays,
+        nextBillingDate,
+        pausedAt,
+        scheduledResumeDate,
+        lifecycleStatus,
+        suspensionReasons);
+  }
+
+  private void validateRestoredState() {
+    boolean valid =
+        switch (lifecycleStatus) {
+          case ACTIVE ->
+              currentPeriod != null
+                  && remainingPaidDays == null
+                  && pausedAt == null
+                  && scheduledResumeDate == null
+                  && nextBillingDate != null
+                  && currentPeriod.endDate().plusDays(1).equals(nextBillingDate)
+                  && !currentPeriod.startDate().isBefore(startedDate);
+          case PAUSED ->
+              currentPeriod == null
+                  && remainingPaidDays != null
+                  && remainingPaidDays >= 0
+                  && pausedAt != null
+                  && scheduledResumeDate != null
+                  && nextBillingDate != null
+                  && !pausedAt.toLocalDate().isBefore(startedDate)
+                  && scheduledResumeDate.isAfter(pausedAt.toLocalDate())
+                  && scheduledResumeDate.plusDays(remainingPaidDays).equals(nextBillingDate);
+          case CANCELLED ->
+              currentPeriod == null
+                  && remainingPaidDays == null
+                  && pausedAt == null
+                  && scheduledResumeDate == null
+                  && nextBillingDate == null;
+        };
+    if (!valid) {
+      throw new InvalidSubscriptionPeriodStateException("복원할 구독의 상태와 기간 문맥이 올바르지 않습니다.");
+    }
   }
 
   public void pause(LocalDate pauseUntilDate, LocalDateTime pausedAt) {
@@ -151,7 +251,7 @@ public class Subscription {
     }
 
     if (paymentDate.isBefore(pausedAt.toLocalDate())) {
-      throw new InvalidSubscriptionResumeDateException("결제 성공일은 일시정지 요청일보다 빠를 수 없습니다.");
+      throw new InvalidSubscriptionPaymentDateException("결제 승인일은 일시정지 요청일보다 빠를 수 없습니다.");
     }
   }
 
@@ -176,6 +276,39 @@ public class Subscription {
       return;
     }
     suspensionReasons.add(SubscriptionSuspensionReason.PAYMENT_FAILED);
+  }
+
+  public boolean isRecurringBillingDue(LocalDate date) {
+    Objects.requireNonNull(date, "처리 기준일은 필수입니다.");
+    return !isExecutionBlocked() && nextBillingDate != null && !nextBillingDate.isAfter(date);
+  }
+
+  public void validateRecurringPayment(LocalDate dueDate, LocalDate paymentDate) {
+    Objects.requireNonNull(dueDate, "청구 예정일은 필수입니다.");
+    Objects.requireNonNull(paymentDate, "승인일은 필수입니다.");
+    if (lifecycleStatus != SubscriptionStatus.ACTIVE || !dueDate.equals(nextBillingDate)) {
+      throw new InvalidSubscriptionStateChangeException("현재 구독 회차의 정기결제가 아닙니다.");
+    }
+    if (currentPeriod == null || !currentPeriod.endDate().plusDays(1).equals(dueDate)) {
+      throw new InvalidSubscriptionPeriodStateException("정기결제의 이용 구간과 청구 예정일이 일치하지 않습니다.");
+    }
+    if (paymentDate.isBefore(dueDate)) {
+      throw new InvalidSubscriptionPaymentDateException("결제 승인일은 청구 예정일보다 빠를 수 없습니다.");
+    }
+  }
+
+  public void renewAfterPayment(LocalDate dueDate, LocalDate paymentDate) {
+    validateRecurringPayment(dueDate, paymentDate);
+    LocalDate following = billingAnchorDay.nextBillingDateAfter(dueDate);
+    currentPeriod = new SubscriptionPeriod(dueDate, following.minusDays(1));
+    nextBillingDate = following;
+    suspensionReasons.remove(SubscriptionSuspensionReason.PAYMENT_FAILED);
+  }
+
+  public void recordRecurringPaymentDeclined(LocalDate dueDate) {
+    if (lifecycleStatus == SubscriptionStatus.ACTIVE && dueDate.equals(nextBillingDate)) {
+      suspensionReasons.add(SubscriptionSuspensionReason.PAYMENT_FAILED);
+    }
   }
 
   public void cancel() {

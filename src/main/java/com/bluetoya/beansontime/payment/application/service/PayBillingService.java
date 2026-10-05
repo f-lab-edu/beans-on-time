@@ -7,18 +7,16 @@ import com.bluetoya.beansontime.billing.application.port.in.OwnedBillingLoader;
 import com.bluetoya.beansontime.billing.application.port.out.BillingExecutionPort;
 import com.bluetoya.beansontime.billing.application.port.out.SaveBillingPort;
 import com.bluetoya.beansontime.billing.domain.Billing;
+import com.bluetoya.beansontime.billing.domain.BillingPurpose;
 import com.bluetoya.beansontime.billing.domain.BillingStatus;
-import com.bluetoya.beansontime.payment.application.exception.PaymentGatewayUnavailableException;
 import com.bluetoya.beansontime.payment.application.exception.PaymentInProgressException;
 import com.bluetoya.beansontime.payment.application.port.in.PayBillingCommand;
 import com.bluetoya.beansontime.payment.application.port.in.PayBillingUseCase;
 import com.bluetoya.beansontime.payment.application.port.in.PaymentResult;
 import com.bluetoya.beansontime.payment.application.port.out.FindProcessingPaymentPort;
-import com.bluetoya.beansontime.payment.application.port.out.PaymentGateway;
-import com.bluetoya.beansontime.payment.application.port.out.PaymentGatewayRequest;
-import com.bluetoya.beansontime.payment.application.port.out.PaymentGatewayResult;
 import com.bluetoya.beansontime.payment.application.port.out.SavePaymentPort;
 import com.bluetoya.beansontime.payment.domain.Payment;
+import com.bluetoya.beansontime.payment.domain.PaymentAuthorization;
 import com.bluetoya.beansontime.product.application.exception.ProductNotFoundException;
 import com.bluetoya.beansontime.product.application.port.out.LoadProductPort;
 import com.bluetoya.beansontime.subscription.application.exception.SubscriptionNotFoundException;
@@ -35,33 +33,35 @@ public class PayBillingService implements PayBillingUseCase {
   private final OwnedBillingLoader ownedBillingLoader;
   private final LoadSubscriptionPort loadSubscriptionPort;
   private final FindProcessingPaymentPort findProcessingPaymentPort;
-  private final PaymentGateway paymentGateway;
+  private final PaymentAttemptSubmission submission;
   private final SavePaymentPort savePaymentPort;
   private final SaveBillingPort saveBillingPort;
   private final LoadProductPort loadProductPort;
   private final BillingExecutionPort billingExecutionPort;
-  private final PaymentCompletionService paymentCompletionService;
   private final Clock clock;
 
   @Override
   public PaymentResult pay(PayBillingCommand command) {
     Billing billing = ownedBillingLoader.load(command.billingId());
     Payment payment =
-        billingExecutionPort.execute(billing.getSubscriptionId(), () -> start(billing));
-    try {
-      PaymentGatewayResult result =
-          paymentGateway.pay(
-              new PaymentGatewayRequest(payment.getId(), billing.getId(), billing.getAmount()));
-      paymentCompletionService.complete(payment.getId(), result);
-    } catch (PaymentGatewayUnavailableException exception) {
-      // 응답이 없다는 이유로 외부 결제를 실패로 확정하지 않는다.
+        billingExecutionPort.execute(
+            billing.getSubscriptionId(),
+            () -> start(ownedBillingLoader.load(command.billingId()), command.authorization()));
+    if (payment == null) {
+      // 만료 상태를 커밋한 다음 충돌을 반환한다.
+      throw new BillingExpiredException("만료된 청구입니다. 새 청구를 준비해 주세요.");
     }
-    return toResult(payment);
+    return submission.submit(payment);
   }
 
-  private Payment start(Billing billing) {
+  private Payment start(Billing billing, PaymentAuthorization authorization) {
+    if (billing.getPurpose() != BillingPurpose.REACTIVATION)
+      throw new ReactivationBillingNotAllowedException("정기 청구는 고객 재활성화 결제로 실행할 수 없습니다.");
     if (billing.getStatus() == BillingStatus.PAID) {
       throw new BillingAlreadyPaidException("이미 결제가 완료된 청구입니다.");
+    }
+    if (billing.getStatus() == BillingStatus.CANCELLED) {
+      throw new ReactivationBillingNotAllowedException("보상 취소가 완료된 청구입니다. 새 청구를 준비해 주세요.");
     }
     var processing = findProcessingPaymentPort.findProcessing(billing.getId());
     LocalDateTime now = LocalDateTime.now(clock);
@@ -71,7 +71,7 @@ public class PayBillingService implements PayBillingUseCase {
       throw new PaymentInProgressException(processing.get().getId());
     }
     if (billing.getStatus() == BillingStatus.EXPIRED) {
-      throw new BillingExpiredException("만료된 청구입니다. 새 청구를 준비해 주세요.");
+      return null;
     }
     Subscription subscription =
         loadSubscriptionPort
@@ -92,11 +92,12 @@ public class PayBillingService implements PayBillingUseCase {
     if (billing.isPaymentWindowClosed(now)) {
       billing.expireIfDue(now, false);
       saveBillingPort.save(billing);
-      throw new BillingExpiredException("만료된 청구입니다. 새 청구를 준비해 주세요.");
+      return null;
     }
     subscription.validatePaidReactivation(now.toLocalDate());
     Payment payment = Payment.start(billing.getId(), billing.getAmount(), now);
-    savePaymentPort.save(payment);
+    if (authorization == null) savePaymentPort.saveNew(payment);
+    else savePaymentPort.saveAuthorized(payment, authorization);
     return payment;
   }
 

@@ -1,6 +1,10 @@
 spring:
   application:
     name: beans-on-time
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/beans-on-time}
+    username: ${DB_USERNAME:user}
+    password: ${DB_PASSWORD:password}
   docker:
     compose:
       enabled: true

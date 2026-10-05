@@ -10,11 +10,20 @@ import java.util.Optional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
+@org.springframework.context.annotation.Profile("in-memory")
 @Component
 @RequiredArgsConstructor
 public class InMemoryBillingAdapter
-    implements SaveBillingPort, LoadBillingPort, FindPendingBillingPort {
+    implements SaveBillingPort,
+        LoadBillingPort,
+        FindPendingBillingPort,
+        com.bluetoya.beansontime.billing.application.port.out.FindRecurringBillingPort {
   private final InMemoryBillingRepository billingRepository;
+
+  @Override
+  public void saveNew(Billing billing) {
+    save(billing);
+  }
 
   @Override
   public void save(Billing billing) {
@@ -29,5 +38,10 @@ public class InMemoryBillingAdapter
   @Override
   public Optional<Billing> findPending(SubscriptionId subscriptionId) {
     return billingRepository.findPendingBySubscriptionId(subscriptionId);
+  }
+
+  @Override
+  public Optional<Billing> findRecurring(SubscriptionId id, java.time.LocalDate dueDate) {
+    return billingRepository.findRecurring(id, dueDate);
   }
 }

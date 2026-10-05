@@ -9,6 +9,7 @@ import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import org.springframework.stereotype.Repository;
 
+@org.springframework.context.annotation.Profile("in-memory")
 @Repository
 public class InMemoryBillingRepository {
   private final Map<BillingId, Billing> billings = new ConcurrentHashMap<>();
@@ -25,6 +26,17 @@ public class InMemoryBillingRepository {
     return billings.values().stream()
         .filter(billing -> billing.getSubscriptionId().equals(subscriptionId))
         .filter(billing -> billing.getStatus() == BillingStatus.PENDING)
+        .findFirst();
+  }
+
+  public Optional<Billing> findRecurring(SubscriptionId id, java.time.LocalDate dueDate) {
+    return billings.values().stream()
+        .filter(
+            b ->
+                b.getSubscriptionId().equals(id)
+                    && b.getPurpose()
+                        == com.bluetoya.beansontime.billing.domain.BillingPurpose.RECURRING
+                    && b.getBillingDate().equals(dueDate))
         .findFirst();
   }
 }
