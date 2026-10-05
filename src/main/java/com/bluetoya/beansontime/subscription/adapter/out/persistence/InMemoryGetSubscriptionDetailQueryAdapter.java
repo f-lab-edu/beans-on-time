@@ -12,8 +12,10 @@ import com.bluetoya.beansontime.subscription.domain.Subscription;
 import com.bluetoya.beansontime.subscription.domain.SubscriptionId;
 import com.bluetoya.beansontime.subscription.domain.SubscriptionPeriod;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Component;
 
+@Profile("in-memory")
 @Component
 @RequiredArgsConstructor
 public class InMemoryGetSubscriptionDetailQueryAdapter implements GetSubscriptionDetailQueryPort {

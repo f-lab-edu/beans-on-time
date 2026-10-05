@@ -11,6 +11,7 @@ import com.bluetoya.beansontime.product.domain.Money;
 import com.bluetoya.beansontime.product.domain.Product;
 import com.bluetoya.beansontime.product.domain.ProductId;
 import com.bluetoya.beansontime.seller.domain.SellerId;
+import com.bluetoya.beansontime.subscription.adapter.out.persistence.InMemorySubscriptionAdapter;
 import com.bluetoya.beansontime.subscription.adapter.out.persistence.InMemorySubscriptionRepository;
 import com.bluetoya.beansontime.subscription.domain.DeliveryCycle;
 import com.bluetoya.beansontime.subscription.domain.DeliveryCycleUnit;
@@ -41,7 +42,9 @@ class InMemoryGetBillingCheckoutQueryAdapterTest {
     billingRepository.save(billing);
     InMemoryGetBillingCheckoutQueryAdapter adapter =
         new InMemoryGetBillingCheckoutQueryAdapter(
-            billingRepository, subscriptionRepository, productRepository);
+            billingRepository,
+            new InMemorySubscriptionAdapter(subscriptionRepository),
+            new InMemoryProductAdapter(productRepository));
 
     BillingCheckoutDetail detail = adapter.get(billing.getId());
 

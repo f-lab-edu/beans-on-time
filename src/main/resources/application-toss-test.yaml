@@ -1,0 +1,7 @@
+payment:
+  toss:
+    client-key: ${TOSS_TEST_CLIENT_KEY:}
+    secret-key: ${TOSS_TEST_SECRET_KEY:}
+logging:
+  level:
+    org.springframework.security: INFO

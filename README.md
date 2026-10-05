@@ -46,9 +46,9 @@ Beans on Time은 도메인 주도 설계와 헥사고날 아키텍처를 기반�
 - Spring MVC, Spring Security
 - Gradle 9.x
 
-현재 도메인 저장은 InMemory 어댑터를 사용한다. Spring Data JDBC, MySQL과 Flyway는
-빌드 의존성에 포함되어 있지만 도메인 영속화는 후속 범위다. Virtual Thread 사용은 현재
-프로젝트 설정에 명시되어 있지 않다.
+상품·구독·청구·결제는 PostgreSQL 17과 Spring JDBC `JdbcClient`로 영속화하고, Flyway로 스키마를
+관리한다. 도메인은 영속성 어노테이션을 사용하지 않는다.
+Virtual Thread 사용은 현재 프로젝트 설정에 명시되어 있지 않다.
 
 ## 현재 상태
 
@@ -64,11 +64,45 @@ Payment로 재시도하고, 미확정 시에는 새 시도를 막고 결과를 �
 상품의 청구 준비·결제 시작을 차단하며 Billing은 생성 후 10분 동안 결제를 시작할 수 있다.
 진행 중 Payment가 있으면 기한이 지나도 결과를 기다린다.
 
-현재 동시 실행 제어는 단일 프로세스 InMemory 잠금이다. MySQL 영속화와 DB 미반영 확인 후
-보상 취소는 다음 피처에서 구현하며, 합의한 요구사항은 청구·결제 도메인 문서에 기록했다.
-실제 PG·웹훅 연동, 자동 정기결제와 고객 요청 환불·취소는 후속 범위다. 결과 조회는 기본 30초
+상품·구독·청구·결제 변경은 상품 행 잠금과 DB 트랜잭션으로 조율한다. 외부 호출 전에
+PROCESSING 시도를 커밋하고 Payment 성공·Billing 완료·Subscription 활성화를 함께 반영한다.
+미완료 결제 이력은 DB에서 다시 읽어 결과를 확인한다. Fake Gateway의 외부 결과 자체는
+메모리이므로 프로세스 재시작 후 PG 결과 복구를 보장하지 않는다.
+토스 테스트 프로필에서는 승인 증거를 저장하고 DB 미반영 확인 후 전액 보상 취소를 복구한다.
+보상 완료 시 기존 청구를 종료하고 새 청구에서 현재 가격으로 재결제한다.
+PG는 테스트 환경만 사용하며 라이브 환경·실제 금액 거래는 제외한다. 웹훅, 자동 정기결제와 고객 요청 환불·취소는 후속 범위다. 결과 조회는 기본 30초
 간격이며 `payment.reconciliation.delay-ms`와 `payment.reconciliation.enabled`로 설정한다.
 
 확정된 규칙과 후속 범위는 [프로젝트 문서](docs/README.md),
 [구독 도메인 규칙](docs/domain/subscription.md), [청구·결제 도메인 규칙](docs/domain/billing-payment.md)을
 기준으로 한다.
+
+## 로컬 실행과 검증
+
+Java 25와 Docker가 필요하다. 기본 구성은 PostgreSQL을 사용한다.
+
+```sh
+./gradlew bootRun
+```
+
+Spring Boot Docker Compose가 `compose.yaml`의 PostgreSQL을 시작한다. 데이터는
+`postgres-data` 볼륨에 남고 앱 시작 시 Flyway가 `db/migration`을 적용한다.
+기존 MySQL 볼륨의 삭제나 데이터 이관은 수행하지 않는다. 도메인 데이터는 기존에
+InMemory였으므로 처음에는 빈 DB에서 시작한다.
+
+별도 PostgreSQL을 사용할 때는 `DB_URL`, `DB_USERNAME`, `DB_PASSWORD`를 설정하고
+`SPRING_DOCKER_COMPOSE_ENABLED=false`로 Compose 자동 시작을 끈다.
+
+```sh
+./gradlew spotlessCheck test
+```
+
+통합 테스트는 Testcontainers PostgreSQL을 사용하며 로컬 개발 DB를 변경하지 않는다.
+DB가 필요 없는 기존 API 테스트는 `in-memory` 프로필을 명시적으로 사용한다.
+자세한 저장 범위와 실행 경계는 [영속화 결정](docs/adr/persistence.md)을 따른다.
+
+## 토스 테스트 결제
+
+`toss-test` 프로필에서만 토스 테스트 승인·조회·전액 보상 취소를 사용한다.
+설정과 결제창 실행은 [토스 테스트 실행 안내](docs/toss-test.md)를 따른다.
+기본 프로필은 Fake Gateway를 유지하며 라이브 키를 사용하는 구성은 제공하지 않는다.
