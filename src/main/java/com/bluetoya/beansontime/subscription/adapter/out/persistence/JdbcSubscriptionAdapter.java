@@ -34,10 +34,10 @@ public class JdbcSubscriptionAdapter
         insert into subscriptions (id, customer_id, product_id, delivery_cycle_unit,
           delivery_cycle_interval, started_date, billing_anchor_day, current_period_start_date,
           current_period_end_date, remaining_paid_days, next_billing_date, paused_at,
-          scheduled_resume_date, lifecycle_status, suspension_reasons)
+          scheduled_resume_date, lifecycle_status, suspension_reasons, withdrawn_at)
         values (:id, :customerId, :productId, :unit, :interval, :startedDate, :anchor,
           :periodStart, :periodEnd, :remaining, :nextBillingDate, :pausedAt,
-          :scheduledResumeDate, :status, string_to_array(:reasons, ','))
+          :scheduledResumeDate, :status, string_to_array(:reasons, ','), :withdrawnAt)
         """),
             subscription)
         .param("customerId", subscription.getCustomerId().value())
@@ -58,7 +58,7 @@ public class JdbcSubscriptionAdapter
           current_period_start_date = :periodStart, current_period_end_date = :periodEnd,
           remaining_paid_days = :remaining, next_billing_date = :nextBillingDate,
           paused_at = :pausedAt, scheduled_resume_date = :scheduledResumeDate,
-          lifecycle_status = :status, suspension_reasons = string_to_array(:reasons, ',')
+          lifecycle_status = :status, suspension_reasons = string_to_array(:reasons, ','), withdrawn_at = :withdrawnAt
         where id = :id
         """),
                 subscription)
@@ -78,6 +78,10 @@ public class JdbcSubscriptionAdapter
         .param("nextBillingDate", s.getNextBillingDate(), Types.DATE)
         .param("pausedAt", pausedAt, Types.TIMESTAMP)
         .param("scheduledResumeDate", s.getScheduledResumeDate(), Types.DATE)
+        .param(
+            "withdrawnAt",
+            s.getWithdrawnAt() == null ? null : s.getWithdrawnAt().truncatedTo(ChronoUnit.MICROS),
+            Types.TIMESTAMP)
         .param("status", s.getLifecycleStatus().name())
         .param(
             "reasons",

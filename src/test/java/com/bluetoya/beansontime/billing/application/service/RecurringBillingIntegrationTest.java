@@ -39,7 +39,11 @@ import org.testcontainers.junit.jupiter.*;
 import org.testcontainers.postgresql.PostgreSQLContainer;
 
 @SpringBootTest(
-    properties = {"payment.reconciliation.enabled=false", "billing.recurring.enabled=false"})
+    properties = {
+      "payment.reconciliation.enabled=false",
+      "billing.recurring.enabled=false",
+      "refund.reconciliation.enabled=false"
+    })
 @AutoConfigureMockMvc
 @Testcontainers
 @Import(RecurringBillingIntegrationTest.TimeConfig.class)
@@ -58,6 +62,35 @@ class RecurringBillingIntegrationTest {
   @Autowired MockMvc mvc;
   @MockitoSpyBean FakePaymentGatewayAdapter gateway;
   private static final LocalDate DATE = LocalDate.of(2026, 10, 4);
+
+  @Autowired com.bluetoya.beansontime.refund.application.service.RefundProcessor refundProcessor;
+  @Autowired com.bluetoya.beansontime.refund.application.port.out.RefundStore refunds;
+
+  @Test
+  void approvalAfterWithdrawalCreatesDurableRefundWithoutReopeningSubscription() {
+    var subscription = subscribe(DATE.minusMonths(1));
+    gateway.failNext();
+    run.runDue();
+    var billing = billing(subscription);
+    var payment = payment(billing);
+    var current = subscriptions.load(subscription.getId()).orElseThrow();
+    current.withdraw(DATE.atTime(10, 0));
+    subscriptions.save(current);
+    gateway.approvePending(payment.getId(), "late-withdrawal-approval");
+    resolver.resolve(payment.getId());
+    assertThat(payments.load(payment.getId()).orElseThrow().getStatus())
+        .isEqualTo(PaymentStatus.SUCCESS);
+    assertThat(refunds.find(payment.getId())).isPresent();
+    refundProcessor.process(payment.getId());
+    refundProcessor.process(payment.getId());
+    assertThat(refunds.find(payment.getId()).orElseThrow().isCompleted()).isTrue();
+    assertThat(billings.load(billing.getId()).orElseThrow().getStatus())
+        .isEqualTo(BillingStatus.REFUNDED);
+    var withdrawn = subscriptions.load(subscription.getId()).orElseThrow();
+    assertThat(withdrawn.getLifecycleStatus()).isEqualTo(SubscriptionStatus.CANCELLED);
+    assertThat(withdrawn.getCurrentPeriod()).isNull();
+    assertThat(withdrawn.getWithdrawnAt()).isEqualTo(DATE.atTime(10, 0));
+  }
 
   @TestConfiguration
   static class TimeConfig {

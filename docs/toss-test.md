@@ -18,7 +18,7 @@ Java 25와 Docker를 준비하고 두 환경 변수가 설정된 터미널에서
 ./gradlew bootRun --args='--spring.profiles.active=toss-test'
 ```
 
-Compose가 PostgreSQL 17을 시작하고 Flyway V1~V4를 적용한다. DB를 직접 관리한다면
+Compose가 PostgreSQL 17을 시작하고 Flyway V1~V5를 적용한다. DB를 직접 관리한다면
 기존 `DB_URL`, `DB_USERNAME`, `DB_PASSWORD` 설정을 사용한다.
 
 ## 결제창부터 결과 확인까지

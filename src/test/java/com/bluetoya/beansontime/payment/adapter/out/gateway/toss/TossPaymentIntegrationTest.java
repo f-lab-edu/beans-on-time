@@ -41,6 +41,7 @@ import tools.jackson.databind.json.JsonMapper;
 @SpringBootTest(
     properties = {
       "payment.reconciliation.enabled=false",
+      "refund.reconciliation.enabled=false",
       "payment.toss.client-key=test_ck_fixture",
       "payment.toss.secret-key=test_sk_fixture"
     })
@@ -71,6 +72,39 @@ class TossPaymentIntegrationTest {
   private Billing billing;
   private String order;
   private final String key = "test_payment_key_" + UUID.randomUUID();
+
+  @Autowired com.bluetoya.beansontime.refund.application.service.RefundProcessor refundProcessor;
+  @Autowired com.bluetoya.beansontime.refund.application.port.out.RefundStore refunds;
+
+  @Test
+  void withdrawnSubscriptionReturnsLateApprovalAndRecoversLostRefundResponse() {
+    var payment = pending();
+    var subscription = subscriptions.load(billing.getSubscriptionId()).orElseThrow();
+    subscription.withdraw(NOW);
+    subscriptions.save(subscription);
+    completion.complete(
+        payment.getId(), PaymentGatewayResult.approved(done().lastTransactionKey(), NOW));
+    var refund = refunds.find(payment.getId()).orElseThrow();
+    when(client.find(key)).thenReturn(done());
+    when(client.cancel(eq(key), anyString(), eq(refund.idempotencyKey())))
+        .thenThrow(new TossTestApiException(0, "LOST_RESPONSE"));
+    assertThatThrownBy(() -> refundProcessor.process(payment.getId()))
+        .isInstanceOf(
+            com.bluetoya.beansontime.payment.application.exception
+                .PaymentGatewayUnavailableException.class);
+    assertThat(refunds.find(payment.getId()).orElseThrow().isCompleted()).isFalse();
+    when(client.find(key)).thenReturn(cancelled());
+    refundProcessor.process(payment.getId());
+    refundProcessor.process(payment.getId());
+    assertThat(refunds.find(payment.getId()).orElseThrow().isCompleted()).isTrue();
+    assertThat(billings.load(billing.getId()).orElseThrow().getStatus())
+        .isEqualTo(BillingStatus.REFUNDED);
+    assertThat(payments.load(payment.getId()).orElseThrow().getStatus())
+        .isEqualTo(PaymentStatus.SUCCESS);
+    assertThat(subscriptions.load(subscription.getId()).orElseThrow().getLifecycleStatus())
+        .isEqualTo(SubscriptionStatus.CANCELLED);
+    verify(client, times(1)).cancel(eq(key), anyString(), eq(refund.idempotencyKey()));
+  }
 
   @TestConfiguration
   static class TimeConfig {

@@ -13,6 +13,17 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 
 @RestControllerAdvice
 public class SubscriptionExceptionHandler {
+  @ExceptionHandler(
+      com.bluetoya.beansontime.subscription.application.exception.WithdrawalNotFoundException.class)
+  ProblemDetail handleWithdrawalNotFound(
+      com.bluetoya.beansontime.subscription.application.exception.WithdrawalNotFoundException
+          exception) {
+    ProblemDetail problem = ProblemDetail.forStatus(HttpStatus.NOT_FOUND);
+    problem.setTitle("구독 철회 내역을 찾을 수 없음");
+    problem.setDetail(exception.getMessage());
+    return problem;
+  }
+
   @ExceptionHandler(SubscriptionNotFoundException.class)
   ProblemDetail handleSubscriptionNotFound(SubscriptionNotFoundException exception) {
     ProblemDetail problem = ProblemDetail.forStatus(HttpStatus.NOT_FOUND);

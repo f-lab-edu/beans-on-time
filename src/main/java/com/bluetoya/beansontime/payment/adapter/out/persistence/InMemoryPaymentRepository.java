@@ -43,6 +43,10 @@ public class InMemoryPaymentRepository {
         .toList();
   }
 
+  public List<Payment> findAll() {
+    return List.copyOf(payments.values());
+  }
+
   public boolean hasAttempt(BillingId id) {
     return payments.values().stream().anyMatch(p -> p.getBillingId().equals(id));
   }

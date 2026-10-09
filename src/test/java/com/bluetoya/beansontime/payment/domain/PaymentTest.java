@@ -18,7 +18,8 @@ class PaymentTest {
   @Test
   void createsASuccessfulPaymentWithATransactionId() {
     Payment payment =
-        Payment.succeeded(new BillingId(1), new Money(30000), "transaction-1", ATTEMPTED_AT);
+        Payment.succeeded(
+            new BillingId(1), new Money(30000), "transaction-1", ATTEMPTED_AT, ATTEMPTED_AT);
 
     assertThat(payment.getStatus()).isEqualTo(PaymentStatus.SUCCESS);
     assertThat(payment.getAmount()).isEqualTo(new Money(30000));
@@ -37,7 +38,10 @@ class PaymentTest {
   @Test
   void rejectsASuccessfulPaymentWithoutATransactionId() {
     assertThatIllegalArgumentException()
-        .isThrownBy(() -> Payment.succeeded(new BillingId(1), new Money(30000), " ", ATTEMPTED_AT));
+        .isThrownBy(
+            () ->
+                Payment.succeeded(
+                    new BillingId(1), new Money(30000), " ", ATTEMPTED_AT, ATTEMPTED_AT));
   }
 
   @Test
@@ -45,10 +49,10 @@ class PaymentTest {
     Payment payment = Payment.start(new BillingId(1), new Money(30000), ATTEMPTED_AT);
     assertThat(payment.getStatus()).isEqualTo(PaymentStatus.PROCESSING);
     assertThat(payment.getTransactionId()).isNull();
-    payment.succeed("approval");
-    payment.succeed("approval");
+    payment.succeed("approval", ATTEMPTED_AT);
+    payment.succeed("approval", ATTEMPTED_AT);
     assertThatThrownBy(payment::fail).isInstanceOf(InvalidPaymentStateChangeException.class);
-    assertThatThrownBy(() -> payment.succeed("different"))
+    assertThatThrownBy(() -> payment.succeed("different", ATTEMPTED_AT))
         .isInstanceOf(InvalidPaymentStateChangeException.class);
     assertThat(payment.getStatus()).isEqualTo(PaymentStatus.SUCCESS);
     assertThat(payment.getTransactionId()).isEqualTo("approval");
@@ -59,7 +63,7 @@ class PaymentTest {
     Payment payment = Payment.start(new BillingId(1), new Money(30000), ATTEMPTED_AT);
     payment.fail();
     payment.fail();
-    assertThatThrownBy(() -> payment.succeed("approval"))
+    assertThatThrownBy(() -> payment.succeed("approval", ATTEMPTED_AT))
         .isInstanceOf(InvalidPaymentStateChangeException.class);
     assertThat(payment.getStatus()).isEqualTo(PaymentStatus.FAILED);
   }

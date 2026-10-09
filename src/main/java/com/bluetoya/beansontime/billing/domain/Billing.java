@@ -135,8 +135,17 @@ public class Billing {
     status = BillingStatus.CANCELLED;
   }
 
+  public void refund() {
+    if (status == BillingStatus.REFUNDED) return;
+    if (status != BillingStatus.PAID)
+      throw new InvalidBillingStateChangeException("완료된 청구만 환불할 수 있습니다.");
+    status = BillingStatus.REFUNDED;
+  }
+
   public void markPaid() {
-    if (status == BillingStatus.EXPIRED || status == BillingStatus.CANCELLED) {
+    if (status == BillingStatus.EXPIRED
+        || status == BillingStatus.CANCELLED
+        || status == BillingStatus.REFUNDED) {
       throw new InvalidBillingStateChangeException("만료된 청구는 결제 완료할 수 없습니다.");
     }
     this.status = BillingStatus.PAID;

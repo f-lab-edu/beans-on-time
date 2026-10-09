@@ -131,7 +131,9 @@ class PayBillingServiceTest {
             billings,
             saveSubscription,
             execution,
-            clock);
+            clock,
+            new com.bluetoya.beansontime.refund.adapter.out.persistence.InMemoryRefundAdapter(
+                payments, billings));
     resolver = new PaymentResultResolver(payments, gateway, completion);
     service = serviceWith(gateway);
     prepare =

@@ -18,7 +18,10 @@ import org.springframework.stereotype.Component;
 @org.springframework.context.annotation.Profile("!toss-test")
 @Component
 @RequiredArgsConstructor
-public class FakePaymentGatewayAdapter implements PaymentGateway, FindGatewayPaymentPort {
+public class FakePaymentGatewayAdapter
+    implements PaymentGateway,
+        FindGatewayPaymentPort,
+        com.bluetoya.beansontime.refund.application.port.out.RefundGateway {
   private final Clock clock;
   private final Map<PaymentId, PaymentGatewayRequest> requests = new HashMap<>();
   private final Map<PaymentId, PaymentGatewayResult> results = new HashMap<>();
@@ -71,6 +74,26 @@ public class FakePaymentGatewayAdapter implements PaymentGateway, FindGatewayPay
       throw new IllegalStateException("결과가 미확정인 결제만 확정할 수 있습니다.");
     }
     results.put(paymentId, result);
+  }
+
+  private final Map<
+          UUID, com.bluetoya.beansontime.refund.application.port.out.RefundGateway.Receipt>
+      refunds = new HashMap<>();
+
+  public synchronized Optional<
+          com.bluetoya.beansontime.refund.application.port.out.RefundGateway.Receipt>
+      refundOrFind(com.bluetoya.beansontime.refund.domain.Refund refund) {
+    var result = results.get(refund.paymentId());
+    // 재시작으로 원승인 증거가 사라지면 반환 성공을 만들어내지 않는다.
+    if (result == null
+        || !result.successful()
+        || !result.transactionId().equals(refund.approvalTransactionId())) return Optional.empty();
+    return Optional.of(
+        refunds.computeIfAbsent(
+            refund.id(),
+            id ->
+                new com.bluetoya.beansontime.refund.application.port.out.RefundGateway.Receipt(
+                    "fake_refund_" + id, LocalDateTime.now(clock))));
   }
 
   public synchronized void approveNext(String transactionId) {

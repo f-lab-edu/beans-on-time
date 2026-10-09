@@ -4,5 +4,6 @@ public enum BillingStatus {
   PENDING,
   EXPIRED,
   CANCELLED,
+  REFUNDED,
   PAID
 }

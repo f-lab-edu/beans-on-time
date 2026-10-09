@@ -28,8 +28,9 @@ public class PreparePaymentCheckoutService implements PreparePaymentCheckoutUseC
             throw new ReactivationBillingNotAllowedException("정기 청구는 고객 재활성화 결제로 실행할 수 없습니다.");
           if (billing.getStatus() == BillingStatus.PAID)
             throw new BillingAlreadyPaidException("이미 결제가 완료된 청구입니다.");
-          if (billing.getStatus() == BillingStatus.CANCELLED)
-            throw new ReactivationBillingNotAllowedException("보상 취소가 완료된 청구입니다. 새 청구를 준비해 주세요.");
+          if (billing.getStatus() == BillingStatus.CANCELLED
+              || billing.getStatus() == BillingStatus.REFUNDED)
+            throw new ReactivationBillingNotAllowedException("취소 또는 환불이 완료된 청구입니다.");
           var processing = payments.findProcessing(id);
           if (processing.isPresent())
             throw new PaymentInProgressException(processing.get().getId());

@@ -35,6 +35,7 @@ public class Subscription {
   private LocalDateTime pausedAt;
   private LocalDate scheduledResumeDate;
   private SubscriptionStatus lifecycleStatus;
+  private LocalDateTime withdrawnAt;
 
   public Subscription(
       CustomerId customerId,
@@ -117,6 +118,49 @@ public class Subscription {
         scheduledResumeDate,
         lifecycleStatus,
         suspensionReasons);
+  }
+
+  public static Subscription restore(
+      SubscriptionId id,
+      CustomerId customerId,
+      ProductId productId,
+      DeliveryCycle deliveryCycle,
+      LocalDate startedDate,
+      BillingAnchorDay billingAnchorDay,
+      SubscriptionPeriod currentPeriod,
+      Integer remainingPaidDays,
+      LocalDate nextBillingDate,
+      LocalDateTime pausedAt,
+      LocalDate scheduledResumeDate,
+      SubscriptionStatus lifecycleStatus,
+      Set<SubscriptionSuspensionReason> suspensionReasons,
+      LocalDateTime withdrawnAt) {
+    var subscription =
+        restore(
+            id,
+            customerId,
+            productId,
+            deliveryCycle,
+            startedDate,
+            billingAnchorDay,
+            currentPeriod,
+            remainingPaidDays,
+            nextBillingDate,
+            pausedAt,
+            scheduledResumeDate,
+            lifecycleStatus,
+            suspensionReasons);
+    if (withdrawnAt != null && lifecycleStatus != SubscriptionStatus.CANCELLED)
+      throw new InvalidSubscriptionPeriodStateException("철회 시각은 종료된 구독에만 존재할 수 있습니다.");
+    subscription.withdrawnAt = withdrawnAt;
+    return subscription;
+  }
+
+  public void withdraw(LocalDateTime requestedAt) {
+    Objects.requireNonNull(requestedAt);
+    if (lifecycleStatus == SubscriptionStatus.CANCELLED) return;
+    cancel();
+    withdrawnAt = requestedAt;
   }
 
   private void validateRestoredState() {

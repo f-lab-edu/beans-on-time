@@ -83,3 +83,14 @@ RECURRING 청구에만 `(subscription_id, billing_date)` 부분 UNIQUE 인덱스
 순서로 같은 순서를 따른다. OFFSET을 사용하지 않아 성공 후 대상에서 빠진 건 때문에 다음
 대상을 건너뛰지 않는다. 실행별 스냅샷 격리나 전체 실행의 단일 트랜잭션을 제공하지는 않는다.
 조회 도중 새로 대상이 된 앞쪽 ID의 구독은 다음 실행에서 처리한다.
+
+
+## feature/13 환불 기반 영속화
+
+V5는 Payment 승인 시각, Subscription 철회 시각과 별도 refunds 테이블을 추가한다.
+원결제 ID에 UNIQUE 제약을 두고 반환 거래 ID와 완료 시각의 동시 존재를 검사한다.
+기존 성공 결제의 승인 시각은 payment_approvals 증거가 있는 경우에만 이관한다.
+subscription_withdrawals는 구독별 최초 접수 시각·일반 환불 대상·판단 결과를 보존한다.
+구독 철회와 환불 요청 생성은 함께 커밋하고, 외부 반환 확인 후 Refund 완료와 Billing
+REFUNDED를 함께 커밋한다. 최신 성공 결제 조회는 승인 시각 기준이며 승인 시각 미상은
+자동 선정 중단을 위해 우선 반환한다.

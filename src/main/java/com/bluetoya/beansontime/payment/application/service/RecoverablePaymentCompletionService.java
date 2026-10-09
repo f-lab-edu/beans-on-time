@@ -58,8 +58,17 @@ public class RecoverablePaymentCompletionService implements PaymentCompletion {
             () -> {
               var payment = payment(id);
               var approval = approvals.load(id).orElseThrow();
-              if (payment.getStatus() != PaymentStatus.PROCESSING
-                  || approval.phase() == PaymentApproval.Phase.REVIEW) return false;
+              if (payment.getStatus() != PaymentStatus.PROCESSING) return false;
+              var billing = billings.load(payment.getBillingId()).orElseThrow();
+              var subscription = subscriptions.load(billing.getSubscriptionId()).orElseThrow();
+              if (subscription.getWithdrawnAt() != null) {
+                // 보상 취소 결정 전이면 고객 철회에 따른 반환으로 마무리한다.
+                completion.complete(
+                    id,
+                    PaymentGatewayResult.approved(approval.transactionId(), approval.approvedAt()));
+                return false;
+              }
+              if (approval.phase() == PaymentApproval.Phase.REVIEW) return false;
               if (approval.phase() == PaymentApproval.Phase.READY) {
                 if (!validForApplication(approval)) return false;
                 approvals.save(approval.beginApplication(LocalDateTime.now(clock)));
@@ -130,6 +139,9 @@ public class RecoverablePaymentCompletionService implements PaymentCompletion {
     if (approval.phase() != PaymentApproval.Phase.APPLYING || !validForApplication(approval))
       return;
     var payment = payment(approval.paymentId());
+    var billing = billings.load(payment.getBillingId()).orElseThrow();
+    if (subscriptions.load(billing.getSubscriptionId()).orElseThrow().getWithdrawnAt() != null)
+      return;
     payment.requestCompensation(approval.transactionId());
     approvals.save(approval.decideCancellation(LocalDateTime.now(clock)));
     savePayments.save(payment);
@@ -138,6 +150,7 @@ public class RecoverablePaymentCompletionService implements PaymentCompletion {
   private boolean validForApplication(PaymentApproval approval) {
     var billing = billings.load(payment(approval.paymentId()).getBillingId()).orElseThrow();
     var subscription = subscriptions.load(billing.getSubscriptionId()).orElseThrow();
+    if (subscription.getWithdrawnAt() != null) return true;
     try {
       subscription.validatePaidReactivation(approval.approvedAt().toLocalDate());
       return true;

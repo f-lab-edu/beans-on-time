@@ -405,8 +405,10 @@ CANCELLED -> CANCELLED
 ```
 
 취소하면 `currentPeriod`, `remainingPaidDays`, `nextBillingDate`, `pausedAt`,
-`scheduledResumeDate`를 모두 비운다. 남은 선결제 기간의 환불 또는 소멸 정책은 아직
-확정하지 않는다.
+`scheduledResumeDate`를 모두 비운다. feature/13의 고객 철회는 `withdraw(requestedAt)`로
+최초 철회 시각을 함께 보존하고 남은 이용권을 즉시 소멸시킨다. 재이용은 새 구독으로 진행한다.
+기존 `cancel()`로 종료된 이력에는 철회 시각을 추정하여 채우지 않는다.
+환불 대상과 처리 범위는 `docs/domain/billing-payment.md`의 feature/13 절을 따른다.
 
 ### 예외와 HTTP 상태
 
