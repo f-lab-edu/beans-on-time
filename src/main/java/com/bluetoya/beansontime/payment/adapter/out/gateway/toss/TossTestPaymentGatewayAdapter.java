@@ -10,7 +10,10 @@ import lombok.RequiredArgsConstructor;
 
 @RequiredArgsConstructor
 public class TossTestPaymentGatewayAdapter
-    implements PaymentGateway, FindGatewayPaymentPort, CancelGatewayPaymentPort {
+    implements PaymentGateway,
+        FindGatewayPaymentPort,
+        CancelGatewayPaymentPort,
+        com.bluetoya.beansontime.refund.application.port.out.RefundGateway {
   private final TossTestPaymentClient client;
   private final PaymentCheckoutPort checkouts;
   private final LoadPaymentPort payments;
@@ -98,6 +101,52 @@ public class TossTestPaymentGatewayAdapter
         || cancel.canceledAt() == null
         || !cancel.transactionKey().equals(response.lastTransactionKey())) return Optional.empty();
     return Optional.of(new CancellationReceipt(cancel.transactionKey(), kst(cancel.canceledAt())));
+  }
+
+  public Optional<com.bluetoya.beansontime.refund.application.port.out.RefundGateway.Receipt>
+      refundOrFind(com.bluetoya.beansontime.refund.domain.Refund refund) {
+    var payment = payments.load(refund.paymentId()).orElseThrow();
+    var auth = checkouts.load(refund.paymentId());
+    var response = call(() -> client.find(auth.paymentKey()));
+    validate(payment, auth, response);
+    var found = refundReceipt(refund, response);
+    if (found.isPresent()) return found;
+    if (!"DONE".equals(response.status())
+        || !response.cancels().isEmpty()
+        || response.balanceAmount() == null
+        || response.balanceAmount() != refund.amount().price()
+        || !refund.approvalTransactionId().equals(response.lastTransactionKey())
+        || response.approvedAt() == null
+        || !refund.approvedAt().equals(kst(response.approvedAt()))) return Optional.empty();
+    // 기존 보상 취소와 동일하게 멱등키 보장 기간 이후에는 조회만 수행한다.
+    if (!LocalDateTime.now(clock).isBefore(refund.requestedAt().plusDays(15)))
+      return Optional.empty();
+    var cancelled =
+        call(() -> client.cancel(auth.paymentKey(), "구독 철회에 따른 전액 환불", refund.idempotencyKey()));
+    validate(payment, auth, cancelled);
+    return refundReceipt(refund, cancelled);
+  }
+
+  private Optional<com.bluetoya.beansontime.refund.application.port.out.RefundGateway.Receipt>
+      refundReceipt(
+          com.bluetoya.beansontime.refund.domain.Refund refund,
+          TossTestPaymentClient.PaymentResponse response) {
+    if (!"CANCELED".equals(response.status())
+        || response.balanceAmount() == null
+        || response.balanceAmount() != 0
+        || response.approvedAt() == null
+        || !refund.approvedAt().equals(kst(response.approvedAt()))
+        || response.cancels().size() != 1) return Optional.empty();
+    var cancel = response.cancels().getFirst();
+    if (!"DONE".equals(cancel.cancelStatus())
+        || cancel.cancelAmount() == null
+        || cancel.cancelAmount() != refund.amount().price()
+        || !valid(cancel.transactionKey())
+        || cancel.canceledAt() == null
+        || !cancel.transactionKey().equals(response.lastTransactionKey())) return Optional.empty();
+    return Optional.of(
+        new com.bluetoya.beansontime.refund.application.port.out.RefundGateway.Receipt(
+            cancel.transactionKey(), kst(cancel.canceledAt())));
   }
 
   private void validate(

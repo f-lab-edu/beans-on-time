@@ -15,6 +15,7 @@ public class Payment {
   private volatile PaymentStatus status;
   private String transactionId;
   private final LocalDateTime attemptedAt;
+  private LocalDateTime approvedAt;
 
   private Payment(
       BillingId billingId,
@@ -54,24 +55,32 @@ public class Payment {
       Money amount,
       PaymentStatus status,
       String transactionId,
-      LocalDateTime attemptedAt) {
-    return new Payment(id, billingId, amount, status, transactionId, attemptedAt);
+      LocalDateTime attemptedAt,
+      LocalDateTime approvedAt) {
+    var payment = new Payment(id, billingId, amount, status, transactionId, attemptedAt);
+    if (approvedAt != null && status != PaymentStatus.SUCCESS)
+      throw new IllegalArgumentException("성공 결제에만 승인 시각을 기록할 수 있습니다.");
+    payment.approvedAt = approvedAt;
+    return payment;
   }
 
   public static Payment start(BillingId billingId, Money amount, LocalDateTime attemptedAt) {
     return new Payment(billingId, amount, PaymentStatus.PROCESSING, null, attemptedAt);
   }
 
-  public void succeed(String transactionId) {
+  public void succeed(String transactionId, LocalDateTime approvedAt) {
+    Objects.requireNonNull(approvedAt, "승인 시각은 필수입니다.");
     if (transactionId == null || transactionId.isBlank()) {
       throw new IllegalArgumentException("성공한 결제의 거래 식별자는 필수입니다.");
     }
     if (status == PaymentStatus.SUCCESS && transactionId.equals(this.transactionId)) {
+      if (!approvedAt.equals(this.approvedAt)) throw new IllegalStateException("기존 승인 시각과 다릅니다.");
       return;
     }
     requireProcessing();
     this.transactionId = transactionId;
     this.status = PaymentStatus.SUCCESS;
+    this.approvedAt = approvedAt;
   }
 
   public void requestCompensation(String approvalTransactionId) {
@@ -106,12 +115,18 @@ public class Payment {
   }
 
   public static Payment succeeded(
-      BillingId billingId, Money amount, String transactionId, LocalDateTime attemptedAt) {
+      BillingId billingId,
+      Money amount,
+      String transactionId,
+      LocalDateTime attemptedAt,
+      LocalDateTime approvedAt) {
     if (transactionId == null || transactionId.isBlank()) {
       throw new IllegalArgumentException("성공한 결제의 거래 식별자는 필수입니다.");
     }
 
-    return new Payment(billingId, amount, PaymentStatus.SUCCESS, transactionId, attemptedAt);
+    var payment = start(billingId, amount, attemptedAt);
+    payment.succeed(transactionId, approvedAt);
+    return payment;
   }
 
   public static Payment failed(BillingId billingId, Money amount, LocalDateTime attemptedAt) {

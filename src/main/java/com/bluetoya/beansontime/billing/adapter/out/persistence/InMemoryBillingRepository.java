@@ -28,4 +28,15 @@ public class InMemoryBillingRepository {
         .filter(billing -> billing.getStatus() == BillingStatus.PENDING)
         .findFirst();
   }
+
+  public Optional<Billing> findRecurring(SubscriptionId id, java.time.LocalDate dueDate) {
+    return billings.values().stream()
+        .filter(
+            b ->
+                b.getSubscriptionId().equals(id)
+                    && b.getPurpose()
+                        == com.bluetoya.beansontime.billing.domain.BillingPurpose.RECURRING
+                    && b.getBillingDate().equals(dueDate))
+        .findFirst();
+  }
 }

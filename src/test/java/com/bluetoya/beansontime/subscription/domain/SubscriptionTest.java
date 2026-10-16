@@ -560,4 +560,23 @@ class SubscriptionTest {
   private long inclusiveDays(LocalDate startDate, LocalDate endDate) {
     return ChronoUnit.DAYS.between(startDate, endDate) + 1;
   }
+
+  @Test
+  void activeReactivationRequiresPaymentFailureAndAnExpiredPaidPeriod() {
+    var subscription = subscriptionStartedOn(LocalDate.of(2026, 9, 1));
+    var end = LocalDate.of(2026, 9, 30);
+    assertThat(subscription.isPaidReactivationTarget(end.plusDays(1))).isFalse();
+    subscription.recordRecurringPaymentDeclined(end.plusDays(1));
+    assertThat(subscription.isPaidReactivationTarget(end)).isFalse();
+    assertThat(subscription.isPaidReactivationTarget(end.plusDays(1))).isTrue();
+    assertThatThrownBy(() -> subscription.reactivateAfterPayment(end))
+        .isInstanceOf(
+            com.bluetoya.beansontime.subscription.domain.exception
+                .InvalidSubscriptionPaymentDateException.class);
+    subscription.addSuspensionReason(PRODUCT_UNAVAILABLE);
+    subscription.reactivateAfterPayment(LocalDate.of(2026, 10, 5));
+    assertThat(subscription.getCurrentPeriod().startDate()).isEqualTo(LocalDate.of(2026, 10, 5));
+    assertThat(subscription.getNextBillingDate()).isEqualTo(LocalDate.of(2026, 11, 5));
+    assertThat(subscription.getSuspensionReasons()).containsExactly(PRODUCT_UNAVAILABLE);
+  }
 }

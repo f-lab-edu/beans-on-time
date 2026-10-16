@@ -14,7 +14,10 @@ import org.springframework.stereotype.Component;
 @Component
 @RequiredArgsConstructor
 public class InMemoryBillingAdapter
-    implements SaveBillingPort, LoadBillingPort, FindPendingBillingPort {
+    implements SaveBillingPort,
+        LoadBillingPort,
+        FindPendingBillingPort,
+        com.bluetoya.beansontime.billing.application.port.out.FindRecurringBillingPort {
   private final InMemoryBillingRepository billingRepository;
 
   @Override
@@ -35,5 +38,10 @@ public class InMemoryBillingAdapter
   @Override
   public Optional<Billing> findPending(SubscriptionId subscriptionId) {
     return billingRepository.findPendingBySubscriptionId(subscriptionId);
+  }
+
+  @Override
+  public Optional<Billing> findRecurring(SubscriptionId id, java.time.LocalDate dueDate) {
+    return billingRepository.findRecurring(id, dueDate);
   }
 }

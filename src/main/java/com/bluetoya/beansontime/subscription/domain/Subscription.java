@@ -3,6 +3,7 @@ package com.bluetoya.beansontime.subscription.domain;
 import com.bluetoya.beansontime.customer.domain.CustomerId;
 import com.bluetoya.beansontime.product.domain.ProductId;
 import com.bluetoya.beansontime.subscription.domain.exception.InvalidSubscriptionPausePeriodException;
+import com.bluetoya.beansontime.subscription.domain.exception.InvalidSubscriptionPaymentDateException;
 import com.bluetoya.beansontime.subscription.domain.exception.InvalidSubscriptionPeriodStateException;
 import com.bluetoya.beansontime.subscription.domain.exception.InvalidSubscriptionResumeDateException;
 import com.bluetoya.beansontime.subscription.domain.exception.InvalidSubscriptionStateChangeException;
@@ -34,6 +35,7 @@ public class Subscription {
   private LocalDateTime pausedAt;
   private LocalDate scheduledResumeDate;
   private SubscriptionStatus lifecycleStatus;
+  private LocalDateTime withdrawnAt;
 
   public Subscription(
       CustomerId customerId,
@@ -116,6 +118,49 @@ public class Subscription {
         scheduledResumeDate,
         lifecycleStatus,
         suspensionReasons);
+  }
+
+  public static Subscription restore(
+      SubscriptionId id,
+      CustomerId customerId,
+      ProductId productId,
+      DeliveryCycle deliveryCycle,
+      LocalDate startedDate,
+      BillingAnchorDay billingAnchorDay,
+      SubscriptionPeriod currentPeriod,
+      Integer remainingPaidDays,
+      LocalDate nextBillingDate,
+      LocalDateTime pausedAt,
+      LocalDate scheduledResumeDate,
+      SubscriptionStatus lifecycleStatus,
+      Set<SubscriptionSuspensionReason> suspensionReasons,
+      LocalDateTime withdrawnAt) {
+    var subscription =
+        restore(
+            id,
+            customerId,
+            productId,
+            deliveryCycle,
+            startedDate,
+            billingAnchorDay,
+            currentPeriod,
+            remainingPaidDays,
+            nextBillingDate,
+            pausedAt,
+            scheduledResumeDate,
+            lifecycleStatus,
+            suspensionReasons);
+    if (withdrawnAt != null && lifecycleStatus != SubscriptionStatus.CANCELLED)
+      throw new InvalidSubscriptionPeriodStateException("철회 시각은 종료된 구독에만 존재할 수 있습니다.");
+    subscription.withdrawnAt = withdrawnAt;
+    return subscription;
+  }
+
+  public void withdraw(LocalDateTime requestedAt) {
+    Objects.requireNonNull(requestedAt);
+    if (lifecycleStatus == SubscriptionStatus.CANCELLED) return;
+    cancel();
+    withdrawnAt = requestedAt;
   }
 
   private void validateRestoredState() {
@@ -226,12 +271,33 @@ public class Subscription {
     this.lifecycleStatus = SubscriptionStatus.ACTIVE;
   }
 
-  public boolean isPaidReactivationTarget() {
+  private boolean isPausedReactivationTarget() {
     return lifecycleStatus == SubscriptionStatus.PAUSED
         && Integer.valueOf(0).equals(remainingPaidDays);
   }
 
+  public boolean isPaidReactivationTarget(LocalDate date) {
+    Objects.requireNonNull(date, "판단 날짜는 필수입니다.");
+    return isPausedReactivationTarget()
+        || (lifecycleStatus == SubscriptionStatus.ACTIVE
+            && suspensionReasons.contains(SubscriptionSuspensionReason.PAYMENT_FAILED)
+            && currentPeriod != null
+            && date.isAfter(currentPeriod.endDate()));
+  }
+
   public void validatePaidReactivation(LocalDate paymentDate) {
+    Objects.requireNonNull(paymentDate, "결제 성공일은 필수입니다.");
+    if (lifecycleStatus == SubscriptionStatus.ACTIVE) {
+      if (!suspensionReasons.contains(SubscriptionSuspensionReason.PAYMENT_FAILED))
+        throw new InvalidSubscriptionStateChangeException("결제 실패로 차단된 구독만 재활성화할 수 있습니다.");
+      if (currentPeriod == null
+          || nextBillingDate == null
+          || !currentPeriod.endDate().plusDays(1).equals(nextBillingDate))
+        throw new InvalidSubscriptionPeriodStateException("ACTIVE 구독의 이용 기간과 청구 예정일이 올바르지 않습니다.");
+      if (!paymentDate.isAfter(currentPeriod.endDate()))
+        throw new InvalidSubscriptionPaymentDateException("재활성화 승인일은 기존 이용 기간 종료일 이후여야 합니다.");
+      return;
+    }
     if (this.lifecycleStatus != SubscriptionStatus.PAUSED || this.remainingPaidDays == null) {
       throw new InvalidSubscriptionStateChangeException("결제로 재활성화할 수 없는 구독입니다.");
     }
@@ -239,8 +305,6 @@ public class Subscription {
     if (this.remainingPaidDays != 0) {
       throw new InvalidSubscriptionStateChangeException("남은 선결제 이용 기간이 있는 구독입니다.");
     }
-
-    Objects.requireNonNull(paymentDate, "결제 성공일은 필수입니다.");
 
     if (currentPeriod != null
         || pausedAt == null
@@ -250,7 +314,7 @@ public class Subscription {
     }
 
     if (paymentDate.isBefore(pausedAt.toLocalDate())) {
-      throw new InvalidSubscriptionResumeDateException("결제 성공일은 일시정지 요청일보다 빠를 수 없습니다.");
+      throw new InvalidSubscriptionPaymentDateException("결제 승인일은 일시정지 요청일보다 빠를 수 없습니다.");
     }
   }
 
@@ -271,10 +335,43 @@ public class Subscription {
   }
 
   public void recordReactivationPaymentDeclined() {
-    if (!isPaidReactivationTarget()) {
+    if (!isPausedReactivationTarget()) {
       return;
     }
     suspensionReasons.add(SubscriptionSuspensionReason.PAYMENT_FAILED);
+  }
+
+  public boolean isRecurringBillingDue(LocalDate date) {
+    Objects.requireNonNull(date, "처리 기준일은 필수입니다.");
+    return !isExecutionBlocked() && nextBillingDate != null && !nextBillingDate.isAfter(date);
+  }
+
+  public void validateRecurringPayment(LocalDate dueDate, LocalDate paymentDate) {
+    Objects.requireNonNull(dueDate, "청구 예정일은 필수입니다.");
+    Objects.requireNonNull(paymentDate, "승인일은 필수입니다.");
+    if (lifecycleStatus != SubscriptionStatus.ACTIVE || !dueDate.equals(nextBillingDate)) {
+      throw new InvalidSubscriptionStateChangeException("현재 구독 회차의 정기결제가 아닙니다.");
+    }
+    if (currentPeriod == null || !currentPeriod.endDate().plusDays(1).equals(dueDate)) {
+      throw new InvalidSubscriptionPeriodStateException("정기결제의 이용 구간과 청구 예정일이 일치하지 않습니다.");
+    }
+    if (paymentDate.isBefore(dueDate)) {
+      throw new InvalidSubscriptionPaymentDateException("결제 승인일은 청구 예정일보다 빠를 수 없습니다.");
+    }
+  }
+
+  public void renewAfterPayment(LocalDate dueDate, LocalDate paymentDate) {
+    validateRecurringPayment(dueDate, paymentDate);
+    LocalDate following = billingAnchorDay.nextBillingDateAfter(dueDate);
+    currentPeriod = new SubscriptionPeriod(dueDate, following.minusDays(1));
+    nextBillingDate = following;
+    suspensionReasons.remove(SubscriptionSuspensionReason.PAYMENT_FAILED);
+  }
+
+  public void recordRecurringPaymentDeclined(LocalDate dueDate) {
+    if (lifecycleStatus == SubscriptionStatus.ACTIVE && dueDate.equals(nextBillingDate)) {
+      suspensionReasons.add(SubscriptionSuspensionReason.PAYMENT_FAILED);
+    }
   }
 
   public void cancel() {

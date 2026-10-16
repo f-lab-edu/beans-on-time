@@ -47,7 +47,12 @@ class PauseSubscriptionServiceTest {
             new OwnedSubscriptionLoader(loadPort),
             savePort,
             clock,
-            new SubscriptionExecutionAdapter(loadPort, new InMemoryProductExecutionAdapter()));
+            new SubscriptionExecutionAdapter(loadPort, new InMemoryProductExecutionAdapter()),
+            mock(
+                com.bluetoya.beansontime.billing.application.port.out.FindPendingBillingPort.class),
+            mock(
+                com.bluetoya.beansontime.payment.application.port.out.FindProcessingPaymentPort
+                    .class));
 
     service.pause(new PauseSubscriptionCommand(subscription.getId(), LocalDate.of(2026, 9, 20)));
 
@@ -78,7 +83,12 @@ class PauseSubscriptionServiceTest {
             new OwnedSubscriptionLoader(loadPort),
             savePort,
             clock,
-            new SubscriptionExecutionAdapter(loadPort, new InMemoryProductExecutionAdapter()));
+            new SubscriptionExecutionAdapter(loadPort, new InMemoryProductExecutionAdapter()),
+            mock(
+                com.bluetoya.beansontime.billing.application.port.out.FindPendingBillingPort.class),
+            mock(
+                com.bluetoya.beansontime.payment.application.port.out.FindProcessingPaymentPort
+                    .class));
 
     assertThatThrownBy(
             () ->

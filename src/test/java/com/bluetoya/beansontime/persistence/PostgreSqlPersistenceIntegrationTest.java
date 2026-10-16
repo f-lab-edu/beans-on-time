@@ -356,7 +356,8 @@ class PostgreSqlPersistenceIntegrationTest {
             restoredBillings,
             subscriptions,
             billingExecution,
-            Clock.fixed(Instant.parse("2026-10-03T01:00:00Z"), ZoneId.of("Asia/Seoul")));
+            Clock.fixed(Instant.parse("2026-10-03T01:00:00Z"), ZoneId.of("Asia/Seoul")),
+            new com.bluetoya.beansontime.refund.adapter.out.persistence.JdbcRefundAdapter(jdbc));
     var resolver =
         new PaymentResultResolver(
             restoredPayments, id -> Optional.of(approval), restoredCompletion);

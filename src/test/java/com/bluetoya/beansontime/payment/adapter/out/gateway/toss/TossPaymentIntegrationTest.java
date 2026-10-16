@@ -43,6 +43,7 @@ import tools.jackson.databind.json.JsonMapper;
 @SpringBootTest(
     properties = {
       "payment.reconciliation.enabled=false",
+      "refund.reconciliation.enabled=false",
       "payment.toss.client-key=test_ck_fixture",
       "payment.toss.secret-key=test_sk_fixture"
     })
@@ -73,6 +74,39 @@ class TossPaymentIntegrationTest {
   private Billing billing;
   private String order;
   private final String key = "test_payment_key_" + UUID.randomUUID();
+
+  @Autowired com.bluetoya.beansontime.refund.application.service.RefundProcessor refundProcessor;
+  @Autowired com.bluetoya.beansontime.refund.application.port.out.RefundStore refunds;
+
+  @Test
+  void withdrawnSubscriptionReturnsLateApprovalAndRecoversLostRefundResponse() {
+    var payment = pending();
+    var subscription = subscriptions.load(billing.getSubscriptionId()).orElseThrow();
+    subscription.withdraw(NOW);
+    subscriptions.save(subscription);
+    completion.complete(
+        payment.getId(), PaymentGatewayResult.approved(done().lastTransactionKey(), NOW));
+    var refund = refunds.find(payment.getId()).orElseThrow();
+    when(client.find(key)).thenReturn(done());
+    when(client.cancel(eq(key), anyString(), eq(refund.idempotencyKey())))
+        .thenThrow(new TossTestApiException(0, "LOST_RESPONSE"));
+    assertThatThrownBy(() -> refundProcessor.process(payment.getId()))
+        .isInstanceOf(
+            com.bluetoya.beansontime.payment.application.exception
+                .PaymentGatewayUnavailableException.class);
+    assertThat(refunds.find(payment.getId()).orElseThrow().isCompleted()).isFalse();
+    when(client.find(key)).thenReturn(cancelled());
+    refundProcessor.process(payment.getId());
+    refundProcessor.process(payment.getId());
+    assertThat(refunds.find(payment.getId()).orElseThrow().isCompleted()).isTrue();
+    assertThat(billings.load(billing.getId()).orElseThrow().getStatus())
+        .isEqualTo(BillingStatus.REFUNDED);
+    assertThat(payments.load(payment.getId()).orElseThrow().getStatus())
+        .isEqualTo(PaymentStatus.SUCCESS);
+    assertThat(subscriptions.load(subscription.getId()).orElseThrow().getLifecycleStatus())
+        .isEqualTo(SubscriptionStatus.CANCELLED);
+    verify(client, times(1)).cancel(eq(key), anyString(), eq(refund.idempotencyKey()));
+  }
 
   @TestConfiguration
   static class TimeConfig {
@@ -132,6 +166,49 @@ class TossPaymentIntegrationTest {
     order = new JsonMapper().readTree(response).get("orderId").asText();
   }
 
+  @Test
+  void checkoutReportsAlreadyPaidBilling() throws Exception {
+    when(client.confirm(any(), anyString())).thenReturn(done());
+    confirm().andExpect(status().isOk());
+    mvc.perform(
+            post("/billings/{id}/payment-checkout", billing.getId().value())
+                .with(httpBasic("customer1", "password1")))
+        .andExpect(status().isConflict())
+        .andExpect(jsonPath("$.title").value("이미 결제된 청구"));
+  }
+
+  @Test
+  void checkoutReportsExpiryAtPaymentWindowBoundary() throws Exception {
+    clock.now = NOW.plusMinutes(10);
+    mvc.perform(
+            post("/billings/{id}/payment-checkout", billing.getId().value())
+                .with(httpBasic("customer1", "password1")))
+        .andExpect(status().isConflict())
+        .andExpect(jsonPath("$.title").value("만료된 청구"));
+    confirm().andExpect(status().isConflict()).andExpect(jsonPath("$.title").value("만료된 청구"));
+    mvc.perform(
+            post("/billings/{id}/payment-checkout", billing.getId().value())
+                .with(httpBasic("customer1", "password1")))
+        .andExpect(status().isConflict())
+        .andExpect(jsonPath("$.title").value("만료된 청구"));
+  }
+
+  @Test
+  void checkoutPrioritizesProcessingOverElapsedWindowAndReturnsPaymentId() throws Exception {
+    var payment = pending();
+    clock.now = NOW.plusMinutes(10);
+    mvc.perform(
+            post("/billings/{id}/payment-checkout", billing.getId().value())
+                .with(httpBasic("customer1", "password1")))
+        .andExpect(status().isConflict())
+        .andExpect(jsonPath("$.title").value("결제 결과 확인 중"))
+        .andExpect(jsonPath("$.paymentId").value(payment.getId().value()));
+    confirm()
+        .andExpect(status().isConflict())
+        .andExpect(jsonPath("$.title").value("결제 결과 확인 중"))
+        .andExpect(jsonPath("$.paymentId").value(payment.getId().value()));
+  }
+
   private TossTestPaymentClient.PaymentResponse done() {
     return new TossTestPaymentClient.PaymentResponse(
         key,
@@ -177,6 +254,22 @@ class TossPaymentIntegrationTest {
     var payment = Payment.start(billing.getId(), billing.getAmount(), NOW);
     payments.saveAuthorized(payment, new PaymentAuthorization(order, key));
     return payment;
+  }
+
+  @Autowired org.springframework.context.ApplicationContext context;
+
+  @Test
+  void tossProfileDoesNotRegisterAutomaticRecurringBilling() {
+    assertThat(
+            context.getBeansOfType(
+                com.bluetoya.beansontime.billing.application.port.in.RunRecurringBillingUseCase
+                    .class))
+        .isEmpty();
+    assertThat(
+            context.getBeansOfType(
+                com.bluetoya.beansontime.billing.application.service.ProcessRecurringBillingService
+                    .class))
+        .isEmpty();
   }
 
   @Test
@@ -309,6 +402,25 @@ class TossPaymentIntegrationTest {
         payment.getId(), PaymentGatewayResult.approved(done().lastTransactionKey(), NOW));
     clock.now = NOW.plusHours(1);
     assertThat(resolver.resolve(payment.getId()).status()).isEqualTo("SUCCESS");
+    verifyNoInteractions(client);
+  }
+
+  @Test
+  void invalidApprovalDatePreservesApprovalForReviewWithoutCompensating() {
+    var payment = pending();
+    assertThat(
+            completion
+                .complete(
+                    payment.getId(),
+                    PaymentGatewayResult.approved(done().lastTransactionKey(), NOW.minusMonths(1)))
+                .getStatus())
+        .isEqualTo(PaymentStatus.PROCESSING);
+    assertThat(approvals.load(payment.getId()).orElseThrow().phase())
+        .isEqualTo(PaymentApproval.Phase.REVIEW);
+    assertThat(billings.load(billing.getId()).orElseThrow().getStatus())
+        .isEqualTo(BillingStatus.PENDING);
+    clock.now = NOW.plusDays(2);
+    resolver.resolve(payment.getId());
     verifyNoInteractions(client);
   }
 

@@ -50,8 +50,8 @@ import com.bluetoya.beansontime.subscription.domain.DeliveryCycleUnit;
 import com.bluetoya.beansontime.subscription.domain.Subscription;
 import com.bluetoya.beansontime.subscription.domain.SubscriptionPeriod;
 import com.bluetoya.beansontime.subscription.domain.SubscriptionStatus;
+import com.bluetoya.beansontime.subscription.domain.exception.InvalidSubscriptionPaymentDateException;
 import com.bluetoya.beansontime.subscription.domain.exception.InvalidSubscriptionPeriodStateException;
-import com.bluetoya.beansontime.subscription.domain.exception.InvalidSubscriptionResumeDateException;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -131,7 +131,9 @@ class PayBillingServiceTest {
             billings,
             saveSubscription,
             execution,
-            clock);
+            clock,
+            new com.bluetoya.beansontime.refund.adapter.out.persistence.InMemoryRefundAdapter(
+                payments, billings));
     resolver = new PaymentResultResolver(payments, gateway, completion);
     service = serviceWith(gateway);
     prepare =
@@ -144,14 +146,12 @@ class PayBillingServiceTest {
         ownedBilling,
         loadSubscription,
         payments,
-        paymentGateway,
+        new PaymentAttemptSubmission(paymentGateway, completion, payments),
         payments,
         billings,
         loadProduct,
         execution,
-        completion,
-        clock,
-        payments);
+        clock);
   }
 
   private PaymentResult pay() {
@@ -411,7 +411,8 @@ class PayBillingServiceTest {
     PaymentGateway external = mock(PaymentGateway.class);
     service = serviceWith(external);
 
-    assertThat(subscription.isPaidReactivationTarget()).isTrue();
+    assertThat(subscription.isPaidReactivationTarget(java.time.LocalDate.of(2026, 12, 31)))
+        .isTrue();
     assertThatThrownBy(this::pay).isInstanceOf(InvalidSubscriptionPeriodStateException.class);
     assertThat(payments.findProcessingIds()).isEmpty();
     assertThat(billing.getStatus()).isEqualTo(BillingStatus.PENDING);
@@ -427,8 +428,9 @@ class PayBillingServiceTest {
     PaymentGateway external = mock(PaymentGateway.class);
     service = serviceWith(external);
 
-    assertThat(subscription.isPaidReactivationTarget()).isTrue();
-    assertThatThrownBy(this::pay).isInstanceOf(InvalidSubscriptionResumeDateException.class);
+    assertThat(subscription.isPaidReactivationTarget(java.time.LocalDate.of(2026, 12, 31)))
+        .isTrue();
+    assertThatThrownBy(this::pay).isInstanceOf(InvalidSubscriptionPaymentDateException.class);
     assertThat(payments.findProcessingIds()).isEmpty();
     assertThat(billing.getStatus()).isEqualTo(BillingStatus.PENDING);
     assertThat(subscription.getLifecycleStatus()).isEqualTo(SubscriptionStatus.PAUSED);

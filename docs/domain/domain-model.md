@@ -142,11 +142,12 @@ Subscription
 
 `Billing`은 특정 고객의 특정 구독에 대해 거래 가격을 확정한 사실을 표현하는 애그리거트
 루트다. `CustomerId`, `SubscriptionId`, `ProductId`로 다른 애그리거트를 참조하고 생성
-시점의 Product 가격을 `amount`로 보존한다.
+시점의 Product 가격을 `amount`로 보존한다. 청구 목적은 REACTIVATION과 RECURRING으로 구분한다.
 
-상태는 `PENDING`, `PAID`, `EXPIRED`, `CANCELLED`를 사용하며 생성 후 10분의 결제 시작 기한을 가진다. 기한 도달 시 진행 중 결제가 없으면
+상태는 `PENDING`, `PAID`, `EXPIRED`, `CANCELLED`, `REFUNDED`를 사용하며 재활성화 청구는 생성 후 10분의 결제 시작 기한을 가진다. 기한 도달 시 진행 중 결제가 없으면
 만료하고, 있으면 결과를 기다려 승인 시 PAID, 기한 후 거절 시 EXPIRED로 전이한다.
 DB 미반영에 대한 전액 보상 취소가 완료되면 CANCELLED로 종료하고 새 청구에서 재결제한다.
+정기 청구는 구독 ID·청구 예정일로 식별하고 만료를 적용하지 않는다. 정기 거절 후 자동 재시도는 현재 제외한다.
 상세한 확정 규칙은 `docs/domain/billing-payment.md`에 기록한다.
 
 ---
@@ -294,3 +295,19 @@ ProductNotFoundException
 조회 모델은 도메인 모델과 다른 구조를 가질 수 있다.
 
 도메인 모델을 영속성 표현으로부터 독립적으로 유지한다.
+
+
+# 환불
+
+feature/13의 Refund는 성공 결제 한 건의 전액 반환 요청과 결과를 보존한다. PaymentId로
+원결제를 참조하며 원승인과 환불 요청·완료 시각, 반환 거래 식별자를 보관한다.
+원결제 성공 사실은 유지하고 환불 완료 시 Billing을 REFUNDED로 갱신한다.
+일반 환불 대상은 최초 철회 시점의 최근 승인 결제 한 건이며, 최초 선정은 Withdrawal로
+보존한다. 지연 승인 반환은 별도로 처리한다. 상세 규칙은 `billing-payment.md`를 따른다.
+
+### 정기결제 거절 후 수동 복구
+
+거절 확정 시 Payment는 FAILED 이력을 보존하고 정기 Billing은 CANCELLED로 종료한다.
+구독은 ACTIVE와 PAYMENT_FAILED를 유지한다. 기존 이용 기간 종료 후에는 새 재활성화
+청구로 수동 결제를 허용하며 승인일부터 이용 기간을 다시 시작한다. 상세 규칙은
+`subscription.md`와 `billing-payment.md`를 따른다.

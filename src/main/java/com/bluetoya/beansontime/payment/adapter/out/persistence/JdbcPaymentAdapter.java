@@ -21,21 +21,29 @@ import org.springframework.stereotype.Component;
 @Profile("!in-memory")
 @RequiredArgsConstructor
 public class JdbcPaymentAdapter
-    implements SavePaymentPort, LoadPaymentPort, FindProcessingPaymentPort {
+    implements SavePaymentPort,
+        LoadPaymentPort,
+        FindProcessingPaymentPort,
+        ExistsPaymentAttemptPort {
   private final JdbcClient jdbc;
 
   @Override
   public void saveNew(Payment payment) {
     jdbc.sql(
             """
-        insert into payments (id, billing_id, amount, status, transaction_id, attempted_at)
-        values (:id, :billing, :amount, :status, :transaction, :attempted)
+        insert into payments (id, billing_id, amount, status, transaction_id, attempted_at, approved_at)
+        values (:id, :billing, :amount, :status, :transaction, :attempted, :approved)
         """)
         .param("id", payment.getId().value())
         .param("billing", payment.getBillingId().value())
         .param("amount", payment.getAmount().price())
         .param("status", payment.getStatus().name())
         .param("transaction", payment.getTransactionId())
+        .param(
+            "approved",
+            payment.getApprovedAt() == null
+                ? null
+                : payment.getApprovedAt().truncatedTo(ChronoUnit.MICROS))
         .param("attempted", payment.getAttemptedAt().truncatedTo(ChronoUnit.MICROS))
         .update();
   }
@@ -63,9 +71,14 @@ public class JdbcPaymentAdapter
   public void save(Payment payment) {
     int updated =
         jdbc.sql(
-                "update payments set status = :status, transaction_id = :transaction where id = :id")
+                "update payments set status = :status, transaction_id = :transaction, approved_at = :approved where id = :id")
             .param("status", payment.getStatus().name())
             .param("transaction", payment.getTransactionId())
+            .param(
+                "approved",
+                payment.getApprovedAt() == null
+                    ? null
+                    : payment.getApprovedAt().truncatedTo(ChronoUnit.MICROS))
             .param("id", payment.getId().value())
             .update();
     if (updated != 1) throw new PaymentNotFoundException("저장할 결제가 존재하지 않습니다.");
@@ -103,6 +116,15 @@ public class JdbcPaymentAdapter
         new Money(rs.getInt("amount")),
         PaymentStatus.valueOf(rs.getString("status")),
         rs.getString("transaction_id"),
-        rs.getObject("attempted_at", LocalDateTime.class));
+        rs.getObject("attempted_at", LocalDateTime.class),
+        rs.getObject("approved_at", LocalDateTime.class));
+  }
+
+  @Override
+  public boolean hasAttempt(BillingId id) {
+    return jdbc.sql("select exists(select 1 from payments where billing_id = :id)")
+        .param("id", id.value())
+        .query(Boolean.class)
+        .single();
   }
 }

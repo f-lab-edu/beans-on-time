@@ -107,7 +107,7 @@ class SubscriptionRestorationTest {
             scheduled,
             LocalDateTime.of(2026, 2, 27, 10, 0),
             scheduled);
-    assertThat(paused.isPaidReactivationTarget()).isTrue();
+    assertThat(paused.isPaidReactivationTarget(java.time.LocalDate.of(2026, 12, 31))).isTrue();
     assertThatThrownBy(() -> restore(SubscriptionStatus.CANCELLED, period, null, null, null, null))
         .isInstanceOf(InvalidSubscriptionPeriodStateException.class);
   }

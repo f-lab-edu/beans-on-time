@@ -360,3 +360,23 @@ Subscription
 `ProductExecutionPort`, `SubscriptionExecutionPort`, `BillingExecutionPort`로 요청하고 DB 트랜잭션·잠금은
 어댑터가 소유한다. 구체적인 저장 범위와 결제 복구의 제약은
 [영속화 결정](adr/persistence.md)을 따른다.
+
+# 정기결제 스케줄링
+
+`RecurringBillingScheduler`는 입력 포트를 호출하는 인바운드 어댑터다. 실행 주기는 어댑터
+설정이고, 대상 조회·구독별 처리 조율은 애플리케이션 책임이다. 입력 포트는 전체 실행을 위한
+`RunRecurringBillingUseCase`다. 이를 구현하는 `RunRecurringBillingService`는 구독 한 건의
+처리를 내부 협력 객체인 `ProcessRecurringBillingService`에 맡긴다. 내부 협력에는 별도 입력
+포트를 두지 않는다.
+도메인은 스케줄러·Clock·JDBC·배치 프레임워크를 참조하지 않는다. 시스템 실행과 고객
+재활성화의 시작 경계는 분리하며 실제 결제 시도 전송·결과 반영은 공통 애플리케이션
+협력 객체를 사용한다. 별도 Spring Batch나 Quartz 의존성을 추가하지 않는다.
+
+
+# 구독 철회와 환불
+
+WithdrawSubscriptionUseCase는 철회와 자동 환불 결정을 조율하고 GetWithdrawalQuery는
+결정·결과 조회를 담당한다. Subscription은 영구 종료와 철회 시각을 소유하고 Withdrawal은
+최초 판단을 보존한다. Refund는 Payment와 별도 모델·테이블로 원결제의 전액 반환을 표현한다.
+RefundProcessor는 내부 협력 객체이며 RefundGateway로 외부 요청을 실행한다. 복구 스케줄러는
+ReconcileRefundsUseCase를 호출한다. 외부 요청은 로컬 상태 커밋 후 트랜잭션 밖에서 실행한다.
