@@ -20,6 +20,10 @@ public record PaymentResponse(
             result.status(),
             result.transactionId(),
             result.attemptedAt());
-    return ResponseEntity.status("PROCESSING".equals(result.status()) ? 202 : 200).body(response);
+    return ResponseEntity.status(
+            ("PROCESSING".equals(result.status()) || "CANCEL_PENDING".equals(result.status()))
+                ? 202
+                : 200)
+        .body(response);
   }
 }

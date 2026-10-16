@@ -77,7 +77,7 @@ class PrepareReactivationBillingServiceTest {
         service.prepare(new PrepareReactivationBillingCommand(subscription.getId()));
 
     ArgumentCaptor<Billing> captor = ArgumentCaptor.forClass(Billing.class);
-    verify(saveBillingPort).save(captor.capture());
+    verify(saveBillingPort).saveNew(captor.capture());
     Billing saved = captor.getValue();
     assertThat(saved.getCustomerId()).isEqualTo(subscription.getCustomerId());
     assertThat(saved.getSubscriptionId()).isEqualTo(subscription.getId());
@@ -153,7 +153,7 @@ class PrepareReactivationBillingServiceTest {
             () -> service.prepare(new PrepareReactivationBillingCommand(subscription.getId())))
         .isInstanceOf(ProductNotFoundException.class);
 
-    verify(saveBillingPort, never()).save(org.mockito.ArgumentMatchers.any());
+    verify(saveBillingPort, never()).saveNew(org.mockito.ArgumentMatchers.any());
   }
 
   private void assertNotAllowed(Subscription subscription) {
@@ -161,7 +161,7 @@ class PrepareReactivationBillingServiceTest {
             () -> service.prepare(new PrepareReactivationBillingCommand(subscription.getId())))
         .isInstanceOf(ReactivationBillingNotAllowedException.class);
     verify(findPendingBillingPort, never()).findPending(subscription.getId());
-    verify(saveBillingPort, never()).save(org.mockito.ArgumentMatchers.any());
+    verify(saveBillingPort, never()).saveNew(org.mockito.ArgumentMatchers.any());
   }
 
   private Subscription pausedWithoutRemainingPaidDays() {

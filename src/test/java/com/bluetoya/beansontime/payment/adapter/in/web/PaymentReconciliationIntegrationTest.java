@@ -28,6 +28,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
+import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 
 @SpringBootTest(
@@ -36,6 +37,7 @@ import org.springframework.test.web.servlet.MockMvc;
       "payment.reconciliation.enabled=false"
     })
 @AutoConfigureMockMvc
+@ActiveProfiles("in-memory")
 class PaymentReconciliationIntegrationTest {
   @Autowired private MockMvc mockMvc;
   @Autowired private Clock clock;

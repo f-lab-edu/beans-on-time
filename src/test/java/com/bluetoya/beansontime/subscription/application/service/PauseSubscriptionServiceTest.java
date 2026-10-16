@@ -8,7 +8,9 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.bluetoya.beansontime.customer.domain.CustomerId;
+import com.bluetoya.beansontime.product.adapter.out.persistence.InMemoryProductExecutionAdapter;
 import com.bluetoya.beansontime.product.domain.ProductId;
+import com.bluetoya.beansontime.subscription.adapter.out.persistence.SubscriptionExecutionAdapter;
 import com.bluetoya.beansontime.subscription.application.port.in.OwnedSubscriptionLoader;
 import com.bluetoya.beansontime.subscription.application.port.in.PauseSubscriptionCommand;
 import com.bluetoya.beansontime.subscription.application.port.out.LoadSubscriptionPort;
@@ -41,7 +43,11 @@ class PauseSubscriptionServiceTest {
     when(loadPort.load(subscription.getId())).thenReturn(Optional.of(subscription));
     Clock clock = Clock.fixed(Instant.parse("2026-09-10T05:30:00Z"), ZoneId.of("Asia/Seoul"));
     PauseSubscriptionService service =
-        new PauseSubscriptionService(new OwnedSubscriptionLoader(loadPort), savePort, clock);
+        new PauseSubscriptionService(
+            new OwnedSubscriptionLoader(loadPort),
+            savePort,
+            clock,
+            new SubscriptionExecutionAdapter(loadPort, new InMemoryProductExecutionAdapter()));
 
     service.pause(new PauseSubscriptionCommand(subscription.getId(), LocalDate.of(2026, 9, 20)));
 
@@ -68,7 +74,11 @@ class PauseSubscriptionServiceTest {
     when(loadPort.load(subscription.getId())).thenReturn(Optional.of(subscription));
     Clock clock = Clock.fixed(Instant.parse("2026-09-10T05:30:00Z"), ZoneId.of("Asia/Seoul"));
     PauseSubscriptionService service =
-        new PauseSubscriptionService(new OwnedSubscriptionLoader(loadPort), savePort, clock);
+        new PauseSubscriptionService(
+            new OwnedSubscriptionLoader(loadPort),
+            savePort,
+            clock,
+            new SubscriptionExecutionAdapter(loadPort, new InMemoryProductExecutionAdapter()));
 
     assertThatThrownBy(
             () ->

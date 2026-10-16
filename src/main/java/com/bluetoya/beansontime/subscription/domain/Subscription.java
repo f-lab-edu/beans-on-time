@@ -52,6 +52,105 @@ public class Subscription {
     this.lifecycleStatus = SubscriptionStatus.ACTIVE;
   }
 
+  private Subscription(
+      SubscriptionId id,
+      CustomerId customerId,
+      ProductId productId,
+      DeliveryCycle deliveryCycle,
+      LocalDate startedDate,
+      BillingAnchorDay billingAnchorDay,
+      SubscriptionPeriod currentPeriod,
+      Integer remainingPaidDays,
+      LocalDate nextBillingDate,
+      LocalDateTime pausedAt,
+      LocalDate scheduledResumeDate,
+      SubscriptionStatus lifecycleStatus,
+      Set<SubscriptionSuspensionReason> suspensionReasons) {
+    this.id = Objects.requireNonNull(id, "구독 ID는 필수입니다.");
+    Objects.requireNonNull(id.value(), "구독 ID 값은 필수입니다.");
+    this.customerId = Objects.requireNonNull(customerId, "고객 ID는 필수입니다.");
+    this.productId = Objects.requireNonNull(productId, "상품 ID는 필수입니다.");
+    this.deliveryCycle = Objects.requireNonNull(deliveryCycle, "납품 주기는 필수입니다.");
+    Objects.requireNonNull(deliveryCycle.unit(), "납품 단위는 필수입니다.");
+    if (deliveryCycle.interval() < 1) {
+      throw new IllegalArgumentException("납품 주기는 양수여야 합니다.");
+    }
+    this.startedDate = Objects.requireNonNull(startedDate, "구독 시작일은 필수입니다.");
+    this.billingAnchorDay = Objects.requireNonNull(billingAnchorDay, "결제 기준일은 필수입니다.");
+    this.lifecycleStatus = Objects.requireNonNull(lifecycleStatus, "구독 상태는 필수입니다.");
+    this.currentPeriod = currentPeriod;
+    this.remainingPaidDays = remainingPaidDays;
+    this.nextBillingDate = nextBillingDate;
+    this.pausedAt = pausedAt;
+    this.scheduledResumeDate = scheduledResumeDate;
+    this.suspensionReasons = EnumSet.noneOf(SubscriptionSuspensionReason.class);
+    this.suspensionReasons.addAll(Objects.requireNonNull(suspensionReasons, "실행 차단 사유는 필수입니다."));
+    validateRestoredState();
+  }
+
+  public static Subscription restore(
+      SubscriptionId id,
+      CustomerId customerId,
+      ProductId productId,
+      DeliveryCycle deliveryCycle,
+      LocalDate startedDate,
+      BillingAnchorDay billingAnchorDay,
+      SubscriptionPeriod currentPeriod,
+      Integer remainingPaidDays,
+      LocalDate nextBillingDate,
+      LocalDateTime pausedAt,
+      LocalDate scheduledResumeDate,
+      SubscriptionStatus lifecycleStatus,
+      Set<SubscriptionSuspensionReason> suspensionReasons) {
+    return new Subscription(
+        id,
+        customerId,
+        productId,
+        deliveryCycle,
+        startedDate,
+        billingAnchorDay,
+        currentPeriod,
+        remainingPaidDays,
+        nextBillingDate,
+        pausedAt,
+        scheduledResumeDate,
+        lifecycleStatus,
+        suspensionReasons);
+  }
+
+  private void validateRestoredState() {
+    boolean valid =
+        switch (lifecycleStatus) {
+          case ACTIVE ->
+              currentPeriod != null
+                  && remainingPaidDays == null
+                  && pausedAt == null
+                  && scheduledResumeDate == null
+                  && nextBillingDate != null
+                  && currentPeriod.endDate().plusDays(1).equals(nextBillingDate)
+                  && !currentPeriod.startDate().isBefore(startedDate);
+          case PAUSED ->
+              currentPeriod == null
+                  && remainingPaidDays != null
+                  && remainingPaidDays >= 0
+                  && pausedAt != null
+                  && scheduledResumeDate != null
+                  && nextBillingDate != null
+                  && !pausedAt.toLocalDate().isBefore(startedDate)
+                  && scheduledResumeDate.isAfter(pausedAt.toLocalDate())
+                  && scheduledResumeDate.plusDays(remainingPaidDays).equals(nextBillingDate);
+          case CANCELLED ->
+              currentPeriod == null
+                  && remainingPaidDays == null
+                  && pausedAt == null
+                  && scheduledResumeDate == null
+                  && nextBillingDate == null;
+        };
+    if (!valid) {
+      throw new InvalidSubscriptionPeriodStateException("복원할 구독의 상태와 기간 문맥이 올바르지 않습니다.");
+    }
+  }
+
   public void pause(LocalDate pauseUntilDate, LocalDateTime pausedAt) {
     if (this.lifecycleStatus != SubscriptionStatus.ACTIVE) {
       throw new InvalidSubscriptionStateChangeException("일시정지 불가능한 구독입니다.");

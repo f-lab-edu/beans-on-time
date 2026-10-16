@@ -5,8 +5,10 @@ import com.bluetoya.beansontime.product.application.port.out.GetProductDetailQue
 import com.bluetoya.beansontime.product.domain.ProductId;
 import java.util.Optional;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Component;
 
+@Profile("in-memory")
 @Component
 @RequiredArgsConstructor
 public class InMemoryGetProductDetailQueryAdapter implements GetProductDetailQueryPort {

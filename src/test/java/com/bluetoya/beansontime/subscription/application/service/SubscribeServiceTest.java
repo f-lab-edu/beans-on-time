@@ -9,6 +9,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.bluetoya.beansontime.customer.domain.CustomerId;
+import com.bluetoya.beansontime.product.adapter.out.persistence.InMemoryProductExecutionAdapter;
 import com.bluetoya.beansontime.product.application.port.out.LoadProductPort;
 import com.bluetoya.beansontime.product.domain.Money;
 import com.bluetoya.beansontime.product.domain.Product;
@@ -44,13 +45,19 @@ class SubscribeServiceTest {
     Product product = product();
     when(loadProductPort.load(new ProductId(10))).thenReturn(Optional.of(product));
     SubscribeService service =
-        new SubscribeService(savePort, existsPort, loadProductPort, customerProvider, clock);
+        new SubscribeService(
+            savePort,
+            existsPort,
+            loadProductPort,
+            customerProvider,
+            clock,
+            new InMemoryProductExecutionAdapter());
 
     service.subscribe(
         new SubscribeCommand(new ProductId(10), new DeliveryCycle(DeliveryCycleUnit.ONE_MONTH, 1)));
 
     ArgumentCaptor<Subscription> captor = ArgumentCaptor.forClass(Subscription.class);
-    verify(savePort).save(captor.capture());
+    verify(savePort).saveNew(captor.capture());
     Subscription saved = captor.getValue();
     assertThat(saved.getStartedDate()).isEqualTo(LocalDate.of(2026, 1, 31));
     assertThat(saved.getNextBillingDate()).isEqualTo(LocalDate.of(2026, 2, 28));
@@ -81,7 +88,12 @@ class SubscribeServiceTest {
     when(loadProductPort.load(new ProductId(10))).thenReturn(Optional.of(product));
     SubscribeService service =
         new SubscribeService(
-            savePort, existsPort, loadProductPort, customerProvider, Clock.systemUTC());
+            savePort,
+            existsPort,
+            loadProductPort,
+            customerProvider,
+            Clock.systemUTC(),
+            new InMemoryProductExecutionAdapter());
 
     assertThatThrownBy(
             () ->
@@ -90,7 +102,7 @@ class SubscribeServiceTest {
                         new ProductId(10), new DeliveryCycle(DeliveryCycleUnit.ONE_MONTH, 1))))
         .isInstanceOf(ProductNotSubscribableException.class);
 
-    verify(savePort, never()).save(any());
+    verify(savePort, never()).saveNew(any());
     verify(existsPort, never()).isExists(any(), any());
   }
 

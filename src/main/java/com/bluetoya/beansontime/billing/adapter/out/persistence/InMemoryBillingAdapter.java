@@ -10,11 +10,17 @@ import java.util.Optional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
+@org.springframework.context.annotation.Profile("in-memory")
 @Component
 @RequiredArgsConstructor
 public class InMemoryBillingAdapter
     implements SaveBillingPort, LoadBillingPort, FindPendingBillingPort {
   private final InMemoryBillingRepository billingRepository;
+
+  @Override
+  public void saveNew(Billing billing) {
+    save(billing);
+  }
 
   @Override
   public void save(Billing billing) {

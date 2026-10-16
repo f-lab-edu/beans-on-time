@@ -9,6 +9,7 @@ import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import org.springframework.stereotype.Repository;
 
+@org.springframework.context.annotation.Profile("in-memory")
 @Repository
 public class InMemoryBillingRepository {
   private final Map<BillingId, Billing> billings = new ConcurrentHashMap<>();

@@ -5,8 +5,10 @@ import com.bluetoya.beansontime.product.domain.ProductId;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
+import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Repository;
 
+@Profile("in-memory")
 @Repository
 public class InMemoryProductRepository {
 

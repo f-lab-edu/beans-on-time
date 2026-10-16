@@ -4,6 +4,7 @@ import static com.bluetoya.beansontime.subscription.domain.SubscriptionSuspensio
 
 import com.bluetoya.beansontime.product.application.port.in.OwnedProductLoader;
 import com.bluetoya.beansontime.product.application.port.in.StopProductSupplyUseCase;
+import com.bluetoya.beansontime.product.application.port.out.ProductExecutionPort;
 import com.bluetoya.beansontime.product.application.port.out.SaveProductPort;
 import com.bluetoya.beansontime.product.domain.Product;
 import com.bluetoya.beansontime.product.domain.ProductId;
@@ -22,8 +23,19 @@ public class StopProductSupplyService implements StopProductSupplyUseCase {
   private final LoadSubscriptionsByProductPort loadSubscriptionsByProductPort;
   private final SaveSubscriptionPort saveSubscriptionPort;
 
+  private final ProductExecutionPort productExecutionPort;
+
   @Override
   public void stopSupply(ProductId productId) {
+    productExecutionPort.execute(
+        productId,
+        () -> {
+          apply(productId);
+          return null;
+        });
+  }
+
+  private void apply(ProductId productId) {
     Product product = ownedProductLoader.load(productId);
     product.stopSupply();
     saveProductPort.save(product);

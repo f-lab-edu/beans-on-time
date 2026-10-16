@@ -10,6 +10,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.bluetoya.beansontime.customer.domain.CustomerId;
+import com.bluetoya.beansontime.product.adapter.out.persistence.InMemoryProductExecutionAdapter;
 import com.bluetoya.beansontime.product.application.port.in.OwnedProductLoader;
 import com.bluetoya.beansontime.product.application.port.out.LoadProductPort;
 import com.bluetoya.beansontime.product.application.port.out.SaveProductPort;
@@ -48,7 +49,8 @@ class ResumeProductSupplyServiceTest {
             new OwnedProductLoader(loadProductPort),
             saveProductPort,
             loadSubscriptionsByProductPort,
-            saveSubscriptionPort);
+            saveSubscriptionPort,
+            new InMemoryProductExecutionAdapter());
 
     service.resumeSupply(product.getId());
 
@@ -85,7 +87,8 @@ class ResumeProductSupplyServiceTest {
         new OwnedProductLoader(loadProductPort),
         mock(SaveProductPort.class),
         loadSubscriptionsByProductPort,
-        mock(SaveSubscriptionPort.class));
+        mock(SaveSubscriptionPort.class),
+        new InMemoryProductExecutionAdapter());
   }
 
   private Product temporarilyUnavailableProduct() {

@@ -1,26 +1,22 @@
 services:
-  mysql:
-    image: mysql:8.0.39
+  postgres:
+    image: postgres:17
     environment:
-      MYSQL_DATABASE: beans-on-time
-      MYSQL_USER: user
-      MYSQL_PASSWORD: password
-      MYSQL_ROOT_PASSWORD: root
+      POSTGRES_DB: beans-on-time
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: password
+      TZ: Asia/Seoul
     ports:
-      - "3306:3306"
+      - "5432:5432"
     volumes:
-      - mysql-data:/var/lib/mysql
-      - ./docker/mysql/init:/docker-entrypoint-initdb.d
-    command:
-      - --character-set-server=utf8mb4
-      - --collation-server=utf8mb4_0900_ai_ci
-      - --default-time-zone=+09:00
+      - postgres-data:/var/lib/postgresql/data
+    command: ["postgres", "-c", "timezone=Asia/Seoul"]
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-uroot", "-proot"]
+      test: ["CMD-SHELL", "pg_isready -U user -d beans-on-time"]
       interval: 5s
       timeout: 3s
       retries: 10
       start_period: 20s
 
 volumes:
-  mysql-data:
+  postgres-data:

@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="referrer" content="no-referrer"><title>Beans on Time 테스트 결제</title>
+<style>body{font-family:system-ui;max-width:680px;margin:64px auto;padding:24px;line-height:1.6}input,button{font:inherit;padding:10px;margin:6px}pre{white-space:pre-wrap;background:#f3f3f3;padding:20px}</style>
+<script src="https://js.tosspayments.com/v2/standard"></script></head>
+<body><h1>재활성화 테스트 결제</h1><p>토스 테스트 환경입니다. 실제 금액이 청구되지 않습니다.</p>
+<label>청구 ID <input id="billing" inputmode="numeric"></label><button id="pay">테스트 결제창 열기</button>
+<button id="check" hidden>결제 결과 다시 확인</button><pre id="result" aria-live="polite">준비한 청구 ID를 입력하세요.</pre>
+<script>
+const output = document.getElementById('result'), input = document.getElementById('billing');
+const params = new URLSearchParams(location.search);
+const billingId = params.get('billingId');
+if (billingId) input.value = billingId;
+history.replaceState(null, '', location.pathname);
+let pendingPayment;
+function id() { if (!/^[1-9][0-9]*$/.test(input.value)) throw Error('올바른 청구 ID를 입력하세요.'); return input.value; }
+async function post(path, body) {
+  const response = await fetch(path, {method:'POST', headers:{'Content-Type':'application/json'}, body:body ? JSON.stringify(body) : undefined});
+  // 서버의 정수 ID 필드만 문자열로 읽어 JavaScript Number의 반올림을 막는다.
+  const text = await response.text();
+  const data = JSON.parse(text.replace(/("(?:paymentId|billingId)"\s*:\s*)(\d+)(?=\s*[,}])/g, '$1"$2"'));
+  output.textContent = JSON.stringify(data, null, 2);
+  if (data.paymentId) { pendingPayment = data.paymentId; document.getElementById('check').hidden = false; }
+  if (!response.ok) throw Error(data.message || '요청을 처리하지 못했습니다. 결과 확인이 필요합니다.');
+  return data;
+}
+document.getElementById('pay').onclick = async () => {
+  try {
+    const bill = id();
+    const checkout = await post(`/billings/${bill}/payment-checkout`);
+    sessionStorage.setItem('bot-checkout-' + checkout.orderId, JSON.stringify({billingId:bill, amount:checkout.amount}));
+    const callback = location.origin + location.pathname + '?billingId=' + bill;
+    await TossPayments(checkout.clientKey).payment({customerKey:crypto.randomUUID()}).requestPayment({
+      method:'CARD', amount:{currency:'KRW', value:checkout.amount}, orderId:checkout.orderId,
+      orderName:'커피 구독 재활성화', successUrl:callback, failUrl:callback
+    });
+  } catch (error) { output.textContent += '\n' + error.message; }
+};
+document.getElementById('check').onclick = async () => {
+  try { await post(`/billings/${id()}/payments/${pendingPayment}/reconcile`); }
+  catch(error) { output.textContent += '\n' + error.message; }
+};
+(async () => {
+  if (params.has('paymentKey')) {
+    try {
+      const saved = JSON.parse(sessionStorage.getItem('bot-checkout-' + params.get('orderId')) || 'null');
+      if (!saved || saved.billingId !== id() || saved.amount !== Number(params.get('amount'))) throw Error('인증 결과와 준비한 청구가 일치하지 않습니다.');
+      await post(`/billings/${id()}/payments`, {orderId:params.get('orderId'), paymentKey:params.get('paymentKey')});
+      sessionStorage.removeItem('bot-checkout-' + params.get('orderId'));
+    } catch (error) { output.textContent += '\n' + error.message; }
+  } else if (params.has('code')) { output.textContent = '결제 인증을 완료하지 못했습니다: ' + params.get('code'); }
+})();
+</script></body></html>

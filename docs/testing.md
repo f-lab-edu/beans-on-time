@@ -195,3 +195,25 @@ Java 코드나 테스트 변경 시 완료 전 필수 검증은 `./gradlew spotl
 따른다.
 
 실제로 실행하지 않은 테스트를 통과했다고 보고하지 않는다.
+
+# PostgreSQL 통합 테스트
+
+상품·구독·청구·결제 JDBC 구성과 Flyway 마이그레이션은 Testcontainers의 PostgreSQL 17로 검증한다.
+H2로 PostgreSQL 잠금·부분 UNIQUE 인덱스·배열 매핑을 대체하지 않는다.
+실행 시 Docker가 필요하며 컨테이너가 준비되지 않으면 필수 DB 검증을 통과한 것으로 보지 않는다.
+`in-memory` 프로필은 DB가 필요 없는 기존 웹·보안 통합 테스트에 사용한다.
+기본 PG 검증은 Fake Gateway를 사용한다. 토스 프로필 테스트는 모의 HTTP 응답과
+PostgreSQL을 연결해 승인·취소 복구를 검증하며 외부 PG나 실제 금액 거래를 호출하지 않는다.
+
+`TossHttpPaymentIntegrationTest`는 MockMvc로 청구 준비·결제창 준비·승인·재조회 API를 호출하고,
+실제 `TossTestPaymentClient`와 JDBC 어댑터를 연결한다. JDK HTTP 서버를 localhost의 임의
+포트에서 실행하여 승인·조회·취소 JSON과 503 응답을 제공한다. 테스트 전용 URI factory만
+localhost를 지정하며 애플리케이션의 고정 토스 호스트는 변경하지 않는다.
+정상 승인, 승인 결과 미확정 후 조회 복구, DB 롤백 후 전액 보상 취소와 취소 결과 미확정 후
+조회 복구를 검증한다. HTTP 인증·멱등키·요청 본문과 PostgreSQL의 최종 상태를 함께 확인한다.
+카드 인증 결과의 `paymentKey`는 가상 값이며 브라우저 SDK·카드사 인증·외부 토스 계약의
+실제 동작을 검증하는 테스트는 아니다.
+
+```sh
+./gradlew test --tests '*TossHttpPaymentIntegrationTest'
+```

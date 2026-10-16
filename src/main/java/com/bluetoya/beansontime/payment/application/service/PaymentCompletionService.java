@@ -6,6 +6,7 @@ import com.bluetoya.beansontime.billing.application.port.out.SaveBillingPort;
 import com.bluetoya.beansontime.payment.application.port.out.LoadPaymentPort;
 import com.bluetoya.beansontime.payment.application.port.out.PaymentGatewayResult;
 import com.bluetoya.beansontime.payment.application.port.out.SavePaymentPort;
+import com.bluetoya.beansontime.payment.domain.Payment;
 import com.bluetoya.beansontime.payment.domain.PaymentId;
 import com.bluetoya.beansontime.payment.domain.PaymentStatus;
 import com.bluetoya.beansontime.subscription.application.exception.SubscriptionNotFoundException;
@@ -19,7 +20,7 @@ import org.springframework.stereotype.Service;
 /** 같은 결제의 동기 응답과 조회 결과를 동일 실행 경계에서 반영한다. */
 @Service
 @RequiredArgsConstructor
-public class PaymentCompletionService {
+public class PaymentCompletionService implements PaymentCompletion {
   private final LoadPaymentPort loadPaymentPort;
   private final LoadBillingPort loadBillingPort;
   private final LoadSubscriptionPort loadSubscriptionPort;
@@ -29,12 +30,14 @@ public class PaymentCompletionService {
   private final BillingExecutionPort billingExecutionPort;
   private final Clock clock;
 
-  public void complete(PaymentId paymentId, PaymentGatewayResult result) {
-    var payment = loadPaymentPort.load(paymentId).orElseThrow();
-    var billing = loadBillingPort.load(payment.getBillingId()).orElseThrow();
+  public Payment complete(PaymentId paymentId, PaymentGatewayResult result) {
+    var initialPayment = loadPaymentPort.load(paymentId).orElseThrow();
+    var initialBilling = loadBillingPort.load(initialPayment.getBillingId()).orElseThrow();
     billingExecutionPort.execute(
-        billing.getSubscriptionId(),
+        initialBilling.getSubscriptionId(),
         () -> {
+          var payment = loadPaymentPort.load(paymentId).orElseThrow();
+          var billing = loadBillingPort.load(payment.getBillingId()).orElseThrow();
           // 이미 반영된 결과는 이용 기간을 다시 변경하지 않는다.
           if (payment.getStatus() != PaymentStatus.PROCESSING) {
             return null;
@@ -58,5 +61,6 @@ public class PaymentCompletionService {
           saveSubscriptionPort.save(subscription);
           return null;
         });
+    return loadPaymentPort.load(paymentId).orElseThrow();
   }
 }

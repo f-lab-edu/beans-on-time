@@ -11,11 +11,17 @@ import java.util.Optional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
+@org.springframework.context.annotation.Profile("in-memory")
 @Component
 @RequiredArgsConstructor
 public class InMemoryPaymentAdapter
     implements SavePaymentPort, FindProcessingPaymentPort, LoadPaymentPort {
   private final InMemoryPaymentRepository paymentRepository;
+
+  @Override
+  public void saveNew(Payment payment) {
+    save(payment);
+  }
 
   @Override
   public void save(Payment payment) {

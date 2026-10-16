@@ -4,10 +4,12 @@ import com.bluetoya.beansontime.billing.application.port.out.BillingExecutionPor
 import com.bluetoya.beansontime.subscription.domain.SubscriptionId;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.Supplier;
+import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Component;
 
 /** 단일 프로세스의 실행 배제만 제공한다. DB 트랜잭션이나 롤백을 대체하지 않는다. */
 @Component
+@Profile("in-memory")
 public class InMemoryBillingExecutionAdapter implements BillingExecutionPort {
   private final ReentrantLock[] locks = new ReentrantLock[256];
 

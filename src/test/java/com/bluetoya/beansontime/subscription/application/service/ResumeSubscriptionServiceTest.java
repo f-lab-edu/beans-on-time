@@ -9,7 +9,9 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.bluetoya.beansontime.customer.domain.CustomerId;
+import com.bluetoya.beansontime.product.adapter.out.persistence.InMemoryProductExecutionAdapter;
 import com.bluetoya.beansontime.product.domain.ProductId;
+import com.bluetoya.beansontime.subscription.adapter.out.persistence.SubscriptionExecutionAdapter;
 import com.bluetoya.beansontime.subscription.application.port.in.OwnedSubscriptionLoader;
 import com.bluetoya.beansontime.subscription.application.port.in.ResumeSubscriptionCommand;
 import com.bluetoya.beansontime.subscription.application.port.out.LoadSubscriptionPort;
@@ -41,7 +43,11 @@ class ResumeSubscriptionServiceTest {
     when(loadPort.load(subscription.getId())).thenReturn(Optional.of(subscription));
     Clock clock = Clock.fixed(Instant.parse("2026-09-20T03:00:00Z"), ZoneId.of("Asia/Seoul"));
     ResumeSubscriptionService service =
-        new ResumeSubscriptionService(new OwnedSubscriptionLoader(loadPort), savePort, clock);
+        new ResumeSubscriptionService(
+            new OwnedSubscriptionLoader(loadPort),
+            savePort,
+            clock,
+            new SubscriptionExecutionAdapter(loadPort, new InMemoryProductExecutionAdapter()));
 
     service.resume(new ResumeSubscriptionCommand(subscription.getId()));
 
@@ -67,7 +73,11 @@ class ResumeSubscriptionServiceTest {
     when(loadPort.load(subscription.getId())).thenReturn(Optional.of(subscription));
     Clock clock = Clock.fixed(Instant.parse("2026-08-01T03:00:00Z"), ZoneId.of("Asia/Seoul"));
     ResumeSubscriptionService service =
-        new ResumeSubscriptionService(new OwnedSubscriptionLoader(loadPort), savePort, clock);
+        new ResumeSubscriptionService(
+            new OwnedSubscriptionLoader(loadPort),
+            savePort,
+            clock,
+            new SubscriptionExecutionAdapter(loadPort, new InMemoryProductExecutionAdapter()));
 
     assertThatThrownBy(() -> service.resume(new ResumeSubscriptionCommand(subscription.getId())))
         .isInstanceOf(SubscriptionResumeRequiresPaymentException.class);

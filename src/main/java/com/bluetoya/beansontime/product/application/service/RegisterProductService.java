@@ -22,7 +22,7 @@ public class RegisterProductService implements RegisterProductUseCase {
     SellerId sellerId = currentSellerIdProvider.getCurrentSellerId();
 
     Product product = new Product(sellerId, command.name(), command.basePrice());
-    saveProductPort.save(product);
+    saveProductPort.saveNew(product);
     return product.getId();
   }
 }

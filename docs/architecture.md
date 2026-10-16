@@ -352,3 +352,11 @@ Subscription
 
 아키텍처 일관성은 동등한 문제에 같은 원칙을 적용한다는 뜻이지, 모든 유즈케이스의
 구조를 똑같이 만든다는 뜻이 아니다.
+
+# PostgreSQL 영속화
+
+상품·구독·청구·결제의 기본 저장소는 PostgreSQL이며 JDBC 어댑터가 출력 포트를 구현한다.
+도메인에는 영속성 어노테이션이나 트랜잭션 API를 추가하지 않는다. 실행 경계는
+`ProductExecutionPort`, `SubscriptionExecutionPort`, `BillingExecutionPort`로 요청하고 DB 트랜잭션·잠금은
+어댑터가 소유한다. 구체적인 저장 범위와 결제 복구의 제약은
+[영속화 결정](adr/persistence.md)을 따른다.
