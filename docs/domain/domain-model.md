@@ -142,11 +142,12 @@ Subscription
 
 `Billing`은 특정 고객의 특정 구독에 대해 거래 가격을 확정한 사실을 표현하는 애그리거트
 루트다. `CustomerId`, `SubscriptionId`, `ProductId`로 다른 애그리거트를 참조하고 생성
-시점의 Product 가격을 `amount`로 보존한다.
+시점의 Product 가격을 `amount`로 보존한다. 청구 목적은 REACTIVATION과 RECURRING으로 구분한다.
 
-상태는 `PENDING`, `PAID`, `EXPIRED`, `CANCELLED`를 사용하며 생성 후 10분의 결제 시작 기한을 가진다. 기한 도달 시 진행 중 결제가 없으면
+상태는 `PENDING`, `PAID`, `EXPIRED`, `CANCELLED`를 사용하며 재활성화 청구는 생성 후 10분의 결제 시작 기한을 가진다. 기한 도달 시 진행 중 결제가 없으면
 만료하고, 있으면 결과를 기다려 승인 시 PAID, 기한 후 거절 시 EXPIRED로 전이한다.
 DB 미반영에 대한 전액 보상 취소가 완료되면 CANCELLED로 종료하고 새 청구에서 재결제한다.
+정기 청구는 구독 ID·청구 예정일로 식별하고 만료를 적용하지 않는다. 정기 거절 후 자동 재시도는 현재 제외한다.
 상세한 확정 규칙은 `docs/domain/billing-payment.md`에 기록한다.
 
 ---

@@ -15,7 +15,10 @@ import org.springframework.stereotype.Component;
 @Component
 @RequiredArgsConstructor
 public class InMemoryPaymentAdapter
-    implements SavePaymentPort, FindProcessingPaymentPort, LoadPaymentPort {
+    implements SavePaymentPort,
+        FindProcessingPaymentPort,
+        LoadPaymentPort,
+        com.bluetoya.beansontime.payment.application.port.out.ExistsPaymentAttemptPort {
   private final InMemoryPaymentRepository paymentRepository;
 
   @Override
@@ -41,5 +44,10 @@ public class InMemoryPaymentAdapter
   @Override
   public List<PaymentId> findProcessingIds() {
     return paymentRepository.findProcessingIds();
+  }
+
+  @Override
+  public boolean hasAttempt(BillingId id) {
+    return paymentRepository.hasAttempt(id);
   }
 }

@@ -3,6 +3,7 @@ package com.bluetoya.beansontime.payment.application.service;
 import com.bluetoya.beansontime.billing.application.port.out.BillingExecutionPort;
 import com.bluetoya.beansontime.billing.application.port.out.LoadBillingPort;
 import com.bluetoya.beansontime.billing.application.port.out.SaveBillingPort;
+import com.bluetoya.beansontime.billing.domain.BillingPurpose;
 import com.bluetoya.beansontime.payment.application.port.out.LoadPaymentPort;
 import com.bluetoya.beansontime.payment.application.port.out.PaymentGatewayResult;
 import com.bluetoya.beansontime.payment.application.port.out.SavePaymentPort;
@@ -48,12 +49,17 @@ public class PaymentCompletionService implements PaymentCompletion {
                   .orElseThrow(() -> new SubscriptionNotFoundException("청구의 구독이 존재하지 않습니다."));
           if (result.successful()) {
             // 구독 상태 충돌 시 확정을 중단하고 PROCESSING을 유지해 운영 확인 대상으로 남긴다.
-            subscription.reactivateAfterPayment(result.completedAt().toLocalDate());
+            if (billing.getPurpose() == BillingPurpose.RECURRING)
+              subscription.renewAfterPayment(
+                  billing.getBillingDate(), result.completedAt().toLocalDate());
+            else subscription.reactivateAfterPayment(result.completedAt().toLocalDate());
             payment.succeed(result.transactionId());
             billing.markPaid();
           } else {
             payment.fail();
-            subscription.recordReactivationPaymentDeclined();
+            if (billing.getPurpose() == BillingPurpose.RECURRING)
+              subscription.recordRecurringPaymentDeclined(billing.getBillingDate());
+            else subscription.recordReactivationPaymentDeclined();
             billing.expireIfDue(LocalDateTime.now(clock), false);
           }
           savePaymentPort.save(payment);

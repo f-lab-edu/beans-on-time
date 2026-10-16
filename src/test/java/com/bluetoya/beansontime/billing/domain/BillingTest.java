@@ -92,4 +92,35 @@ class BillingTest {
         LocalDate.of(2026, 9, 2),
         LocalDateTime.of(2026, 9, 2, 10, 0));
   }
+
+  @Test
+  void recurringBillingPreservesDueDateWithoutReactivationExpiry() {
+    var billing =
+        Billing.recurring(
+            new com.bluetoya.beansontime.customer.domain.CustomerId(1),
+            com.bluetoya.beansontime.subscription.domain.SubscriptionId.generate(),
+            new com.bluetoya.beansontime.product.domain.ProductId(1),
+            new com.bluetoya.beansontime.product.domain.Money(10000),
+            java.time.LocalDate.of(2026, 10, 4),
+            java.time.LocalDateTime.of(2026, 10, 5, 10, 0));
+    billing.expireIfDue(billing.getCreatedAt().plusDays(1), false);
+    assertThat(billing.getStatus()).isEqualTo(BillingStatus.PENDING);
+    assertThat(billing.getExpiresAt()).isNull();
+    assertThat(billing.getPurpose()).isEqualTo(BillingPurpose.RECURRING);
+    assertThat(billing.getBillingDate()).isEqualTo(java.time.LocalDate.of(2026, 10, 4));
+    org.assertj.core.api.Assertions.assertThatThrownBy(
+            () ->
+                Billing.restore(
+                    billing.getId(),
+                    billing.getCustomerId(),
+                    billing.getSubscriptionId(),
+                    billing.getProductId(),
+                    billing.getAmount(),
+                    billing.getBillingDate(),
+                    billing.getCreatedAt(),
+                    billing.getCreatedAt().plusMinutes(10),
+                    BillingStatus.PENDING,
+                    BillingPurpose.RECURRING))
+        .isInstanceOf(IllegalArgumentException.class);
+  }
 }

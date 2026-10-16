@@ -42,4 +42,8 @@ public class InMemoryPaymentRepository {
         .map(Payment::getId)
         .toList();
   }
+
+  public boolean hasAttempt(BillingId id) {
+    return payments.values().stream().anyMatch(p -> p.getBillingId().equals(id));
+  }
 }

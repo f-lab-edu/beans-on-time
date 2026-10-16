@@ -3,6 +3,7 @@ package com.bluetoya.beansontime.subscription.domain;
 import com.bluetoya.beansontime.customer.domain.CustomerId;
 import com.bluetoya.beansontime.product.domain.ProductId;
 import com.bluetoya.beansontime.subscription.domain.exception.InvalidSubscriptionPausePeriodException;
+import com.bluetoya.beansontime.subscription.domain.exception.InvalidSubscriptionPaymentDateException;
 import com.bluetoya.beansontime.subscription.domain.exception.InvalidSubscriptionPeriodStateException;
 import com.bluetoya.beansontime.subscription.domain.exception.InvalidSubscriptionResumeDateException;
 import com.bluetoya.beansontime.subscription.domain.exception.InvalidSubscriptionStateChangeException;
@@ -250,7 +251,7 @@ public class Subscription {
     }
 
     if (paymentDate.isBefore(pausedAt.toLocalDate())) {
-      throw new InvalidSubscriptionResumeDateException("결제 성공일은 일시정지 요청일보다 빠를 수 없습니다.");
+      throw new InvalidSubscriptionPaymentDateException("결제 승인일은 일시정지 요청일보다 빠를 수 없습니다.");
     }
   }
 
@@ -275,6 +276,39 @@ public class Subscription {
       return;
     }
     suspensionReasons.add(SubscriptionSuspensionReason.PAYMENT_FAILED);
+  }
+
+  public boolean isRecurringBillingDue(LocalDate date) {
+    Objects.requireNonNull(date, "처리 기준일은 필수입니다.");
+    return !isExecutionBlocked() && nextBillingDate != null && !nextBillingDate.isAfter(date);
+  }
+
+  public void validateRecurringPayment(LocalDate dueDate, LocalDate paymentDate) {
+    Objects.requireNonNull(dueDate, "청구 예정일은 필수입니다.");
+    Objects.requireNonNull(paymentDate, "승인일은 필수입니다.");
+    if (lifecycleStatus != SubscriptionStatus.ACTIVE || !dueDate.equals(nextBillingDate)) {
+      throw new InvalidSubscriptionStateChangeException("현재 구독 회차의 정기결제가 아닙니다.");
+    }
+    if (currentPeriod == null || !currentPeriod.endDate().plusDays(1).equals(dueDate)) {
+      throw new InvalidSubscriptionPeriodStateException("정기결제의 이용 구간과 청구 예정일이 일치하지 않습니다.");
+    }
+    if (paymentDate.isBefore(dueDate)) {
+      throw new InvalidSubscriptionPaymentDateException("결제 승인일은 청구 예정일보다 빠를 수 없습니다.");
+    }
+  }
+
+  public void renewAfterPayment(LocalDate dueDate, LocalDate paymentDate) {
+    validateRecurringPayment(dueDate, paymentDate);
+    LocalDate following = billingAnchorDay.nextBillingDateAfter(dueDate);
+    currentPeriod = new SubscriptionPeriod(dueDate, following.minusDays(1));
+    nextBillingDate = following;
+    suspensionReasons.remove(SubscriptionSuspensionReason.PAYMENT_FAILED);
+  }
+
+  public void recordRecurringPaymentDeclined(LocalDate dueDate) {
+    if (lifecycleStatus == SubscriptionStatus.ACTIVE && dueDate.equals(nextBillingDate)) {
+      suspensionReasons.add(SubscriptionSuspensionReason.PAYMENT_FAILED);
+    }
   }
 
   public void cancel() {
