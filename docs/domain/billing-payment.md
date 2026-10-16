@@ -84,7 +84,7 @@ PROCESSING Payment 생성과 Gateway 호출 전에 Subscription.validatePaidReac
 승인되면 해당 Payment를 SUCCESS로 확정하고 Billing을 PAID로 변경하며 구독을
 재활성화한다. PAID Billing에는 새 결제를 허용하지 않는다. 명확히 거절되면 해당
 Payment를 FAILED로 확정한다. 구독이 여전히 재활성화 대상이면 구독 도메인 행위가
-PAUSED를 유지하며 PAYMENT_FAILED를 추가한다. 이미 취소되는 등 대상이 아니면 구독은
+기존 생명주기와 기간을 유지하며 PAYMENT_FAILED를 보존하거나 추가한다. 이미 취소되는 등 대상이 아니면 구독은
 변경하지 않으며, 이 때문에 PG 거절 사실의 기록을 막지 않는다.
 Billing은 기한 전이면 PENDING을 유지해 같은 청구로 재시도할 수 있고, 기한이 지났으면
 EXPIRED로 전이한다. 만료된 청구의 재시도는 새 Billing을 준비한 뒤 수행한다.
@@ -247,7 +247,9 @@ CANCELLED로 확정하며 승인 거래 식별자와 별도 취소 증거를 보
 Checkout 표시 금액과 Gateway 요청 금액은 Billing.amount이며 고객이 금액을 전달하지
 않는다. 기존 청구의 공급 상태를 다시 검사해도 청구 금액과 유효기간은 변경하지 않는다.
 
-승인 시 PAUSED이고 remainingPaidDays가 0인 구독을 재활성화한다. 승인 KST 날짜를
+승인 시 PAUSED이고 remainingPaidDays가 0인 구독 또는 이용 기간이 끝나고
+PAYMENT_FAILED로 차단된 ACTIVE 구독을 재활성화한다. ACTIVE 대상의 승인일은 기존
+이용 기간 종료일 이후여야 한다. 승인 KST 날짜를
 paymentDate로 사용해 다음 상태를 반영한다.
 
 ```text
@@ -272,8 +274,9 @@ Timeout은 이 사유를 추가하지 않는다. 실패 후 재시도에서도 �
 ### 실행 경계와 Gateway 계약
 
 `BillingExecutionPort`는 같은 SubscriptionId에 대한 청구 준비·결제 시작·결과 반영의
-상호 배제를 제공한다. `in-memory` 프로필의 어댑터는 고정 개수의 잠금을 사용한다. 같은
-구독에는 같은 잠금이 선택되며, 외부 Gateway 호출과 결과 조회는 잠금을 잡지 않는다.
+상호 배제를 제공한다. 모든 프로필에서 `SubscriptionExecutionPort`를 통해 구독 변경과
+같은 상품 실행 경계를 공유한다. `in-memory` 프로필은 고정 개수의 상품 잠금을 사용하며,
+외부 Gateway 호출과 결과 조회는 잠금을 잡지 않는다.
 외부 호출 전에 저장한 PROCESSING을 통해 동시 시도와 만료 뒤 대체 청구를 차단한다.
 
 Payment 저장소는 ID 조회, Billing별 진행 중 시도 조회와 미완료 ID 목록을 제공한다.
@@ -464,6 +467,9 @@ CANCELLED를 함께 반영한다. 이 사이의 장애는 같은 결정과 키�
 - 구독 한 건마다 Billing 준비와 PROCESSING Payment 생성을 같은 짧은 트랜잭션으로
   커밋한 뒤 PG를 호출한다. 모든 Billing을 먼저 만드는 단계는 두지 않는다. Payment에
   INIT을 추가하지 않는다. 다른 PENDING 청구가 있으면 새 정기 청구를 만들지 않는다.
+- 미완료 정기결제(PROCESSING 또는 CANCEL_PENDING)가 있는 동안 고객 일시정지는
+  HTTP 409로 거부한다. 일시정지 확인·전이와 정기결제 시작은 같은 실행 잠금으로 직렬화한다.
+  일시정지가 먼저 완료되면 정기결제는 최신 PAUSED 상태를 확인하고 시작하지 않는다.
 - 기존 시도가 하나라도 있으면 스케줄 실행으로 새 시도를 만들지 않는다. PROCESSING은
   기존 결과 확인 작업으로 복구하고, FAILED도 자동으로 재시도하지 않는다.
 - 대상 조회는 ID 기준으로 이어가므로 처리 중 조회 대상에서 빠지는 구독 때문에 다음 건을
@@ -483,10 +489,19 @@ Payment SUCCESS·Billing PAID·구독 회차 갱신은 함께 커밋한다. 중�
 
 명확한 거절은 Payment FAILED로 남기고, 여전히 해당 회차의 ACTIVE 구독이면
 PAYMENT_FAILED 실행 차단 사유를 추가한다. 생명주기·청구 예정일·기존 이용 구간은 바꾸지
-않는다. Billing은 PENDING으로 유지한다. 자동 재시도·실패 원인 분류·고객 알림·운영 해제
+않는다. 정기 Billing은 `cancelAfterRecurringDecline()`으로 CANCELLED로 종료한다.
+V6는 기존 PENDING 정기 청구 중 결제 시도가 있고 모두 FAILED인 건만 CANCELLED로 이관한다.
+미확정·승인·보상 이력이 있는 청구는 자동 변경하지 않는다.
+Payment FAILED 이력과 청구 금액·예정일은 보존한다. 보상 취소와 달리 외부 취소 요청은 없다.
+고객은 이용 기간 종료 후 ACTIVE 상태에서 새 REACTIVATION 청구로 직접 결제할 수 있다.
+재활성화 결제 거절은 기존처럼 해당 청구를 유효기간 동안 재사용할 수 있다.
+자동 재시도·실패 원인 분류·고객 알림·운영 해제
 유즈케이스는 후속 범위다. 차단 사유만 제거해도 기존 실패 시도를 자동으로 재결제하지 않는다.
 
 ### 아키텍처와 실행 범위
+
+`SchedulingConfig` 한 곳에서 전역 스케줄링을 활성화하고, 개별 스케줄러의 프로필과
+활성화 속성은 각 작업의 등록 여부를 결정한다.
 
 `@Scheduled` 인바운드 어댑터는 `RunRecurringBillingUseCase`만 호출한다. 애플리케이션이
 대상 조회와 구독별 처리를 조율한다. 구독 한 건의 처리는 별도 입력 포트 없이 내부 협력

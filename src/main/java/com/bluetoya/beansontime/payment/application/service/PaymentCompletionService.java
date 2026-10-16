@@ -74,9 +74,10 @@ public class PaymentCompletionService implements PaymentCompletion {
             billing.markPaid();
           } else {
             payment.fail();
-            if (billing.getPurpose() == BillingPurpose.RECURRING)
+            if (billing.getPurpose() == BillingPurpose.RECURRING) {
               subscription.recordRecurringPaymentDeclined(billing.getBillingDate());
-            else subscription.recordReactivationPaymentDeclined();
+              billing.cancelAfterRecurringDecline();
+            } else subscription.recordReactivationPaymentDeclined();
             billing.expireIfDue(LocalDateTime.now(clock), false);
           }
           savePaymentPort.save(payment);

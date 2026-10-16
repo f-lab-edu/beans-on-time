@@ -40,9 +40,9 @@ public class PrepareReactivationBillingService implements PrepareReactivationBil
   }
 
   private PreparedBillingDetail prepare(Subscription subscription) {
-    if (!subscription.isPaidReactivationTarget()) {
+    if (!subscription.isPaidReactivationTarget(LocalDateTime.now(clock).toLocalDate())) {
       throw new ReactivationBillingNotAllowedException(
-          "일시정지 상태이고 남은 선결제 이용 기간이 없는 구독만 재활성화 청구를 준비할 수 있습니다.");
+          "잔여 이용 기간이 없는 일시정지 구독 또는 이용 기간이 끝나고 결제 실패로 차단된 구독만 재활성화할 수 있습니다.");
     }
 
     Product product =

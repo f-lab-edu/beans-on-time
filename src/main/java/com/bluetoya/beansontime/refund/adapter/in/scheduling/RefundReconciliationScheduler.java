@@ -3,11 +3,10 @@ package com.bluetoya.beansontime.refund.adapter.in.scheduling;
 import com.bluetoya.beansontime.refund.application.port.in.ReconcileRefundsUseCase;
 import lombok.RequiredArgsConstructor;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
-import org.springframework.scheduling.annotation.*;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
 @Component
-@EnableScheduling
 @RequiredArgsConstructor
 @ConditionalOnProperty(
     name = "refund.reconciliation.enabled",

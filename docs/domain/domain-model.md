@@ -304,3 +304,10 @@ feature/13의 Refund는 성공 결제 한 건의 전액 반환 요청과 결과�
 원결제 성공 사실은 유지하고 환불 완료 시 Billing을 REFUNDED로 갱신한다.
 일반 환불 대상은 최초 철회 시점의 최근 승인 결제 한 건이며, 최초 선정은 Withdrawal로
 보존한다. 지연 승인 반환은 별도로 처리한다. 상세 규칙은 `billing-payment.md`를 따른다.
+
+### 정기결제 거절 후 수동 복구
+
+거절 확정 시 Payment는 FAILED 이력을 보존하고 정기 Billing은 CANCELLED로 종료한다.
+구독은 ACTIVE와 PAYMENT_FAILED를 유지한다. 기존 이용 기간 종료 후에는 새 재활성화
+청구로 수동 결제를 허용하며 승인일부터 이용 기간을 다시 시작한다. 상세 규칙은
+`subscription.md`와 `billing-payment.md`를 따른다.

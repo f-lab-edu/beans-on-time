@@ -236,6 +236,13 @@ Resume의 새 `currentPeriod`와 `nextBillingDate`는 이 helper로 계산하지
 사용하는 행위다. 허용되는 생명주기 전이는 `ACTIVE -> PAUSED`다. 실행 차단 사유가 있는
 ACTIVE 구독도 고객 의사로 일시정지할 수 있다.
 
+단, 미완료 정기결제 시도(PROCESSING 또는 보상 취소 진행 중인 CANCEL_PENDING)가 있으면
+일시정지를 HTTP 409로 거부한다. 애플리케이션은 소유권 확인 후 정기결제 시작과 같은
+실행 잠금 안에서 PENDING 정기 청구와 미완료 결제를 조회하고, 없을 때만 일시정지한다.
+승인·거절 등 결과 처리가 완료되면 기존 일시정지 도메인 조건에 따라 요청할 수 있다.
+PG 승인과 일시정지가 겹쳐 승인된 금액의 회차 반영이 막히는 상황을 예방하기 위한 규칙이다.
+철회는 별도의 지연 승인 반환 정책을 유지한다.
+
 도메인 입력은 `pauseUntilDate`, `pausedAt`이다. `pauseDate`는
 `pausedAt.toLocalDate()`에서 도출한다.
 
@@ -360,8 +367,14 @@ billingAnchorDay = 기존 값 유지
 
 ### 결제를 통한 수동 재활성화
 
-`PAUSED`이고 `remainingPaidDays == 0`인 Subscription만 수동 재활성화 Billing의 대상이다.
-Payment 승인 전에는 새 `currentPeriod`를 만들거나 ACTIVE로 전이하지 않는다.
+수동 재활성화 Billing의 대상은 다음 두 경우다.
+
+- `PAUSED`이고 `remainingPaidDays == 0`인 구독
+- `ACTIVE`이고 `PAYMENT_FAILED`가 있으며 요청 KST 날짜가 기존 이용 기간 종료일 이후인 구독
+
+정기결제 거절 후에는 기존 이용 기간이 끝나 일시정지할 수 없으므로, ACTIVE 상태에서
+직접 수동 재활성화를 허용한다. 승인 날짜도 기존 이용 기간 종료일 이후여야 한다.
+Payment 승인 전에는 새 `currentPeriod`를 만들거나 생명주기를 변경하지 않는다.
 청구 준비와 새 결제 시작에서 상품이 AVAILABLE인지 각각 확인한다. 상세 공급 상태 검사는 `docs/domain/billing-payment.md`를 따른다.
 
 결제 시작 전 validatePaidReactivation으로 상태·기간 문맥·날짜를 검증하며 구독은
@@ -375,8 +388,8 @@ Payment 승인 전에는 새 `currentPeriod`를 만들거나 ACTIVE로 전이하
 다른 실행 차단 사유는 유지한다. 서비스가 이 사유를 별도로 제거하지 않는다.
 
 결제가 거절되면 `recordReactivationPaymentDeclined()`가 현재 구독의 재활성화 대상 여부를
-판단한다. 대상이면 PAUSED 기간 문맥과 기존 청구 일정을 바꾸지 않고 `PAYMENT_FAILED`만
-추가한다. 이미 취소되었거나 다른 상태로 바뀌어 대상이 아니면 구독을 변경하지 않는다.
+판단한다. PAUSED 대상이면 기간 문맥과 기존 청구 일정을 바꾸지 않고 `PAYMENT_FAILED`만
+추가한다. ACTIVE 대상은 이미 있는 `PAYMENT_FAILED`와 기존 기간을 유지한다. 이미 취소되었거나 다른 상태로 바뀌어 대상이 아니면 구독을 변경하지 않는다.
 PG에서 확인한 거절은 구독의 현재 상태와 무관하게 Payment에 FAILED로 기록한다.
 유효한 청구는 거절 후 새 Payment로 재시도할 수 있고 Timeout이면 결과 확인까지 새
 시도를 차단한다. 상세한 Billing·Payment 책임, 가격과 실패 규칙은

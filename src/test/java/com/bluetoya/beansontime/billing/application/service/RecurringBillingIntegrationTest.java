@@ -4,7 +4,9 @@ import static org.assertj.core.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.httpBasic;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.bluetoya.beansontime.billing.adapter.out.persistence.JdbcBillingAdapter;
@@ -61,6 +63,7 @@ class RecurringBillingIntegrationTest {
   @Autowired JdbcClient jdbc;
   @Autowired MockMvc mvc;
   @MockitoSpyBean FakePaymentGatewayAdapter gateway;
+  @MockitoSpyBean Clock clock;
   private static final LocalDate DATE = LocalDate.of(2026, 10, 4);
 
   @Autowired com.bluetoya.beansontime.refund.application.service.RefundProcessor refundProcessor;
@@ -211,7 +214,7 @@ class RecurringBillingIntegrationTest {
     run.runDue();
     var billing = billing(subscription);
     assertThat(payment(billing).getStatus()).isEqualTo(PaymentStatus.FAILED);
-    assertThat(billing.getStatus()).isEqualTo(BillingStatus.PENDING);
+    assertThat(billing.getStatus()).isEqualTo(BillingStatus.CANCELLED);
     var current = subscriptions.load(subscription.getId()).orElseThrow();
     assertThat(current.getLifecycleStatus()).isEqualTo(SubscriptionStatus.ACTIVE);
     assertThat(current.getSuspensionReasons())
@@ -378,5 +381,160 @@ class RecurringBillingIntegrationTest {
                 .with(httpBasic("customer1", "password1")))
         .andExpect(status().isConflict());
     verify(gateway, never()).pay(any());
+  }
+
+  @Test
+  void pauseDuringGatewayCallIsRejectedAndApprovedPaymentCanFinish() throws Exception {
+    var subscription = subscribe(DATE.minusMonths(1));
+    var entered = new CountDownLatch(1);
+    var release = new CountDownLatch(1);
+    doAnswer(
+            call -> {
+              entered.countDown();
+              if (!release.await(10, TimeUnit.SECONDS))
+                throw new IllegalStateException("PG 대기 시간 초과");
+              return call.callRealMethod();
+            })
+        .when(gateway)
+        .pay(any());
+    try (var pool = Executors.newSingleThreadExecutor()) {
+      var result = pool.submit(() -> process.process(subscription.getId(), DATE, DATE));
+      try {
+        assertThat(entered.await(5, TimeUnit.SECONDS)).isTrue();
+        mvc.perform(
+                patch("/subscriptions/{id}/pause", subscription.getId().value())
+                    .param("pauseUntilDate", DATE.plusDays(3).toString())
+                    .with(httpBasic("customer1", "password1")))
+            .andExpect(status().isConflict())
+            .andExpect(jsonPath("$.title").value("정기결제 진행 중 일시정지 불가"));
+        assertThat(subscriptions.load(subscription.getId()).orElseThrow().getLifecycleStatus())
+            .isEqualTo(SubscriptionStatus.ACTIVE);
+      } finally {
+        release.countDown();
+      }
+      result.get(10, TimeUnit.SECONDS);
+    }
+    assertThat(payment(billing(subscription)).getStatus()).isEqualTo(PaymentStatus.SUCCESS);
+    assertThat(subscriptions.load(subscription.getId()).orElseThrow().getNextBillingDate())
+        .isEqualTo(DATE.plusMonths(1));
+    mvc.perform(
+            patch("/subscriptions/{id}/pause", subscription.getId().value())
+                .param("pauseUntilDate", DATE.plusDays(3).toString())
+                .with(httpBasic("customer1", "password1")))
+        .andExpect(status().isOk());
+  }
+
+  @Test
+  void pauseAfterDeclineIsAllowedEvenWhenRecurringBillingRemainsPending() throws Exception {
+    var subscription = subscribe(DATE.minusMonths(1));
+    // 거절 이력이 있어도 현재 이용 기간 안이면 일시정지할 수 있다.
+    var recurring =
+        Billing.recurring(
+            subscription.getCustomerId(),
+            subscription.getId(),
+            subscription.getProductId(),
+            new Money(12000),
+            DATE,
+            DATE.minusDays(1).atStartOfDay());
+    billings.saveNew(recurring);
+    var declined =
+        Payment.start(recurring.getId(), recurring.getAmount(), DATE.minusDays(1).atStartOfDay());
+    declined.fail();
+    payments.saveNew(declined);
+    doReturn(DATE.minusDays(1).atStartOfDay(ZoneId.of("Asia/Seoul")).toInstant())
+        .when(clock)
+        .instant();
+    mvc.perform(
+            patch("/subscriptions/{id}/pause", subscription.getId().value())
+                .param("pauseUntilDate", DATE.plusDays(3).toString())
+                .with(httpBasic("customer1", "password1")))
+        .andExpect(status().isOk());
+    assertThat(subscriptions.load(subscription.getId()).orElseThrow().getLifecycleStatus())
+        .isEqualTo(SubscriptionStatus.PAUSED);
+  }
+
+  @Test
+  void pauseBeforePaymentStartsPreventsRecurringAttempt() throws Exception {
+    var subscription = subscribe(DATE.minusMonths(1));
+    doReturn(DATE.minusDays(1).atStartOfDay(ZoneId.of("Asia/Seoul")).toInstant())
+        .when(clock)
+        .instant();
+    mvc.perform(
+            patch("/subscriptions/{id}/pause", subscription.getId().value())
+                .param("pauseUntilDate", DATE.plusDays(3).toString())
+                .with(httpBasic("customer1", "password1")))
+        .andExpect(status().isOk());
+    doReturn(DATE.atTime(10, 0).atZone(ZoneId.of("Asia/Seoul")).toInstant()).when(clock).instant();
+    process.process(subscription.getId(), DATE, DATE);
+    assertThat(billings.findRecurring(subscription.getId(), DATE)).isEmpty();
+    verify(gateway, never()).pay(any());
+  }
+
+  @Test
+  void recurringDeclineCanBeRecoveredByManualReactivationWithoutPausing() throws Exception {
+    var subscription = subscribe(DATE.minusMonths(1));
+    gateway.declineNext();
+    run.runDue();
+    var recurring = billing(subscription);
+    var failedPayment = payment(recurring);
+    assertThat(recurring.getStatus()).isEqualTo(BillingStatus.CANCELLED);
+    assertThat(failedPayment.getStatus()).isEqualTo(PaymentStatus.FAILED);
+    assertThat(billings.findPending(subscription.getId())).isEmpty();
+
+    mvc.perform(
+            post("/subscriptions/{id}/reactivation-billing", subscription.getId().value())
+                .with(httpBasic("customer1", "password1")))
+        .andExpect(status().isOk());
+    var manual = billings.findPending(subscription.getId()).orElseThrow();
+    assertThat(manual.getPurpose()).isEqualTo(BillingPurpose.REACTIVATION);
+    assertThat(manual.getId()).isNotEqualTo(recurring.getId());
+    gateway.declineNext();
+    mvc.perform(
+            post("/billings/{id}/payments", manual.getId().value())
+                .with(httpBasic("customer1", "password1")))
+        .andExpect(status().isOk());
+    assertThat(billings.load(manual.getId()).orElseThrow().getStatus())
+        .isEqualTo(BillingStatus.PENDING);
+    mvc.perform(
+            post("/billings/{id}/payments", manual.getId().value())
+                .with(httpBasic("customer1", "password1")))
+        .andExpect(status().isOk());
+    var renewed = subscriptions.load(subscription.getId()).orElseThrow();
+    assertThat(renewed.getLifecycleStatus()).isEqualTo(SubscriptionStatus.ACTIVE);
+    assertThat(renewed.getCurrentPeriod().startDate()).isEqualTo(DATE);
+    assertThat(renewed.getNextBillingDate()).isEqualTo(DATE.plusMonths(1));
+    assertThat(renewed.getSuspensionReasons())
+        .doesNotContain(SubscriptionSuspensionReason.PAYMENT_FAILED);
+    assertThat(payments.load(failedPayment.getId()).orElseThrow().getStatus())
+        .isEqualTo(PaymentStatus.FAILED);
+    assertThat(billings.load(recurring.getId()).orElseThrow().getStatus())
+        .isEqualTo(BillingStatus.CANCELLED);
+    assertThat(billings.load(manual.getId()).orElseThrow().getStatus())
+        .isEqualTo(BillingStatus.PAID);
+    run.runDue();
+    verify(gateway, times(3)).pay(any());
+  }
+
+  @Test
+  void migrationClosesOnlyLegacyDeclinedRecurringBillings() throws Exception {
+    var failed = subscribe(DATE.minusMonths(1));
+    gateway.declineNext();
+    process.process(failed.getId(), DATE, DATE);
+    var failedBilling = billing(failed);
+    jdbc.sql("update billings set status = 'PENDING' where id = :id")
+        .param("id", failedBilling.getId().value())
+        .update();
+    var pending = subscribe(DATE.minusMonths(1));
+    gateway.failNext();
+    process.process(pending.getId(), DATE, DATE);
+    var sql =
+        new org.springframework.core.io.ClassPathResource(
+                "db/migration/V6__close_declined_recurring_billings.sql")
+            .getContentAsString(java.nio.charset.StandardCharsets.UTF_8);
+    jdbc.sql(sql).update();
+    assertThat(billings.load(failedBilling.getId()).orElseThrow().getStatus())
+        .isEqualTo(BillingStatus.CANCELLED);
+    assertThat(billing(pending).getStatus()).isEqualTo(BillingStatus.PENDING);
+    assertThat(payment(billing(pending)).getStatus()).isEqualTo(PaymentStatus.PROCESSING);
   }
 }

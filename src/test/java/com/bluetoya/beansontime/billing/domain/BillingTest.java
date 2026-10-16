@@ -123,4 +123,22 @@ class BillingTest {
                     BillingPurpose.RECURRING))
         .isInstanceOf(IllegalArgumentException.class);
   }
+
+  @Test
+  void onlyPendingRecurringBillingCanCloseAfterDecline() {
+    var recurring =
+        Billing.recurring(
+            new CustomerId(1),
+            SubscriptionId.generate(),
+            new ProductId(1),
+            new Money(12000),
+            LocalDate.of(2026, 10, 1),
+            LocalDateTime.of(2026, 10, 1, 0, 0));
+    recurring.cancelAfterRecurringDecline();
+    recurring.cancelAfterRecurringDecline();
+    assertThat(recurring.getStatus()).isEqualTo(BillingStatus.CANCELLED);
+    assertThatThrownBy(recurring::markPaid).isInstanceOf(InvalidBillingStateChangeException.class);
+    assertThatThrownBy(() -> billing(new Money(12000)).cancelAfterRecurringDecline())
+        .isInstanceOf(InvalidBillingStateChangeException.class);
+  }
 }

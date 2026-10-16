@@ -271,12 +271,33 @@ public class Subscription {
     this.lifecycleStatus = SubscriptionStatus.ACTIVE;
   }
 
-  public boolean isPaidReactivationTarget() {
+  private boolean isPausedReactivationTarget() {
     return lifecycleStatus == SubscriptionStatus.PAUSED
         && Integer.valueOf(0).equals(remainingPaidDays);
   }
 
+  public boolean isPaidReactivationTarget(LocalDate date) {
+    Objects.requireNonNull(date, "판단 날짜는 필수입니다.");
+    return isPausedReactivationTarget()
+        || (lifecycleStatus == SubscriptionStatus.ACTIVE
+            && suspensionReasons.contains(SubscriptionSuspensionReason.PAYMENT_FAILED)
+            && currentPeriod != null
+            && date.isAfter(currentPeriod.endDate()));
+  }
+
   public void validatePaidReactivation(LocalDate paymentDate) {
+    Objects.requireNonNull(paymentDate, "결제 성공일은 필수입니다.");
+    if (lifecycleStatus == SubscriptionStatus.ACTIVE) {
+      if (!suspensionReasons.contains(SubscriptionSuspensionReason.PAYMENT_FAILED))
+        throw new InvalidSubscriptionStateChangeException("결제 실패로 차단된 구독만 재활성화할 수 있습니다.");
+      if (currentPeriod == null
+          || nextBillingDate == null
+          || !currentPeriod.endDate().plusDays(1).equals(nextBillingDate))
+        throw new InvalidSubscriptionPeriodStateException("ACTIVE 구독의 이용 기간과 청구 예정일이 올바르지 않습니다.");
+      if (!paymentDate.isAfter(currentPeriod.endDate()))
+        throw new InvalidSubscriptionPaymentDateException("재활성화 승인일은 기존 이용 기간 종료일 이후여야 합니다.");
+      return;
+    }
     if (this.lifecycleStatus != SubscriptionStatus.PAUSED || this.remainingPaidDays == null) {
       throw new InvalidSubscriptionStateChangeException("결제로 재활성화할 수 없는 구독입니다.");
     }
@@ -284,8 +305,6 @@ public class Subscription {
     if (this.remainingPaidDays != 0) {
       throw new InvalidSubscriptionStateChangeException("남은 선결제 이용 기간이 있는 구독입니다.");
     }
-
-    Objects.requireNonNull(paymentDate, "결제 성공일은 필수입니다.");
 
     if (currentPeriod != null
         || pausedAt == null
@@ -316,7 +335,7 @@ public class Subscription {
   }
 
   public void recordReactivationPaymentDeclined() {
-    if (!isPaidReactivationTarget()) {
+    if (!isPausedReactivationTarget()) {
       return;
     }
     suspensionReasons.add(SubscriptionSuspensionReason.PAYMENT_FAILED);

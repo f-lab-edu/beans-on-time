@@ -128,6 +128,15 @@ public class Billing {
     }
   }
 
+  public void cancelAfterRecurringDecline() {
+    if (purpose != BillingPurpose.RECURRING)
+      throw new InvalidBillingStateChangeException("정기 청구만 결제 거절로 종료할 수 있습니다.");
+    if (status == BillingStatus.CANCELLED) return;
+    if (status != BillingStatus.PENDING)
+      throw new InvalidBillingStateChangeException("대기 중인 정기 청구만 결제 거절로 종료할 수 있습니다.");
+    status = BillingStatus.CANCELLED;
+  }
+
   public void cancelAfterCompensation() {
     if (status == BillingStatus.CANCELLED) return;
     if (status != BillingStatus.PENDING)

@@ -411,7 +411,8 @@ class PayBillingServiceTest {
     PaymentGateway external = mock(PaymentGateway.class);
     service = serviceWith(external);
 
-    assertThat(subscription.isPaidReactivationTarget()).isTrue();
+    assertThat(subscription.isPaidReactivationTarget(java.time.LocalDate.of(2026, 12, 31)))
+        .isTrue();
     assertThatThrownBy(this::pay).isInstanceOf(InvalidSubscriptionPeriodStateException.class);
     assertThat(payments.findProcessingIds()).isEmpty();
     assertThat(billing.getStatus()).isEqualTo(BillingStatus.PENDING);
@@ -427,7 +428,8 @@ class PayBillingServiceTest {
     PaymentGateway external = mock(PaymentGateway.class);
     service = serviceWith(external);
 
-    assertThat(subscription.isPaidReactivationTarget()).isTrue();
+    assertThat(subscription.isPaidReactivationTarget(java.time.LocalDate.of(2026, 12, 31)))
+        .isTrue();
     assertThatThrownBy(this::pay).isInstanceOf(InvalidSubscriptionPaymentDateException.class);
     assertThat(payments.findProcessingIds()).isEmpty();
     assertThat(billing.getStatus()).isEqualTo(BillingStatus.PENDING);

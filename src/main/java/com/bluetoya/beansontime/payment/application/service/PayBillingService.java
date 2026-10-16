@@ -78,7 +78,7 @@ public class PayBillingService implements PayBillingUseCase {
         loadSubscriptionPort
             .load(billing.getSubscriptionId())
             .orElseThrow(() -> new SubscriptionNotFoundException("청구의 구독이 존재하지 않습니다."));
-    if (!subscription.isPaidReactivationTarget()) {
+    if (!subscription.isPaidReactivationTarget(now.toLocalDate())) {
       throw new ReactivationBillingNotAllowedException("현재 구독 상태에서는 재활성화 결제를 진행할 수 없습니다.");
     }
     var product =
