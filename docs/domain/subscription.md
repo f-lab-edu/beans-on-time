@@ -423,6 +423,8 @@ CANCELLED -> CANCELLED
 `scheduledResumeDate`를 모두 비운다. feature/13의 고객 철회는 `withdraw(requestedAt)`로
 최초 철회 시각을 함께 보존하고 남은 이용권을 즉시 소멸시킨다. 재이용은 새 구독으로 진행한다.
 기존 `cancel()`로 종료된 이력에는 철회 시각을 추정하여 채우지 않는다.
+이 이력의 진행 중 결제가 나중에 승인되면 결제 승인 증거를 `REVIEW`로 보존하고
+이용권 반영·자동 환불 없이 운영 확인을 기다린다.
 환불 대상과 처리 범위는 `docs/domain/billing-payment.md`의 feature/13 절을 따른다.
 
 ### 예외와 HTTP 상태

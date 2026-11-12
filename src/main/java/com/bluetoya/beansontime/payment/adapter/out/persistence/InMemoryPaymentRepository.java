@@ -29,7 +29,8 @@ public class InMemoryPaymentRepository {
         .filter(
             p ->
                 (p.getStatus() == PaymentStatus.PROCESSING
-                    || p.getStatus() == PaymentStatus.CANCEL_PENDING))
+                    || p.getStatus() == PaymentStatus.CANCEL_PENDING
+                    || p.getStatus() == PaymentStatus.REVIEW))
         .findFirst();
   }
 

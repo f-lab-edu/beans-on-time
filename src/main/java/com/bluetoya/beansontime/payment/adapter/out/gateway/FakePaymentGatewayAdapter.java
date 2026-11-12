@@ -96,6 +96,11 @@ public class FakePaymentGatewayAdapter
                     "fake_refund_" + id, LocalDateTime.now(clock))));
   }
 
+  public boolean canAutomaticallyReconcile(
+      com.bluetoya.beansontime.refund.domain.Refund refund, LocalDateTime now) {
+    return true;
+  }
+
   public synchronized void approveNext(String transactionId) {
     nextResult = Result.APPROVE;
     nextTransactionId = transactionId;

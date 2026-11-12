@@ -7,5 +7,7 @@ import java.util.Optional;
 public interface RefundGateway {
   Optional<Receipt> refundOrFind(Refund refund);
 
+  boolean canAutomaticallyReconcile(Refund refund, LocalDateTime now);
+
   record Receipt(String transactionId, LocalDateTime completedAt) {}
 }

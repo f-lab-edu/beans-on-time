@@ -436,11 +436,15 @@ class TossPaymentIntegrationTest {
                     payment.getId(),
                     PaymentGatewayResult.approved(done().lastTransactionKey(), NOW))
                 .getStatus())
-        .isEqualTo(PaymentStatus.PROCESSING);
+        .isEqualTo(PaymentStatus.REVIEW);
     assertThat(approvals.load(payment.getId()).orElseThrow().phase())
         .isEqualTo(PaymentApproval.Phase.REVIEW);
+    assertThat(payments.findProcessingIds()).doesNotContain(payment.getId());
+    assertThat(payments.findProcessing(billing.getId()).orElseThrow().getStatus())
+        .isEqualTo(PaymentStatus.REVIEW);
+    assertThat(payments.load(payment.getId()).orElseThrow().getApprovedAt()).isEqualTo(NOW);
     clock.now = NOW.plusDays(2);
-    resolver.resolve(payment.getId());
+    assertThat(resolver.resolve(payment.getId()).status()).isEqualTo("REVIEW");
     verifyNoInteractions(client);
   }
 

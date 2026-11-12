@@ -6,14 +6,17 @@ import com.bluetoya.beansontime.payment.application.exception.PaymentCommitUncer
 import com.bluetoya.beansontime.payment.application.port.out.*;
 import com.bluetoya.beansontime.payment.domain.*;
 import com.bluetoya.beansontime.subscription.application.port.out.LoadSubscriptionPort;
+import com.bluetoya.beansontime.subscription.domain.SubscriptionStatus;
 import com.bluetoya.beansontime.subscription.domain.exception.*;
 import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.function.Supplier;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 /** 승인 증거·내부 반영 시도·보상 결정을 각각 커밋하여 중단된 처리를 복구한다. */
 @RequiredArgsConstructor
+@Slf4j
 public class RecoverablePaymentCompletionService implements PaymentCompletion {
   private final LoadPaymentPort payments;
   private final SavePaymentPort savePayments;
@@ -67,6 +70,17 @@ public class RecoverablePaymentCompletionService implements PaymentCompletion {
                 completion.complete(
                     id,
                     PaymentGatewayResult.approved(approval.transactionId(), approval.approvedAt()));
+                return false;
+              }
+              if (subscription.getLifecycleStatus() == SubscriptionStatus.CANCELLED) {
+                if (approval.phase() != PaymentApproval.Phase.REVIEW)
+                  approvals.save(approval.requireReview());
+                payment.requireReview(approval.transactionId(), approval.approvedAt());
+                savePayments.save(payment);
+                log.warn(
+                    "종료된 구독의 지연 승인 운영 확인 필요: subscriptionId={}, paymentId={}",
+                    subscription.getId().value(),
+                    id.value());
                 return false;
               }
               if (approval.phase() == PaymentApproval.Phase.REVIEW) return false;

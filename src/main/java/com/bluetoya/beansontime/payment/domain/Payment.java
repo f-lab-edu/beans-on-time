@@ -39,7 +39,8 @@ public class Payment {
     this.status = Objects.requireNonNull(status, "결제 상태는 필수입니다.");
     if (((status == PaymentStatus.SUCCESS
                 || status == PaymentStatus.CANCEL_PENDING
-                || status == PaymentStatus.CANCELLED)
+                || status == PaymentStatus.CANCELLED
+                || status == PaymentStatus.REVIEW)
             && (transactionId == null || transactionId.isBlank()))
         || ((status == PaymentStatus.PROCESSING || status == PaymentStatus.FAILED)
             && transactionId != null)) {
@@ -58,8 +59,10 @@ public class Payment {
       LocalDateTime attemptedAt,
       LocalDateTime approvedAt) {
     var payment = new Payment(id, billingId, amount, status, transactionId, attemptedAt);
-    if (approvedAt != null && status != PaymentStatus.SUCCESS)
-      throw new IllegalArgumentException("성공 결제에만 승인 시각을 기록할 수 있습니다.");
+    if (approvedAt != null && status != PaymentStatus.SUCCESS && status != PaymentStatus.REVIEW)
+      throw new IllegalArgumentException("승인 또는 운영 확인 대상 결제에만 승인 시각을 기록할 수 있습니다.");
+    if (status == PaymentStatus.REVIEW && approvedAt == null)
+      throw new IllegalArgumentException("운영 확인 대상 결제에는 PG 승인 시각이 필요합니다.");
     payment.approvedAt = approvedAt;
     return payment;
   }
@@ -91,6 +94,16 @@ public class Payment {
       throw new IllegalArgumentException("승인 증거가 필요합니다.");
     transactionId = approvalTransactionId;
     status = PaymentStatus.CANCEL_PENDING;
+  }
+
+  public void requireReview(String approvalTransactionId, LocalDateTime approvedAt) {
+    if (approvalTransactionId == null || approvalTransactionId.isBlank())
+      throw new IllegalArgumentException("운영 확인할 승인 거래 식별자는 필수입니다.");
+    Objects.requireNonNull(approvedAt, "운영 확인할 승인 시각은 필수입니다.");
+    requireProcessing();
+    this.transactionId = approvalTransactionId;
+    this.approvedAt = approvedAt;
+    this.status = PaymentStatus.REVIEW;
   }
 
   public void completeCompensation() {

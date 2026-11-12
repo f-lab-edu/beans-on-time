@@ -9,6 +9,7 @@ import com.bluetoya.beansontime.payment.application.exception.PaymentGatewayUnav
 import com.bluetoya.beansontime.payment.application.port.out.*;
 import com.bluetoya.beansontime.payment.domain.*;
 import com.bluetoya.beansontime.product.domain.Money;
+import com.bluetoya.beansontime.refund.domain.Refund;
 import java.time.*;
 import java.util.*;
 import org.junit.jupiter.api.Test;
@@ -155,5 +156,26 @@ class TossTestPaymentGatewayAdapterTest {
     verify(client, times(2))
         .cancel(
             eq(auth.paymentKey()), eq("구독 활성화 DB 반영 실패에 따른 전액 보상 취소"), eq(approval.cancelKey()));
+  }
+
+  @Test
+  void refundPreconditionMismatchDoesNotResendCancellation() {
+    var refund = Refund.request(payment.getId(), payment.getAmount(), "approved_tx", now, now);
+    when(client.find(auth.paymentKey())).thenReturn(response("PARTIAL_CANCELED"));
+
+    assertThat(gateway(now).refundOrFind(refund)).isEmpty();
+    verify(client, never()).cancel(anyString(), anyString(), anyString());
+  }
+
+  @Test
+  void refundExpiresFromAutomaticReconciliationAtFifteenDays() {
+    var refund = Refund.request(payment.getId(), payment.getAmount(), "approved_tx", now, now);
+    when(client.find(auth.paymentKey())).thenReturn(response("DONE"));
+    var gateway = gateway(now.plusDays(15));
+
+    assertThat(gateway.canAutomaticallyReconcile(refund, now.plusDays(15).minusNanos(1))).isTrue();
+    assertThat(gateway.canAutomaticallyReconcile(refund, now.plusDays(15))).isFalse();
+    assertThat(gateway.refundOrFind(refund)).isEmpty();
+    verify(client, never()).cancel(anyString(), anyString(), anyString());
   }
 }

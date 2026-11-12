@@ -7,8 +7,10 @@ import java.time.*;
 import java.util.Optional;
 import java.util.function.Supplier;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 @RequiredArgsConstructor
+@Slf4j
 public class TossTestPaymentGatewayAdapter
     implements PaymentGateway,
         FindGatewayPaymentPort,
@@ -111,20 +113,46 @@ public class TossTestPaymentGatewayAdapter
     validate(payment, auth, response);
     var found = refundReceipt(refund, response);
     if (found.isPresent()) return found;
-    if (!"DONE".equals(response.status())
-        || !response.cancels().isEmpty()
-        || response.balanceAmount() == null
-        || response.balanceAmount() != refund.amount().price()
-        || !refund.approvalTransactionId().equals(response.lastTransactionKey())
-        || response.approvedAt() == null
-        || !refund.approvedAt().equals(kst(response.approvedAt()))) return Optional.empty();
-    // 기존 보상 취소와 동일하게 멱등키 보장 기간 이후에는 조회만 수행한다.
-    if (!LocalDateTime.now(clock).isBefore(refund.requestedAt().plusDays(15)))
+    var refusal = refundResendRefusal(refund, response);
+    if (refusal != null) {
+      log.warn(
+          "환불 재전송 불가: paymentId={}, refundId={}, reason={}",
+          refund.paymentId().value(),
+          refund.id(),
+          refusal);
       return Optional.empty();
+    }
+    // 기존 보상 취소와 동일하게 멱등키 보장 기간 이후에는 조회만 수행한다.
+    if (!canAutomaticallyReconcile(refund, LocalDateTime.now(clock))) {
+      log.warn(
+          "환불 재전송 기간 경과, 운영 확인 필요: paymentId={}, refundId={}",
+          refund.paymentId().value(),
+          refund.id());
+      return Optional.empty();
+    }
     var cancelled =
         call(() -> client.cancel(auth.paymentKey(), "구독 철회에 따른 전액 환불", refund.idempotencyKey()));
     validate(payment, auth, cancelled);
     return refundReceipt(refund, cancelled);
+  }
+
+  public boolean canAutomaticallyReconcile(
+      com.bluetoya.beansontime.refund.domain.Refund refund, LocalDateTime now) {
+    return now.isBefore(refund.requestedAt().plusDays(15));
+  }
+
+  private String refundResendRefusal(
+      com.bluetoya.beansontime.refund.domain.Refund refund,
+      TossTestPaymentClient.PaymentResponse response) {
+    if (!"DONE".equals(response.status())) return "승인 완료 상태 아님";
+    if (!response.cancels().isEmpty()) return "기존 취소 내역 존재";
+    if (response.balanceAmount() == null || response.balanceAmount() != refund.amount().price())
+      return "잔액 불일치";
+    if (!refund.approvalTransactionId().equals(response.lastTransactionKey()))
+      return "승인 거래 식별자 불일치";
+    if (response.approvedAt() == null || !refund.approvedAt().equals(kst(response.approvedAt())))
+      return "승인 시각 불일치";
+    return null;
   }
 
   private Optional<com.bluetoya.beansontime.refund.application.port.out.RefundGateway.Receipt>

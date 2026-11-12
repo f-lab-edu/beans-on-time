@@ -8,9 +8,12 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 import com.bluetoya.beansontime.billing.application.port.in.RunRecurringBillingUseCase;
+import com.bluetoya.beansontime.billing.domain.BillingId;
 import com.bluetoya.beansontime.customer.domain.CustomerId;
 import com.bluetoya.beansontime.payment.adapter.out.gateway.FakePaymentGatewayAdapter;
 import com.bluetoya.beansontime.payment.application.exception.PaymentGatewayUnavailableException;
+import com.bluetoya.beansontime.payment.application.port.in.ReconcileProcessingPaymentsUseCase;
+import com.bluetoya.beansontime.payment.application.port.out.FindProcessingPaymentPort;
 import com.bluetoya.beansontime.payment.application.service.PaymentResultResolver;
 import com.bluetoya.beansontime.payment.domain.*;
 import com.bluetoya.beansontime.product.adapter.out.persistence.JdbcProductAdapter;
@@ -53,6 +56,8 @@ class SubscriptionWithdrawalIntegrationTest {
   @Autowired JdbcSubscriptionAdapter subscriptions;
   @Autowired RunRecurringBillingUseCase recurring;
   @Autowired PaymentResultResolver resolver;
+  @Autowired ReconcileProcessingPaymentsUseCase reconcilePayments;
+  @Autowired FindProcessingPaymentPort processingPayments;
   @Autowired ReconcileRefundsUseCase reconcileRefunds;
   @Autowired RefundStore refunds;
   @Autowired WithdrawalStore withdrawals;
@@ -258,6 +263,48 @@ class SubscriptionWithdrawalIntegrationTest {
         .andExpect(jsonPath("$.refunds.length()").value(2));
     assertThat(refunds.find(late).orElseThrow().isCompleted()).isTrue();
     assertThat(withdrawals.find(s.getId()).orElseThrow().requestedAt()).isEqualTo(NOW);
+  }
+
+  @Test
+  void legacyCancellationKeepsLateApprovalForReviewWithoutRepeatedRecovery() throws Exception {
+    var subscription = subscribe(NOW.toLocalDate().minusMonths(1));
+    gateway.failNext();
+    recurring.runDue();
+    var late = new PaymentId(latestId());
+    subscription.cancel();
+    subscriptions.save(subscription);
+    withdraw(subscription)
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.decision").value("PREVIOUSLY_CANCELLED"));
+
+    gateway.approvePending(late, "legacy-late-approval");
+    assertThat(resolver.resolve(late).status()).isEqualTo("REVIEW");
+    assertThat(processingPayments.findProcessingIds()).doesNotContain(late);
+    var billingId =
+        new BillingId(
+            jdbc.sql("select billing_id from payments where id=:id")
+                .param("id", late.value())
+                .query(Long.class)
+                .single());
+    assertThat(processingPayments.findProcessing(billingId).orElseThrow().getStatus())
+        .isEqualTo(PaymentStatus.REVIEW);
+    reconcilePayments.reconcileProcessing();
+    verify(gateway, times(1)).find(late);
+    assertThat(refunds.find(late)).isEmpty();
+    assertThat(jdbc.sql("select status from billings").query(String.class).single())
+        .isEqualTo("PENDING");
+    assertThat(
+            jdbc.sql("select transaction_id from payments where id=:id")
+                .param("id", late.value())
+                .query(String.class)
+                .single())
+        .isEqualTo("legacy-late-approval");
+    assertThat(
+            jdbc.sql("select approved_at from payments where id=:id")
+                .param("id", late.value())
+                .query(LocalDateTime.class)
+                .single())
+        .isEqualTo(NOW);
   }
 
   @Test

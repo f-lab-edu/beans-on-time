@@ -95,7 +95,7 @@ public class JdbcPaymentAdapter
   @Override
   public Optional<Payment> findProcessing(BillingId id) {
     return jdbc.sql(
-            "select * from payments where billing_id = :id and status in ('PROCESSING', 'CANCEL_PENDING')")
+            "select * from payments where billing_id = :id and status in ('PROCESSING', 'CANCEL_PENDING', 'REVIEW')")
         .param("id", id.value())
         .query(this::map)
         .optional();

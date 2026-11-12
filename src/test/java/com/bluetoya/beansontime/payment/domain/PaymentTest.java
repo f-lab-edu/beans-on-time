@@ -69,6 +69,40 @@ class PaymentTest {
   }
 
   @Test
+  void preservesApprovalEvidenceForManualReviewWithoutCompletingPayment() {
+    var payment = Payment.start(new BillingId(1), new Money(30000), ATTEMPTED_AT);
+    payment.requireReview("late-approval", ATTEMPTED_AT.plusMinutes(1));
+
+    assertThat(payment.getStatus()).isEqualTo(PaymentStatus.REVIEW);
+    assertThat(payment.getTransactionId()).isEqualTo("late-approval");
+    assertThat(payment.getApprovedAt()).isEqualTo(ATTEMPTED_AT.plusMinutes(1));
+    assertThatThrownBy(() -> payment.succeed("late-approval", ATTEMPTED_AT.plusMinutes(1)))
+        .isInstanceOf(InvalidPaymentStateChangeException.class);
+    assertThat(
+            Payment.restore(
+                    payment.getId(),
+                    payment.getBillingId(),
+                    payment.getAmount(),
+                    payment.getStatus(),
+                    payment.getTransactionId(),
+                    payment.getAttemptedAt(),
+                    payment.getApprovedAt())
+                .getStatus())
+        .isEqualTo(PaymentStatus.REVIEW);
+    assertThatIllegalArgumentException()
+        .isThrownBy(
+            () ->
+                Payment.restore(
+                    payment.getId(),
+                    payment.getBillingId(),
+                    payment.getAmount(),
+                    PaymentStatus.REVIEW,
+                    payment.getTransactionId(),
+                    payment.getAttemptedAt(),
+                    null));
+  }
+
+  @Test
   void requiresTheBillingIdAndAmount() {
     assertThatNullPointerException()
         .isThrownBy(() -> Payment.failed(null, new Money(30000), ATTEMPTED_AT));

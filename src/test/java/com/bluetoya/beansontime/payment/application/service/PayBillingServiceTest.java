@@ -383,14 +383,17 @@ class PayBillingServiceTest {
   }
 
   @Test
-  void retainsProcessingAndGatewayEvidenceWhenTheSubscriptionWasCancelledBeforeApproval() {
+  void retainsApprovalEvidenceForReviewWhenTheSubscriptionWasCancelledBeforeApproval() {
     gateway.failNext();
     PaymentId id = new PaymentId(pay().paymentId());
     subscription.cancel();
     gateway.approvePending(id, "requires-reconciliation");
     new ReconcileProcessingPaymentsService(payments, resolver).reconcileProcessing();
-    assertThat(payments.load(id).orElseThrow().getStatus()).isEqualTo(PaymentStatus.PROCESSING);
-    assertThat(gateway.find(id).orElseThrow().successful()).isTrue();
+    assertThat(payments.load(id).orElseThrow().getStatus()).isEqualTo(PaymentStatus.REVIEW);
+    assertThat(payments.load(id).orElseThrow().getTransactionId())
+        .isEqualTo("requires-reconciliation");
+    assertThat(payments.findProcessingIds()).doesNotContain(id);
+    assertThat(resolver.resolve(id).status()).isEqualTo("REVIEW");
     assertThat(billing.getStatus()).isEqualTo(BillingStatus.PENDING);
     assertThat(subscription.getLifecycleStatus()).isEqualTo(SubscriptionStatus.CANCELLED);
     assertThat(subscription.getCurrentPeriod()).isNull();

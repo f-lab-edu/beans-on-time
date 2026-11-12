@@ -13,14 +13,17 @@ import com.bluetoya.beansontime.payment.domain.PaymentStatus;
 import com.bluetoya.beansontime.subscription.application.exception.SubscriptionNotFoundException;
 import com.bluetoya.beansontime.subscription.application.port.out.LoadSubscriptionPort;
 import com.bluetoya.beansontime.subscription.application.port.out.SaveSubscriptionPort;
+import com.bluetoya.beansontime.subscription.domain.SubscriptionStatus;
 import java.time.Clock;
 import java.time.LocalDateTime;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 /** 같은 결제의 동기 응답과 조회 결과를 동일 실행 경계에서 반영한다. */
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class PaymentCompletionService implements PaymentCompletion {
   private final LoadPaymentPort loadPaymentPort;
   private final LoadBillingPort loadBillingPort;
@@ -65,7 +68,17 @@ public class PaymentCompletionService implements PaymentCompletion {
               saveBillingPort.save(billing);
               return null;
             }
-            // 기존 취소와 그 밖의 구독 상태 충돌은 확인 대상으로 남긴다.
+            // 과거 cancel()로 종료된 구독의 승인 증거를 보존하고 자동 결과 조회를 멈춘다.
+            if (subscription.getLifecycleStatus() == SubscriptionStatus.CANCELLED) {
+              payment.requireReview(result.transactionId(), result.completedAt());
+              savePaymentPort.save(payment);
+              log.warn(
+                  "종료된 구독의 지연 승인 운영 확인 필요: subscriptionId={}, paymentId={}",
+                  subscription.getId().value(),
+                  paymentId.value());
+              return null;
+            }
+            // 그 밖의 구독 상태 충돌은 확인 대상으로 남긴다.
             if (billing.getPurpose() == BillingPurpose.RECURRING)
               subscription.renewAfterPayment(
                   billing.getBillingDate(), result.completedAt().toLocalDate());
