@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import com.bluetoya.beansontime.subscription.application.exception.ProductNotSubscribableException;
 import com.bluetoya.beansontime.subscription.domain.exception.InvalidSubscriptionPausePeriodException;
+import com.bluetoya.beansontime.subscription.domain.exception.InvalidSubscriptionPaymentDateException;
 import com.bluetoya.beansontime.subscription.domain.exception.InvalidSubscriptionPeriodStateException;
 import com.bluetoya.beansontime.subscription.domain.exception.InvalidSubscriptionResumeDateException;
 import com.bluetoya.beansontime.subscription.domain.exception.InvalidSubscriptionStateChangeException;
@@ -81,6 +82,13 @@ class SubscriptionExceptionHandlerTest {
             .flatMap(annotation -> Arrays.stream(annotation.value()))
             .anyMatch(InvalidSubscriptionPeriodStateException.class::equals);
 
+    boolean handlesInvalidPaymentDate =
+        Arrays.stream(SubscriptionExceptionHandler.class.getDeclaredMethods())
+            .map(method -> method.getAnnotation(ExceptionHandler.class))
+            .filter(annotation -> annotation != null)
+            .flatMap(annotation -> Arrays.stream(annotation.value()))
+            .anyMatch(InvalidSubscriptionPaymentDateException.class::equals);
+    assertThat(handlesInvalidPaymentDate).isFalse();
     assertThat(handlesInvalidResumeDate).isFalse();
     assertThat(handlesInvalidPeriodState).isFalse();
   }

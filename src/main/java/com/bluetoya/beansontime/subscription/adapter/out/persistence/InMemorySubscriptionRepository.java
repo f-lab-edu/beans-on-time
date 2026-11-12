@@ -40,4 +40,16 @@ public class InMemorySubscriptionRepository {
         .filter(subscription -> subscription.getLifecycleStatus() != SubscriptionStatus.CANCELLED)
         .toList();
   }
+
+  public List<Subscription> findDue(java.time.LocalDate date, SubscriptionId after, int limit) {
+    return subscriptions.values().stream()
+        .filter(s -> s.isRecurringBillingDue(date))
+        .filter(
+            s ->
+                after == null
+                    || s.getId().value().toString().compareTo(after.value().toString()) > 0)
+        .sorted(java.util.Comparator.comparing(s -> s.getId().value().toString()))
+        .limit(limit)
+        .toList();
+  }
 }
