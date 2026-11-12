@@ -4,12 +4,11 @@ import com.bluetoya.beansontime.billing.application.port.in.RunRecurringBillingU
 import lombok.RequiredArgsConstructor;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Profile;
-import org.springframework.scheduling.annotation.*;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
 @Component
 @Profile("!toss-test")
-@EnableScheduling
 @RequiredArgsConstructor
 @ConditionalOnProperty(name = "billing.recurring.enabled", havingValue = "true")
 public class RecurringBillingScheduler {

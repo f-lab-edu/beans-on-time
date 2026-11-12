@@ -10,6 +10,7 @@ import com.bluetoya.beansontime.subscription.application.port.out.*;
 import java.time.Clock;
 import org.springframework.context.annotation.*;
 
+/** 토스 자동결제를 아직 지원하지 않으므로 toss-test에서는 정기결제 서비스 전체를 제외한다. */
 @Configuration
 @Profile("!toss-test")
 public class RecurringBillingConfig {
