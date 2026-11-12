@@ -529,7 +529,7 @@ class RecurringBillingIntegrationTest {
     process.process(pending.getId(), DATE, DATE);
     var sql =
         new org.springframework.core.io.ClassPathResource(
-                "db/migration/V6__close_declined_recurring_billings.sql")
+                "db/migration/V5__close_declined_recurring_billings.sql")
             .getContentAsString(java.nio.charset.StandardCharsets.UTF_8);
     jdbc.sql(sql).update();
     assertThat(billings.load(failedBilling.getId()).orElseThrow().getStatus())

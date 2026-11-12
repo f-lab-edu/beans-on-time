@@ -12,6 +12,7 @@ PG 라이브 환경과 실제 금액 거래는 구현 범위에서 제외한다.
 - 기본 구성은 JDBC이며 `in-memory` 프로필은 기존 메모리 테스트용이다.
 - Flyway V1은 상품·구독, V2는 청구·결제, V3는 승인·취소와 결제창 인증 기록을 소유한다.
   V4는 청구 목적과 정기 청구의 구독·예정일 유일성, 목적별 만료 제약을 추가한다.
+  V5는 기존의 거절 확정 후 PENDING으로 남은 정기 청구만 CANCELLED로 종료한다.
 - 네 애그리거트는 순수 Java 도메인 모델을 유지하고 복원 메서드로 불변식을 검사한다.
 - 저장 포트의 `saveNew`는 신규 INSERT, `save`는 기존 상태 갱신이다. 신규 식별자 충돌을
   UPSERT로 덮어쓰지 않는다. 현재 식별자 타입과 생성 방식은 유지한다.
@@ -51,9 +52,11 @@ DB 잠금을 유지하지 않는다. 잠금 획득 후 최신 Billing·Payment�
 Fake Gateway 결과는 메모리에 있으므로 DB만으로 외부 승인 결과를 복구할 수는 없다.
 
 토스 테스트 프로필에서는 PaymentApproval에 승인 증거, 내부 반영 시작과 취소 결정을
-별도 커밋한다. 정상 내부 반영의 트랜잭션 예외는 어댑터가 `PaymentCommitUncertainException`으로
-변환한다. 애플리케이션은 DB 예외 타입에 의존하지 않고, 새 실행 경계에서 최신 성공 여부를
-확인한다. 취소 결정은 정상 완료와 같은 상품 잠금으로 조율하고 외부 취소는 경계 밖에서 호출한다.
+별도 커밋한다. 정상 내부 반영의 잠금·데드락·직렬화 충돌은 어댑터가
+`PaymentCommitRetryableException`으로, 그 밖의 DB·트랜잭션 예외는
+`PaymentCommitUncertainException`으로 변환한다. 애플리케이션은 DB 예외 타입에 의존하지 않고,
+새 실행 경계에서 최신 성공 여부를 확인한 뒤 재시도 가능한 미반영 건만 한 번 더 반영한다.
+취소 결정은 정상 완료와 같은 상품 잠금으로 조율하고 외부 취소는 경계 밖에서 호출한다.
 
 승인 증거의 READY/APPLYING/REVIEW/CANCEL_PENDING/CANCELLED는 복구 단계다.
 Payment SUCCESS는 Billing PAID·Subscription ACTIVE와 원자적으로 확정되므로,
@@ -87,16 +90,10 @@ RECURRING 청구에만 `(subscription_id, billing_date)` 부분 UNIQUE 인덱스
 
 ## feature/13 환불 기반 영속화
 
-V5는 Payment 승인 시각, Subscription 철회 시각과 별도 refunds 테이블을 추가한다.
+V6는 Payment 승인 시각, Subscription 철회 시각과 별도 refunds 테이블을 추가한다.
 원결제 ID에 UNIQUE 제약을 두고 반환 거래 ID와 완료 시각의 동시 존재를 검사한다.
 기존 성공 결제의 승인 시각은 payment_approvals 증거가 있는 경우에만 이관한다.
 subscription_withdrawals는 구독별 최초 접수 시각·일반 환불 대상·판단 결과를 보존한다.
 구독 철회와 환불 요청 생성은 함께 커밋하고, 외부 반환 확인 후 Refund 완료와 Billing
 REFUNDED를 함께 커밋한다. 최신 성공 결제 조회는 승인 시각 기준이며 승인 시각 미상은
 자동 선정 중단을 위해 우선 반환한다.
-
-### V6: 거절 확정 정기 청구 이관
-
-이전 버전의 PENDING 정기 청구 중 하나 이상의 결제 시도가 있고 모든 시도가 FAILED인
-경우만 CANCELLED로 종료한다. 미확정·승인·보상 이력이 있거나 아직 시도하지 않은 청구는
-유지한다. 구독 상태와 결제 이력은 변경하지 않는다.

@@ -147,7 +147,10 @@ Subscription
 상태는 `PENDING`, `PAID`, `EXPIRED`, `CANCELLED`, `REFUNDED`를 사용하며 재활성화 청구는 생성 후 10분의 결제 시작 기한을 가진다. 기한 도달 시 진행 중 결제가 없으면
 만료하고, 있으면 결과를 기다려 승인 시 PAID, 기한 후 거절 시 EXPIRED로 전이한다.
 DB 미반영에 대한 전액 보상 취소가 완료되면 CANCELLED로 종료하고 새 청구에서 재결제한다.
-정기 청구는 구독 ID·청구 예정일로 식별하고 만료를 적용하지 않는다. 정기 거절 후 자동 재시도는 현재 제외한다.
+정기 청구는 구독 ID·청구 예정일로 식별하고 만료를 적용하지 않는다. 정기 거절 시
+Payment FAILED를 보존하고 Billing을 CANCELLED로 종료한다. 구독은 ACTIVE와
+PAYMENT_FAILED를 유지하며 기존 이용 기간 종료 후 수동 재활성화할 수 있다. 정기 거절 후
+자동 재시도는 현재 제외한다.
 상세한 확정 규칙은 `docs/domain/billing-payment.md`에 기록한다.
 
 ---

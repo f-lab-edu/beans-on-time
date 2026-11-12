@@ -242,6 +242,7 @@ ACTIVE 구독도 고객 의사로 일시정지할 수 있다.
 승인·거절 등 결과 처리가 완료되면 기존 일시정지 도메인 조건에 따라 요청할 수 있다.
 PG 승인과 일시정지가 겹쳐 승인된 금액의 회차 반영이 막히는 상황을 예방하기 위한 규칙이다.
 철회는 별도의 지연 승인 반환 정책을 유지한다.
+일시정지가 먼저 완료되면 정기결제는 최신 PAUSED 상태를 확인하고 시작하지 않는다.
 
 도메인 입력은 `pauseUntilDate`, `pausedAt`이다. `pauseDate`는
 `pausedAt.toLocalDate()`에서 도출한다.
@@ -389,7 +390,8 @@ Payment 승인 전에는 새 `currentPeriod`를 만들거나 생명주기를 변
 
 결제가 거절되면 `recordReactivationPaymentDeclined()`가 현재 구독의 재활성화 대상 여부를
 판단한다. PAUSED 대상이면 기간 문맥과 기존 청구 일정을 바꾸지 않고 `PAYMENT_FAILED`만
-추가한다. ACTIVE 대상은 이미 있는 `PAYMENT_FAILED`와 기존 기간을 유지한다. 이미 취소되었거나 다른 상태로 바뀌어 대상이 아니면 구독을 변경하지 않는다.
+추가한다. ACTIVE 대상은 기존 `PAYMENT_FAILED`와 기간을 유지한다. 이미 취소되었거나
+다른 상태로 바뀌어 대상이 아니면 구독을 변경하지 않는다.
 PG에서 확인한 거절은 구독의 현재 상태와 무관하게 Payment에 FAILED로 기록한다.
 유효한 청구는 거절 후 새 Payment로 재시도할 수 있고 Timeout이면 결과 확인까지 새
 시도를 차단한다. 상세한 Billing·Payment 책임, 가격과 실패 규칙은
