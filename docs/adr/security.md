@@ -204,3 +204,11 @@ AccessDeniedException
 안에서 구독 자격과 상품 상태를 다시 검증한다. 고객용 재활성화 결제·토스 결제창 API는
 RECURRING Billing을 거부하며 기존 소유권 검사를 유지한다. 고객 결과 확인 API는 기존
 Billing 소유권과 Payment 연결을 검사한다. 정기결제 유즈케이스는 toss-test에서 등록하지 않는다.
+
+
+## 구독 철회와 환불 조회
+
+`/subscriptions/{id}/withdrawal`의 POST·GET은 CUSTOMER 역할을 요구하고 매 요청마다
+OwnedSubscriptionLoader로 구독 소유권을 확인한다. 클라이언트가 PaymentId나 환불 금액을
+선택하지 않는다. 서버가 해당 구독에 연결된 승인 이력에서 환불 대상을 결정한다.
+미확정 환불의 시스템 복구는 고객 인증을 가장하지 않고 별도 입력 포트로 실행한다.

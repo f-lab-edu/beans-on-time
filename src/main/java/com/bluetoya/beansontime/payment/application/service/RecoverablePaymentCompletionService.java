@@ -6,14 +6,17 @@ import com.bluetoya.beansontime.payment.application.exception.PaymentCommitUncer
 import com.bluetoya.beansontime.payment.application.port.out.*;
 import com.bluetoya.beansontime.payment.domain.*;
 import com.bluetoya.beansontime.subscription.application.port.out.LoadSubscriptionPort;
+import com.bluetoya.beansontime.subscription.domain.SubscriptionStatus;
 import com.bluetoya.beansontime.subscription.domain.exception.*;
 import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.function.Supplier;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 /** 승인 증거·내부 반영 시도·보상 결정을 각각 커밋하여 중단된 처리를 복구한다. */
 @RequiredArgsConstructor
+@Slf4j
 public class RecoverablePaymentCompletionService implements PaymentCompletion {
   private final LoadPaymentPort payments;
   private final SavePaymentPort savePayments;
@@ -59,8 +62,28 @@ public class RecoverablePaymentCompletionService implements PaymentCompletion {
             () -> {
               var payment = payment(id);
               var approval = approvals.load(id).orElseThrow();
-              if (payment.getStatus() != PaymentStatus.PROCESSING
-                  || approval.phase() == PaymentApproval.Phase.REVIEW) return false;
+              if (payment.getStatus() != PaymentStatus.PROCESSING) return false;
+              var billing = billings.load(payment.getBillingId()).orElseThrow();
+              var subscription = subscriptions.load(billing.getSubscriptionId()).orElseThrow();
+              if (subscription.getWithdrawnAt() != null) {
+                // 보상 취소 결정 전이면 고객 철회에 따른 반환으로 마무리한다.
+                completion.complete(
+                    id,
+                    PaymentGatewayResult.approved(approval.transactionId(), approval.approvedAt()));
+                return false;
+              }
+              if (subscription.getLifecycleStatus() == SubscriptionStatus.CANCELLED) {
+                if (approval.phase() != PaymentApproval.Phase.REVIEW)
+                  approvals.save(approval.requireReview());
+                payment.requireReview(approval.transactionId(), approval.approvedAt());
+                savePayments.save(payment);
+                log.warn(
+                    "종료된 구독의 지연 승인 운영 확인 필요: subscriptionId={}, paymentId={}",
+                    subscription.getId().value(),
+                    id.value());
+                return false;
+              }
+              if (approval.phase() == PaymentApproval.Phase.REVIEW) return false;
               if (approval.phase() == PaymentApproval.Phase.READY) {
                 if (!validForApplication(approval)) return false;
                 approvals.save(approval.beginApplication(LocalDateTime.now(clock)));
@@ -155,6 +178,9 @@ public class RecoverablePaymentCompletionService implements PaymentCompletion {
     if (approval.phase() != PaymentApproval.Phase.APPLYING || !validForApplication(approval))
       return;
     var payment = payment(approval.paymentId());
+    var billing = billings.load(payment.getBillingId()).orElseThrow();
+    if (subscriptions.load(billing.getSubscriptionId()).orElseThrow().getWithdrawnAt() != null)
+      return;
     payment.requestCompensation(approval.transactionId());
     approvals.save(approval.decideCancellation(LocalDateTime.now(clock)));
     savePayments.save(payment);
@@ -163,6 +189,7 @@ public class RecoverablePaymentCompletionService implements PaymentCompletion {
   private boolean validForApplication(PaymentApproval approval) {
     var billing = billings.load(payment(approval.paymentId()).getBillingId()).orElseThrow();
     var subscription = subscriptions.load(billing.getSubscriptionId()).orElseThrow();
+    if (subscription.getWithdrawnAt() != null) return true;
     try {
       subscription.validatePaidReactivation(approval.approvedAt().toLocalDate());
       return true;

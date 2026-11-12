@@ -29,7 +29,8 @@ public class InMemoryPaymentRepository {
         .filter(
             p ->
                 (p.getStatus() == PaymentStatus.PROCESSING
-                    || p.getStatus() == PaymentStatus.CANCEL_PENDING))
+                    || p.getStatus() == PaymentStatus.CANCEL_PENDING
+                    || p.getStatus() == PaymentStatus.REVIEW))
         .findFirst();
   }
 
@@ -41,6 +42,10 @@ public class InMemoryPaymentRepository {
                     || p.getStatus() == PaymentStatus.CANCEL_PENDING))
         .map(Payment::getId)
         .toList();
+  }
+
+  public List<Payment> findAll() {
+    return List.copyOf(payments.values());
   }
 
   public boolean hasAttempt(BillingId id) {

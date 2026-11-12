@@ -128,13 +128,6 @@ public class Billing {
     }
   }
 
-  public void cancelAfterCompensation() {
-    if (status == BillingStatus.CANCELLED) return;
-    if (status != BillingStatus.PENDING)
-      throw new InvalidBillingStateChangeException("보상 취소할 청구 상태가 아닙니다.");
-    status = BillingStatus.CANCELLED;
-  }
-
   public void cancelAfterRecurringDecline() {
     if (purpose != BillingPurpose.RECURRING)
       throw new InvalidBillingStateChangeException("정기 청구만 결제 거절로 종료할 수 있습니다.");
@@ -144,8 +137,24 @@ public class Billing {
     status = BillingStatus.CANCELLED;
   }
 
+  public void cancelAfterCompensation() {
+    if (status == BillingStatus.CANCELLED) return;
+    if (status != BillingStatus.PENDING)
+      throw new InvalidBillingStateChangeException("보상 취소할 청구 상태가 아닙니다.");
+    status = BillingStatus.CANCELLED;
+  }
+
+  public void refund() {
+    if (status == BillingStatus.REFUNDED) return;
+    if (status != BillingStatus.PAID)
+      throw new InvalidBillingStateChangeException("완료된 청구만 환불할 수 있습니다.");
+    status = BillingStatus.REFUNDED;
+  }
+
   public void markPaid() {
-    if (status == BillingStatus.EXPIRED || status == BillingStatus.CANCELLED) {
+    if (status == BillingStatus.EXPIRED
+        || status == BillingStatus.CANCELLED
+        || status == BillingStatus.REFUNDED) {
       throw new InvalidBillingStateChangeException("만료된 청구는 결제 완료할 수 없습니다.");
     }
     this.status = BillingStatus.PAID;

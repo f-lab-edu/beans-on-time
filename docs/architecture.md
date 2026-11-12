@@ -371,3 +371,12 @@ Subscription
 도메인은 스케줄러·Clock·JDBC·배치 프레임워크를 참조하지 않는다. 시스템 실행과 고객
 재활성화의 시작 경계는 분리하며 실제 결제 시도 전송·결과 반영은 공통 애플리케이션
 협력 객체를 사용한다. 별도 Spring Batch나 Quartz 의존성을 추가하지 않는다.
+
+
+# 구독 철회와 환불
+
+WithdrawSubscriptionUseCase는 철회와 자동 환불 결정을 조율하고 GetWithdrawalQuery는
+결정·결과 조회를 담당한다. Subscription은 영구 종료와 철회 시각을 소유하고 Withdrawal은
+최초 판단을 보존한다. Refund는 Payment와 별도 모델·테이블로 원결제의 전액 반환을 표현한다.
+RefundProcessor는 내부 협력 객체이며 RefundGateway로 외부 요청을 실행한다. 복구 스케줄러는
+ReconcileRefundsUseCase를 호출한다. 외부 요청은 로컬 상태 커밋 후 트랜잭션 밖에서 실행한다.

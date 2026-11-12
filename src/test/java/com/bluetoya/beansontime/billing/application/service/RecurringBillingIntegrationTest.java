@@ -41,7 +41,11 @@ import org.testcontainers.junit.jupiter.*;
 import org.testcontainers.postgresql.PostgreSQLContainer;
 
 @SpringBootTest(
-    properties = {"payment.reconciliation.enabled=false", "billing.recurring.enabled=false"})
+    properties = {
+      "payment.reconciliation.enabled=false",
+      "billing.recurring.enabled=false",
+      "refund.reconciliation.enabled=false"
+    })
 @AutoConfigureMockMvc
 @Testcontainers
 @Import(RecurringBillingIntegrationTest.TimeConfig.class)
@@ -61,6 +65,35 @@ class RecurringBillingIntegrationTest {
   @MockitoSpyBean FakePaymentGatewayAdapter gateway;
   @MockitoSpyBean Clock clock;
   private static final LocalDate DATE = LocalDate.of(2026, 10, 4);
+
+  @Autowired com.bluetoya.beansontime.refund.application.service.RefundProcessor refundProcessor;
+  @Autowired com.bluetoya.beansontime.refund.application.port.out.RefundStore refunds;
+
+  @Test
+  void approvalAfterWithdrawalCreatesDurableRefundWithoutReopeningSubscription() {
+    var subscription = subscribe(DATE.minusMonths(1));
+    gateway.failNext();
+    run.runDue();
+    var billing = billing(subscription);
+    var payment = payment(billing);
+    var current = subscriptions.load(subscription.getId()).orElseThrow();
+    current.withdraw(DATE.atTime(10, 0));
+    subscriptions.save(current);
+    gateway.approvePending(payment.getId(), "late-withdrawal-approval");
+    resolver.resolve(payment.getId());
+    assertThat(payments.load(payment.getId()).orElseThrow().getStatus())
+        .isEqualTo(PaymentStatus.SUCCESS);
+    assertThat(refunds.find(payment.getId())).isPresent();
+    refundProcessor.process(payment.getId());
+    refundProcessor.process(payment.getId());
+    assertThat(refunds.find(payment.getId()).orElseThrow().isCompleted()).isTrue();
+    assertThat(billings.load(billing.getId()).orElseThrow().getStatus())
+        .isEqualTo(BillingStatus.REFUNDED);
+    var withdrawn = subscriptions.load(subscription.getId()).orElseThrow();
+    assertThat(withdrawn.getLifecycleStatus()).isEqualTo(SubscriptionStatus.CANCELLED);
+    assertThat(withdrawn.getCurrentPeriod()).isNull();
+    assertThat(withdrawn.getWithdrawnAt()).isEqualTo(DATE.atTime(10, 0));
+  }
 
   @TestConfiguration
   static class TimeConfig {
@@ -384,6 +417,40 @@ class RecurringBillingIntegrationTest {
     assertThat(payment(billing(subscription)).getStatus()).isEqualTo(PaymentStatus.SUCCESS);
     assertThat(subscriptions.load(subscription.getId()).orElseThrow().getNextBillingDate())
         .isEqualTo(DATE.plusMonths(1));
+    mvc.perform(
+            patch("/subscriptions/{id}/pause", subscription.getId().value())
+                .param("pauseUntilDate", DATE.plusDays(3).toString())
+                .with(httpBasic("customer1", "password1")))
+        .andExpect(status().isOk());
+  }
+
+  @Test
+  void pauseAfterDeclineIsAllowedEvenWhenRecurringBillingRemainsPending() throws Exception {
+    var subscription = subscribe(DATE.minusMonths(1));
+    // 거절 이력이 있어도 현재 이용 기간 안이면 일시정지할 수 있다.
+    var recurring =
+        Billing.recurring(
+            subscription.getCustomerId(),
+            subscription.getId(),
+            subscription.getProductId(),
+            new Money(12000),
+            DATE,
+            DATE.minusDays(1).atStartOfDay());
+    billings.saveNew(recurring);
+    var declined =
+        Payment.start(recurring.getId(), recurring.getAmount(), DATE.minusDays(1).atStartOfDay());
+    declined.fail();
+    payments.saveNew(declined);
+    doReturn(DATE.minusDays(1).atStartOfDay(ZoneId.of("Asia/Seoul")).toInstant())
+        .when(clock)
+        .instant();
+    mvc.perform(
+            patch("/subscriptions/{id}/pause", subscription.getId().value())
+                .param("pauseUntilDate", DATE.plusDays(3).toString())
+                .with(httpBasic("customer1", "password1")))
+        .andExpect(status().isOk());
+    assertThat(subscriptions.load(subscription.getId()).orElseThrow().getLifecycleStatus())
+        .isEqualTo(SubscriptionStatus.PAUSED);
   }
 
   @Test
@@ -420,6 +487,7 @@ class RecurringBillingIntegrationTest {
         .andExpect(status().isOk());
     var manual = billings.findPending(subscription.getId()).orElseThrow();
     assertThat(manual.getPurpose()).isEqualTo(BillingPurpose.REACTIVATION);
+    assertThat(manual.getId()).isNotEqualTo(recurring.getId());
     gateway.declineNext();
     mvc.perform(
             post("/billings/{id}/payments", manual.getId().value())
@@ -443,6 +511,8 @@ class RecurringBillingIntegrationTest {
         .isEqualTo(BillingStatus.CANCELLED);
     assertThat(billings.load(manual.getId()).orElseThrow().getStatus())
         .isEqualTo(BillingStatus.PAID);
+    run.runDue();
+    verify(gateway, times(3)).pay(any());
   }
 
   @Test

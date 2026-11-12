@@ -128,12 +128,12 @@ class BillingTest {
   void onlyPendingRecurringBillingCanCloseAfterDecline() {
     var recurring =
         Billing.recurring(
-            new com.bluetoya.beansontime.customer.domain.CustomerId(1),
-            com.bluetoya.beansontime.subscription.domain.SubscriptionId.generate(),
-            new com.bluetoya.beansontime.product.domain.ProductId(1),
-            new com.bluetoya.beansontime.product.domain.Money(12000),
-            java.time.LocalDate.of(2026, 10, 1),
-            java.time.LocalDateTime.of(2026, 10, 1, 0, 0));
+            new CustomerId(1),
+            SubscriptionId.generate(),
+            new ProductId(1),
+            new Money(12000),
+            LocalDate.of(2026, 10, 1),
+            LocalDateTime.of(2026, 10, 1, 0, 0));
     recurring.cancelAfterRecurringDecline();
     recurring.cancelAfterRecurringDecline();
     assertThat(recurring.getStatus()).isEqualTo(BillingStatus.CANCELLED);

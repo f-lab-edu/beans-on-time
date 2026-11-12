@@ -13,14 +13,17 @@ import com.bluetoya.beansontime.payment.domain.PaymentStatus;
 import com.bluetoya.beansontime.subscription.application.exception.SubscriptionNotFoundException;
 import com.bluetoya.beansontime.subscription.application.port.out.LoadSubscriptionPort;
 import com.bluetoya.beansontime.subscription.application.port.out.SaveSubscriptionPort;
+import com.bluetoya.beansontime.subscription.domain.SubscriptionStatus;
 import java.time.Clock;
 import java.time.LocalDateTime;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 /** 같은 결제의 동기 응답과 조회 결과를 동일 실행 경계에서 반영한다. */
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class PaymentCompletionService implements PaymentCompletion {
   private final LoadPaymentPort loadPaymentPort;
   private final LoadBillingPort loadBillingPort;
@@ -30,6 +33,7 @@ public class PaymentCompletionService implements PaymentCompletion {
   private final SaveSubscriptionPort saveSubscriptionPort;
   private final BillingExecutionPort billingExecutionPort;
   private final Clock clock;
+  private final com.bluetoya.beansontime.refund.application.port.out.RefundStore refunds;
 
   public Payment complete(PaymentId paymentId, PaymentGatewayResult result) {
     var initialPayment = loadPaymentPort.load(paymentId).orElseThrow();
@@ -48,12 +52,38 @@ public class PaymentCompletionService implements PaymentCompletion {
                   .load(billing.getSubscriptionId())
                   .orElseThrow(() -> new SubscriptionNotFoundException("청구의 구독이 존재하지 않습니다."));
           if (result.successful()) {
-            // 구독 상태 충돌 시 확정을 중단하고 PROCESSING을 유지해 운영 확인 대상으로 남긴다.
+            // 새 철회 API로 철회된 구독의 진행 중 승인은 이용권을 열지 않고 반환한다.
+            if (subscription.getWithdrawnAt() != null) {
+              payment.succeed(result.transactionId(), result.completedAt());
+              billing.markPaid();
+              if (refunds.find(paymentId).isEmpty())
+                refunds.saveNew(
+                    com.bluetoya.beansontime.refund.domain.Refund.request(
+                        paymentId,
+                        payment.getAmount(),
+                        result.transactionId(),
+                        result.completedAt(),
+                        LocalDateTime.now(clock)));
+              savePaymentPort.save(payment);
+              saveBillingPort.save(billing);
+              return null;
+            }
+            // 과거 cancel()로 종료된 구독의 승인 증거를 보존하고 자동 결과 조회를 멈춘다.
+            if (subscription.getLifecycleStatus() == SubscriptionStatus.CANCELLED) {
+              payment.requireReview(result.transactionId(), result.completedAt());
+              savePaymentPort.save(payment);
+              log.warn(
+                  "종료된 구독의 지연 승인 운영 확인 필요: subscriptionId={}, paymentId={}",
+                  subscription.getId().value(),
+                  paymentId.value());
+              return null;
+            }
+            // 그 밖의 구독 상태 충돌은 확인 대상으로 남긴다.
             if (billing.getPurpose() == BillingPurpose.RECURRING)
               subscription.renewAfterPayment(
                   billing.getBillingDate(), result.completedAt().toLocalDate());
             else subscription.reactivateAfterPayment(result.completedAt().toLocalDate());
-            payment.succeed(result.transactionId());
+            payment.succeed(result.transactionId(), result.completedAt());
             billing.markPaid();
           } else {
             payment.fail();

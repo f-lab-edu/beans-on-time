@@ -34,7 +34,8 @@ final class SubscriptionRowMapper implements RowMapper<Subscription> {
         rs.getObject("paused_at", LocalDateTime.class),
         rs.getObject("scheduled_resume_date", LocalDate.class),
         SubscriptionStatus.valueOf(rs.getString("lifecycle_status")),
-        suspensionReasons(rs));
+        suspensionReasons(rs),
+        rs.getObject("withdrawn_at", LocalDateTime.class));
   }
 
   static Set<SubscriptionSuspensionReason> suspensionReasons(ResultSet rs) throws SQLException {

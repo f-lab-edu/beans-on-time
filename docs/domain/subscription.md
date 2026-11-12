@@ -236,10 +236,13 @@ Resume의 새 `currentPeriod`와 `nextBillingDate`는 이 helper로 계산하지
 사용하는 행위다. 허용되는 생명주기 전이는 `ACTIVE -> PAUSED`다. 실행 차단 사유가 있는
 ACTIVE 구독도 고객 의사로 일시정지할 수 있다.
 
-단, 미완료 정기결제 시도(PROCESSING 또는 CANCEL_PENDING)가 있으면 일시정지를 HTTP 409로
-거부한다. 애플리케이션은 소유권 확인 후 정기결제 시작과 같은 실행 잠금 안에서 PENDING
-정기 청구와 미완료 결제를 조회한다. 일시정지가 먼저 완료되면 정기결제는 최신 PAUSED
-상태를 확인하고 시작하지 않는다.
+단, 미완료 정기결제 시도(PROCESSING 또는 보상 취소 진행 중인 CANCEL_PENDING)가 있으면
+일시정지를 HTTP 409로 거부한다. 애플리케이션은 소유권 확인 후 정기결제 시작과 같은
+실행 잠금 안에서 PENDING 정기 청구와 미완료 결제를 조회하고, 없을 때만 일시정지한다.
+승인·거절 등 결과 처리가 완료되면 기존 일시정지 도메인 조건에 따라 요청할 수 있다.
+PG 승인과 일시정지가 겹쳐 승인된 금액의 회차 반영이 막히는 상황을 예방하기 위한 규칙이다.
+철회는 별도의 지연 승인 반환 정책을 유지한다.
+일시정지가 먼저 완료되면 정기결제는 최신 PAUSED 상태를 확인하고 시작하지 않는다.
 
 도메인 입력은 `pauseUntilDate`, `pausedAt`이다. `pauseDate`는
 `pausedAt.toLocalDate()`에서 도출한다.
@@ -370,9 +373,9 @@ billingAnchorDay = 기존 값 유지
 - `PAUSED`이고 `remainingPaidDays == 0`인 구독
 - `ACTIVE`이고 `PAYMENT_FAILED`가 있으며 요청 KST 날짜가 기존 이용 기간 종료일 이후인 구독
 
-정기결제 거절 후 기존 이용 기간이 끝난 구독은 ACTIVE 상태에서 직접 수동 재활성화할 수
-있다. 승인 날짜도 기존 이용 기간 종료일 이후여야 한다.
-Payment 승인 전에는 새 `currentPeriod`를 만들거나 ACTIVE로 전이하지 않는다.
+정기결제 거절 후에는 기존 이용 기간이 끝나 일시정지할 수 없으므로, ACTIVE 상태에서
+직접 수동 재활성화를 허용한다. 승인 날짜도 기존 이용 기간 종료일 이후여야 한다.
+Payment 승인 전에는 새 `currentPeriod`를 만들거나 생명주기를 변경하지 않는다.
 청구 준비와 새 결제 시작에서 상품이 AVAILABLE인지 각각 확인한다. 상세 공급 상태 검사는 `docs/domain/billing-payment.md`를 따른다.
 
 결제 시작 전 validatePaidReactivation으로 상태·기간 문맥·날짜를 검증하며 구독은
@@ -417,8 +420,12 @@ CANCELLED -> CANCELLED
 ```
 
 취소하면 `currentPeriod`, `remainingPaidDays`, `nextBillingDate`, `pausedAt`,
-`scheduledResumeDate`를 모두 비운다. 남은 선결제 기간의 환불 또는 소멸 정책은 아직
-확정하지 않는다.
+`scheduledResumeDate`를 모두 비운다. feature/13의 고객 철회는 `withdraw(requestedAt)`로
+최초 철회 시각을 함께 보존하고 남은 이용권을 즉시 소멸시킨다. 재이용은 새 구독으로 진행한다.
+기존 `cancel()`로 종료된 이력에는 철회 시각을 추정하여 채우지 않는다.
+이 이력의 진행 중 결제가 나중에 승인되면 결제 승인 증거를 `REVIEW`로 보존하고
+이용권 반영·자동 환불 없이 운영 확인을 기다린다.
+환불 대상과 처리 범위는 `docs/domain/billing-payment.md`의 feature/13 절을 따른다.
 
 ### 예외와 HTTP 상태
 
