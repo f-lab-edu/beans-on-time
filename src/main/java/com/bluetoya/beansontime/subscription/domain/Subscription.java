@@ -271,6 +271,15 @@ public class Subscription {
     this.lifecycleStatus = SubscriptionStatus.ACTIVE;
   }
 
+  public boolean isAutoResumeDue(LocalDate businessDate) {
+    Objects.requireNonNull(businessDate, "자동 재개 판단 날짜는 필수입니다.");
+    return lifecycleStatus == SubscriptionStatus.PAUSED
+        && remainingPaidDays != null
+        && remainingPaidDays > 0
+        && scheduledResumeDate != null
+        && !scheduledResumeDate.isAfter(businessDate);
+  }
+
   private boolean isPausedReactivationTarget() {
     return lifecycleStatus == SubscriptionStatus.PAUSED
         && Integer.valueOf(0).equals(remainingPaidDays);

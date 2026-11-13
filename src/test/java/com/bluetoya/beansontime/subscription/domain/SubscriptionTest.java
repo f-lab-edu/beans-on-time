@@ -216,6 +216,21 @@ class SubscriptionTest {
   }
 
   @Test
+  void autoResumeIsDueOnlyForPausedSubscriptionsWithPaidDaysAfterTheScheduledDate() {
+    var due = subscriptionStartedOn(LocalDate.of(2026, 4, 1));
+    due.pause(LocalDate.of(2026, 4, 19), LocalDateTime.of(2026, 4, 10, 10, 0));
+    var zeroPaidDays = subscriptionStartedOn(LocalDate.of(2026, 7, 1));
+    zeroPaidDays.pause(LocalDate.of(2026, 8, 10), LocalDateTime.of(2026, 7, 31, 10, 0));
+
+    assertThat(due.isAutoResumeDue(LocalDate.of(2026, 4, 19))).isFalse();
+    assertThat(due.isAutoResumeDue(LocalDate.of(2026, 4, 20))).isTrue();
+    assertThat(due.isAutoResumeDue(LocalDate.of(2026, 4, 21))).isTrue();
+    assertThat(zeroPaidDays.isAutoResumeDue(LocalDate.of(2026, 8, 11))).isFalse();
+    due.resume(LocalDate.of(2026, 4, 21));
+    assertThat(due.isAutoResumeDue(LocalDate.of(2026, 4, 21))).isFalse();
+  }
+
+  @Test
   void validatesPaidReactivationWithoutChangingStateAndChecksAgainAtCompletion() {
     Subscription subscription = subscriptionStartedOn(LocalDate.of(2026, 8, 2));
     subscription.pause(LocalDate.of(2026, 9, 10), LocalDateTime.of(2026, 9, 1, 10, 0));

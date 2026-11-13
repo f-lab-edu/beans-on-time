@@ -366,6 +366,30 @@ billingAnchorDay = 기존 값 유지
 상태를 유지한다. 수동 재활성화 Billing과 Payment 흐름은 `docs/domain/billing-payment.md`를
 따른다.
 
+### 예약일 자동 재개
+
+자동 재개는 `PAUSED` 구독의 `scheduledResumeDate`가 현재 KST 업무 날짜 이하이고
+`remainingPaidDays > 0`일 때 시도한다. 남은 선결제 이용 일수가 0이면 자동 청구나
+자동 결제를 시작하지 않고 `PAUSED`를 유지한다. 고객은 기존 수동 재활성화 결제를
+사용한다.
+
+스케줄 실행은 구독 ID 기준으로 100건씩 조회한다. 각 구독을 수동 재개와 같은 실행 잠금
+안에서 다시 읽어 대상 여부를 확인하고, 해당 실행의 현재 KST 업무 날짜를 `resume()`에
+전달한다. 예약일 이후에 재시도해 성공한 경우에도 실제 재개일을 사용하여 이용 구간,
+`nextBillingDate`와 `billingAnchorDay`를 계산한다. 수동 재개가 먼저 완료되었거나
+구독이 취소된 경우에는 자동 재개가 상태를 다시 변경하지 않는다.
+
+실패한 구독은 해당 실행에서 기록하고 다음 구독을 처리한다. 실패한 전이는 커밋하지 않아
+`PAUSED`와 기존 예정 정보가 남으며, 다음 실행에서 다시 조회해 그때의 KST 업무 날짜로
+재시도한다. 재개가 성공하면 실제 재개일에 맞춰 `nextBillingDate`를 확정한다.
+스케줄러는 기본 활성이고 `subscription.auto-resume.enabled=false`로 끌 수 있다.
+실행 종료 후 다음 실행까지 기본 60초이며 `subscription.auto-resume.delay-ms`로 설정한다.
+
+예약일이 지난 뒤의 실행에서 예약일을 소급 적용하면 실제 이용하지 못한 날짜까지
+선결제 이용 일수로 소진된다. 따라서 성공한 실행의 KST 업무 날짜를 실제 재개일로
+사용한다. 실패 시에는 구독 계획을 임의로 앞당기지 않고, 성공한 재개에서 기존
+`resume()` 규칙으로 이용 구간과 청구 일정을 함께 확정한다.
+
 ### 결제를 통한 수동 재활성화
 
 수동 재활성화 Billing의 대상은 다음 두 경우다.
@@ -513,10 +537,10 @@ PAUSED에서 과거 기간을 남은 일수 계산용으로 보존하면 같은 
 
 ### scheduledResumeDate와 PAUSED nextBillingDate를 유지하는 이유
 
-일시정지에는 필수 종료일이 있고 정상 운영에서는 다음 날 Auto Resume을 시도할 예정이다.
+일시정지에는 필수 종료일이 있고 그 다음 날부터 Auto Resume을 시도한다.
 따라서 PAUSED 상태에서도 미래 재개 계획과 그 계획을 반영한 결제 예정일을 명시적으로
-보여준다. 실제 Manual Resume이나 Auto Resume 실패가 발생하면 실제 일정으로 다시
-계산해야 한다.
+보여준다. Manual Resume 또는 Auto Resume이 성공하면 실제 재개일로 일정을 다시 계산한다.
+실패 중에는 기존 계획값을 보존하고 다음 실행에서 재시도한다.
 
 ### 실제 동결 때만 billingAnchorDay를 재정렬하는 이유
 
@@ -555,14 +579,8 @@ Policy, Strategy, Event, Adapter, DB 스키마나 범용 추상화를 추가하�
 
 ### Auto Resume
 
-- `scheduledResumeDate` 기반 Auto Resume Scheduler
-- `remainingPaidDays == 0`일 때 선결제 후 재개 조율
-- Auto Resume 실패 후 재시도 날짜와 PAUSED `nextBillingDate` 재계산
-- Manual Resume과 Auto Resume의 동시성
-- 중복 상태 전이와 중복 결제 방지
-
-향후 Auto Resume은 `scheduledResumeDate`를 실제 `resumedDate`로 전달해 동일한 도메인
-규칙을 사용할 수 있어야 한다.
+- `remainingPaidDays == 0`일 때 수동 결제 이외의 자동 선결제·재개 조율
+- 자동 재개 실패의 별도 운영 알림과 재시도 간격 조정 필요 여부
 
 ### 상품과 실행 차단
 
