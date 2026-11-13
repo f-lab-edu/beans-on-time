@@ -52,4 +52,18 @@ public class InMemorySubscriptionRepository {
         .limit(limit)
         .toList();
   }
+
+  public List<SubscriptionId> findDueAutoResume(
+      java.time.LocalDate date, SubscriptionId after, int limit) {
+    return subscriptions.values().stream()
+        .filter(s -> s.isAutoResumeDue(date))
+        .filter(
+            s ->
+                after == null
+                    || s.getId().value().toString().compareTo(after.value().toString()) > 0)
+        .sorted(java.util.Comparator.comparing(s -> s.getId().value().toString()))
+        .limit(limit)
+        .map(Subscription::getId)
+        .toList();
+  }
 }
